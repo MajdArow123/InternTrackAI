@@ -1,0 +1,77 @@
+@model InternTrackAI.Models.JobApplication
+
+@{
+    ViewData["Title"] = "Create Application";
+}
+
+<h1>Create Application</h1>
+
+<form asp-action="Create" method="post">
+
+    <div class="mb-3">
+        <label asp-for="CompanyName" class="form-label"></label>
+        <input asp-for="CompanyName" class="form-control" />
+        <span asp-validation-for="CompanyName" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="RoleTitle" class="form-label"></label>
+        <input asp-for="RoleTitle" class="form-control" />
+        <span asp-validation-for="RoleTitle" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="JobLink" class="form-label"></label>
+        <input asp-for="JobLink" class="form-control" />
+        <span asp-validation-for="JobLink" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Location" class="form-label"></label>
+        <input asp-for="Location" class="form-control" />
+        <span asp-validation-for="Location" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="WorkMode" class="form-label"></label>
+        <select asp-for="WorkMode" class="form-control" asp-items="Html.GetEnumSelectList<InternTrackAI.Models.Enums.WorkMode>()"></select>
+        <span asp-validation-for="WorkMode" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Status" class="form-label"></label>
+        <select asp-for="Status" class="form-control" asp-items="Html.GetEnumSelectList<InternTrackAI.Models.Enums.ApplicationStatus>()"></select>
+        <span asp-validation-for="Status" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Deadline" class="form-label"></label>
+        <input asp-for="Deadline" class="form-control" />
+        <span asp-validation-for="Deadline" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="DateApplied" class="form-label"></label>
+        <input asp-for="DateApplied" class="form-control" />
+        <span asp-validation-for="DateApplied" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Salary" class="form-label"></label>
+        <input asp-for="Salary" class="form-control" />
+        <span asp-validation-for="Salary" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="JobDescription" class="form-label"></label>
+        <textarea asp-for="JobDescription" class="form-control"></textarea>
+        <span asp-validation-for="JobDescription" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-success">Save</button>
+    <a asp-action="Index" class="btn btn-secondary">Back</a>
+</form>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

@@ -1,0 +1,37 @@
+@model IEnumerable<InternTrackAI.Models.JobApplication>
+
+@{
+    ViewData["Title"] = "Applications";
+}
+
+<h1>Applications</h1>
+
+<p>
+    <a asp-action="Create" class="btn btn-primary">Create New</a>
+</p>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Company</th>
+            <th>Role</th>
+            <th>Location</th>
+            <th>Work Mode</th>
+            <th>Status</th>
+            <th>Deadline</th>
+        </tr>
+    </thead>
+    <tbody>
+    @foreach (var item in Model)
+    {
+        <tr>
+            <td>@item.CompanyName</td>
+            <td>@item.RoleTitle</td>
+            <td>@item.Location</td>
+            <td>@item.WorkMode</td>
+            <td>@item.Status</td>
+            <td>@item.Deadline?.ToShortDateString()</td>
+        </tr>
+    }
+    </tbody>
+</table>

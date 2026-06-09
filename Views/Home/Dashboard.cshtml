@@ -1,0 +1,114 @@
+@model InternTrackAI.Models.ViewModels.DashboardViewModel
+@using InternTrackAI.Models.Enums
+
+@{
+    ViewData["Title"] = "Dashboard";
+
+    string BadgeClass(ApplicationStatus s) => s switch
+    {
+        ApplicationStatus.Saved     => "badge-saved",
+        ApplicationStatus.Applied   => "badge-applied",
+        ApplicationStatus.Interview => "badge-interview",
+        ApplicationStatus.Offer     => "badge-offer",
+        ApplicationStatus.Rejected  => "badge-rejected",
+        _                           => ""
+    };
+
+    string Initials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+            : name.Length >= 2 ? name[..2].ToUpper() : name.ToUpper();
+    }
+}
+
+<div class="container py-4">
+
+    <!-- Page header -->
+    <div class="page-header">
+        <div>
+            <h2>Dashboard</h2>
+            <p class="sub">Your internship search at a glance</p>
+        </div>
+        <a asp-controller="JobApplications" asp-action="Create" class="btn btn-dark">
+            + Add Application
+        </a>
+    </div>
+
+    <!-- Stat cards -->
+    <div class="stats-grid mb-4">
+        <div class="stat-card stat-card-total">
+            <div class="stat-number">@Model.TotalApplications</div>
+            <div class="stat-label">Total</div>
+        </div>
+        @foreach (var status in Enum.GetValues<ApplicationStatus>())
+        {
+            var count = Model.StatusCounts.GetValueOrDefault(status, 0);
+            <div class="stat-card stat-card-@status.ToString().ToLower()">
+                <div class="stat-number">@count</div>
+                <div class="stat-label">@status</div>
+            </div>
+        }
+    </div>
+
+    <!-- Recent applications -->
+    <div class="app-table-wrapper">
+        <div class="card-header-clean">
+            <h5>Recent Applications</h5>
+            <a asp-controller="JobApplications" asp-action="Index"
+               class="btn btn-sm btn-outline-secondary" style="font-size:.78rem;border-radius:6px">
+                View All
+            </a>
+        </div>
+
+        @if (!Model.RecentApplications.Any())
+        {
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>No applications yet.</p>
+                <a asp-controller="JobApplications" asp-action="Create" class="btn btn-dark btn-sm">
+                    Add your first one
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Company</th>
+                            <th>Role</th>
+                            <th class="d-none d-md-table-cell">Mode</th>
+                            <th>Status</th>
+                            <th class="d-none d-sm-table-cell">Deadline</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var app in Model.RecentApplications)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="company-avatar">@Initials(app.CompanyName)</span>
+                                        <span class="company-name">@app.CompanyName</span>
+                                    </div>
+                                </td>
+                                <td class="role-name">@app.RoleTitle</td>
+                                <td class="text-muted d-none d-md-table-cell">@app.WorkMode</td>
+                                <td>
+                                    <span class="status-badge @BadgeClass(app.Status)">@app.Status</span>
+                                </td>
+                                <td class="text-muted d-none d-sm-table-cell">
+                                    @(app.Deadline.HasValue ? app.Deadline.Value.ToString("MMM d, yyyy") : "—")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+
+</div>

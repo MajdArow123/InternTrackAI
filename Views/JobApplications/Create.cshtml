@@ -1,0 +1,96 @@
+@model InternTrackAI.Models.JobApplication
+
+@{
+    ViewData["Title"] = "Add Application";
+}
+
+<div class="container py-4" style="max-width: 760px;">
+
+    <div class="page-header">
+        <div>
+            <h2>Add Application</h2>
+            <p class="sub">Log a new internship you&rsquo;re tracking</p>
+        </div>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
+            &larr; Back
+        </a>
+    </div>
+
+    <form asp-action="Create" method="post">
+
+        <!-- Core info -->
+        <div class="form-card mb-3">
+            <p class="form-section-title">Core Info</p>
+            <div class="row g-3">
+                <div class="col-12" style="display:none">
+                    <input asp-for="UserId" class="form-control" value="default" />
+                </div>
+                <div class="col-sm-6">
+                    <label asp-for="CompanyName" class="form-label">Company</label>
+                    <input asp-for="CompanyName" class="form-control" placeholder="e.g. Stripe" />
+                    <span asp-validation-for="CompanyName" class="text-danger" style="font-size:.78rem"></span>
+                </div>
+                <div class="col-sm-6">
+                    <label asp-for="RoleTitle" class="form-label">Role Title</label>
+                    <input asp-for="RoleTitle" class="form-control" placeholder="e.g. Software Engineering Intern" />
+                    <span asp-validation-for="RoleTitle" class="text-danger" style="font-size:.78rem"></span>
+                </div>
+                <div class="col-sm-6">
+                    <label asp-for="Location" class="form-label">Location <span class="text-muted fw-normal">(optional)</span></label>
+                    <input asp-for="Location" class="form-control" placeholder="e.g. San Francisco, CA" />
+                </div>
+                <div class="col-sm-6">
+                    <label asp-for="JobLink" class="form-label">Job Link <span class="text-muted fw-normal">(optional)</span></label>
+                    <input asp-for="JobLink" class="form-control" placeholder="https://..." />
+                    <span asp-validation-for="JobLink" class="text-danger" style="font-size:.78rem"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status & Dates -->
+        <div class="form-card mb-3">
+            <p class="form-section-title">Status &amp; Dates</p>
+            <div class="row g-3">
+                <div class="col-sm-4">
+                    <label asp-for="Status" class="form-label">Status</label>
+                    <select asp-for="Status" class="form-select"
+                            asp-items="Html.GetEnumSelectList<InternTrackAI.Models.Enums.ApplicationStatus>()"></select>
+                </div>
+                <div class="col-sm-4">
+                    <label asp-for="WorkMode" class="form-label">Work Mode</label>
+                    <select asp-for="WorkMode" class="form-select"
+                            asp-items="Html.GetEnumSelectList<InternTrackAI.Models.Enums.WorkMode>()"></select>
+                </div>
+                <div class="col-sm-4">
+                    <label asp-for="Salary" class="form-label">Salary <span class="text-muted fw-normal">(optional)</span></label>
+                    <input asp-for="Salary" class="form-control" placeholder="e.g. $30/hr" />
+                </div>
+                <div class="col-sm-6">
+                    <label asp-for="Deadline" class="form-label">Application Deadline</label>
+                    <input asp-for="Deadline" class="form-control" type="date" />
+                </div>
+                <div class="col-sm-6">
+                    <label asp-for="DateApplied" class="form-label">Date Applied</label>
+                    <input asp-for="DateApplied" class="form-control" type="date" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-card mb-4">
+            <p class="form-section-title">Notes</p>
+            <label asp-for="JobDescription" class="form-label">Job Description / Notes <span class="text-muted fw-normal">(optional)</span></label>
+            <textarea asp-for="JobDescription" class="form-control" placeholder="Paste the job description or add notes..."></textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-dark px-4">Save Application</button>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+
+    </form>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

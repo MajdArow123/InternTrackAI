@@ -1,0 +1,87 @@
+@model IEnumerable<InternTrackAI.Models.JobApplication>
+@using InternTrackAI.Models.Enums
+
+@{
+    ViewData["Title"] = "Applications";
+
+    string BadgeClass(ApplicationStatus s) => s switch
+    {
+        ApplicationStatus.Saved     => "badge-saved",
+        ApplicationStatus.Applied   => "badge-applied",
+        ApplicationStatus.Interview => "badge-interview",
+        ApplicationStatus.Offer     => "badge-offer",
+        ApplicationStatus.Rejected  => "badge-rejected",
+        _                           => ""
+    };
+
+    string Initials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+            : name.Length >= 2 ? name[..2].ToUpper() : name.ToUpper();
+    }
+}
+
+<div class="container py-4">
+
+    <div class="page-header">
+        <div>
+            <h2>Applications</h2>
+            <p class="sub">@Model.Count() application@(Model.Count() == 1 ? "" : "s") total</p>
+        </div>
+        <a asp-action="Create" class="btn btn-dark">+ Add Application</a>
+    </div>
+
+    @if (!Model.Any())
+    {
+        <div class="app-table-wrapper">
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p>No applications yet. Start tracking your search!</p>
+                <a asp-action="Create" class="btn btn-dark btn-sm">Add your first one</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="app-table-wrapper">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Company</th>
+                            <th>Role</th>
+                            <th class="d-none d-md-table-cell">Location</th>
+                            <th class="d-none d-md-table-cell">Mode</th>
+                            <th>Status</th>
+                            <th class="d-none d-sm-table-cell">Deadline</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="company-avatar">@Initials(item.CompanyName)</span>
+                                        <span class="company-name">@item.CompanyName</span>
+                                    </div>
+                                </td>
+                                <td class="role-name">@item.RoleTitle</td>
+                                <td class="text-muted d-none d-md-table-cell">@(item.Location ?? "—")</td>
+                                <td class="text-muted d-none d-md-table-cell">@item.WorkMode</td>
+                                <td>
+                                    <span class="status-badge @BadgeClass(item.Status)">@item.Status</span>
+                                </td>
+                                <td class="text-muted d-none d-sm-table-cell">
+                                    @(item.Deadline.HasValue ? item.Deadline.Value.ToString("MMM d, yyyy") : "—")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>

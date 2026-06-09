@@ -1,0 +1,26 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+## ASP.NET
+wwwroot/lib/
+
+## SQLite WAL files (keep app.db, ignore temp files)
+*.db-shm
+*.db-wal
+
+## macOS
+.DS_Store
+
+## Archives
+*.zip
+
+## Logs
+*.log
+
+## User secrets
+secrets.json
+appsettings.local.json

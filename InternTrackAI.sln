@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InternTrackAI", "InternTrackAI.csproj", "{2BD8A7B0-AA3E-200A-6BB3-E86A121F530C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2BD8A7B0-AA3E-200A-6BB3-E86A121F530C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2BD8A7B0-AA3E-200A-6BB3-E86A121F530C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2BD8A7B0-AA3E-200A-6BB3-E86A121F530C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2BD8A7B0-AA3E-200A-6BB3-E86A121F530C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6E94718F-5EB0-437A-89EB-0204A4245CF5}
+	EndGlobalSection
+EndGlobal

@@ -65,8 +65,7 @@
         @if (!Model.RecentApplications.Any())
         {
             <div class="empty-state">
-                <div class="empty-icon">📭</div>
-                <p>No applications yet.</p>
+                <p class="fw-semibold mb-1">No applications yet.</p>
                 <a asp-controller="JobApplications" asp-action="Create" class="btn btn-dark btn-sm">
                     Add your first one
                 </a>

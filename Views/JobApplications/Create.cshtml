@@ -14,11 +14,11 @@
         <a asp-action="Index" class="btn btn-outline-secondary btn-sm">&larr; Back</a>
     </div>
 
-    <!-- ✨ AI Analyzer Panel -->
+    <!-- AI Analyzer Panel -->
     <div class="analyzer-card" id="analyzerCard">
         <div class="analyzer-header" id="analyzerToggle">
             <div class="analyzer-header-left">
-                <div class="analyzer-icon">✨</div>
+                <div class="analyzer-icon">AI</div>
                 <div>
                     <h6>AI Job Analyzer</h6>
                     <p>Paste a job description to auto-fill the form</p>
@@ -35,7 +35,7 @@
 
             <div class="d-flex align-items-center gap-2 mt-2">
                 <button type="button" class="analyzer-submit" id="analyzeBtn">
-                    ✨ Analyze with AI
+                    Analyze with AI
                 </button>
                 <span class="analyzer-model-tag">GPT-4o mini</span>
             </div>
@@ -209,7 +209,7 @@
             analyzeBtn.disabled = on;
             analyzeBtn.innerHTML = on
                 ? '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Analyzing...'
-                : '✨ Analyze with AI';
+                : 'Analyze with AI';
         }
 
         function showResult(data) {
@@ -223,14 +223,14 @@
 
             resultEl.innerHTML =
                 `<div class="analyzer-result-top">` +
-                `<span class="analyzer-check">✓</span>` +
+                `<span class="analyzer-check"></span>` +
                 `<span>Form auto-filled${filled ? ' — ' + filled : ''}</span>` +
                 `</div>` + skillsHtml;
             resultEl.hidden = false;
         }
 
         function showError(msg) {
-            errorEl.textContent = '⚠ ' + msg;
+            errorEl.textContent = msg;
             errorEl.hidden = false;
         }
     })();

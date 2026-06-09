@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - InternTrackAI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="auth-body">
+
+    <div class="auth-wrapper">
+
+        <!-- Left branding panel -->
+        <div class="auth-panel-left d-none d-lg-flex">
+            <div class="auth-panel-left-inner">
+                <a href="/" class="auth-brand">
+                    <span class="brand-dot"></span>
+                    InternTrackAI
+                </a>
+
+                <div class="auth-panel-content">
+                    <h2 class="auth-panel-headline">Your internship<br>search, organized.</h2>
+                    <p class="auth-panel-sub">
+                        Track applications, monitor statuses, and land the role you want — all in one place.
+                    </p>
+
+                    <div class="auth-panel-stats">
+                        <div class="auth-stat">
+                            <span class="auth-stat-num">5</span>
+                            <span class="auth-stat-label">Status stages</span>
+                        </div>
+                        <div class="auth-stat">
+                            <span class="auth-stat-num">∞</span>
+                            <span class="auth-stat-label">Applications</span>
+                        </div>
+                        <div class="auth-stat">
+                            <span class="auth-stat-num">0</span>
+                            <span class="auth-stat-label">Missed deadlines</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Decorative blobs -->
+                <div class="auth-blob auth-blob-1"></div>
+                <div class="auth-blob auth-blob-2"></div>
+                <div class="auth-dots"></div>
+            </div>
+        </div>
+
+        <!-- Right form panel -->
+        <div class="auth-panel-right">
+            <!-- Mobile brand (only visible on small screens) -->
+            <a href="/" class="auth-brand-mobile d-flex d-lg-none">
+                <span class="brand-dot"></span>
+                InternTrackAI
+            </a>
+
+            <div class="auth-form-wrapper">
+                @RenderBody()
+            </div>
+        </div>
+
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

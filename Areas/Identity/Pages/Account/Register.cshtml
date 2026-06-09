@@ -1,0 +1,53 @@
+@page
+@model RegisterModel
+@{
+    ViewData["Title"] = "Create Account";
+}
+
+<div class="auth-header">
+    <h1 class="auth-title">Create your account</h1>
+    <p class="auth-subtitle">Start tracking your internship applications today</p>
+</div>
+
+@if (!ViewData.ModelState.IsValid)
+{
+    <div class="auth-alert">
+        <span>⚠</span>
+        <div asp-validation-summary="ModelOnly"></div>
+    </div>
+}
+
+<form method="post" novalidate>
+
+    <div class="auth-field">
+        <label asp-for="Input.Email" class="form-label">Email address</label>
+        <input asp-for="Input.Email" class="form-control auth-input"
+               type="email" placeholder="you@example.com" autocomplete="email" />
+        <span asp-validation-for="Input.Email" class="auth-error"></span>
+    </div>
+
+    <div class="auth-field">
+        <label asp-for="Input.Password" class="form-label">Password</label>
+        <input asp-for="Input.Password" class="form-control auth-input"
+               type="password" placeholder="At least 6 characters" autocomplete="new-password" />
+        <span asp-validation-for="Input.Password" class="auth-error"></span>
+    </div>
+
+    <div class="auth-field">
+        <label asp-for="Input.ConfirmPassword" class="form-label">Confirm password</label>
+        <input asp-for="Input.ConfirmPassword" class="form-control auth-input"
+               type="password" placeholder="••••••••" autocomplete="new-password" />
+        <span asp-validation-for="Input.ConfirmPassword" class="auth-error"></span>
+    </div>
+
+    <button type="submit" class="btn auth-submit-btn">Create account</button>
+</form>
+
+<p class="auth-switch">
+    Already have an account?
+    <a asp-page="./Login">Sign in</a>
+</p>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

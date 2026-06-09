@@ -16,6 +16,12 @@ An internship application tracker built with ASP.NET Core 9 MVC. Log every appli
 ### Add Application
 ![Add Application](docs/screenshots/create.png)
 
+### Sign In
+![Sign In](docs/screenshots/login.png)
+
+### Register
+![Register](docs/screenshots/register.png)
+
 ## Tech Stack
 
 - ASP.NET Core 9 MVC

@@ -1,0 +1,59 @@
+@model InternTrackAI.Models.JobApplication
+@using InternTrackAI.Models.Enums
+
+@{
+    ViewData["Title"] = "Delete Application";
+
+    string BadgeClass(ApplicationStatus s) => s switch
+    {
+        ApplicationStatus.Saved     => "badge-saved",
+        ApplicationStatus.Applied   => "badge-applied",
+        ApplicationStatus.Interview => "badge-interview",
+        ApplicationStatus.Offer     => "badge-offer",
+        ApplicationStatus.Rejected  => "badge-rejected",
+        _                           => ""
+    };
+}
+
+<div class="container py-4" style="max-width: 540px;">
+
+    <div class="page-header">
+        <h2>Delete Application</h2>
+    </div>
+
+    <div class="app-table-wrapper mb-4">
+        <div class="card-header-clean">
+            <h5>@Model.CompanyName</h5>
+            <span class="status-badge @BadgeClass(Model.Status)">@Model.Status</span>
+        </div>
+        <div class="p-4">
+            <dl class="row mb-0" style="font-size:.875rem;">
+                <dt class="col-5 text-muted fw-normal">Role</dt>
+                <dd class="col-7 fw-semibold">@Model.RoleTitle</dd>
+
+                <dt class="col-5 text-muted fw-normal">Location</dt>
+                <dd class="col-7">@(Model.Location ?? "—")</dd>
+
+                <dt class="col-5 text-muted fw-normal">Work Mode</dt>
+                <dd class="col-7">@Model.WorkMode</dd>
+
+                <dt class="col-5 text-muted fw-normal">Deadline</dt>
+                <dd class="col-7">@(Model.Deadline.HasValue ? Model.Deadline.Value.ToString("MMM d, yyyy") : "—")</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="form-card" style="border-color:#fecdd3; background:#fff1f2;">
+        <p class="mb-3" style="font-size:.9rem; color:#be123c; font-weight:600;">
+            Are you sure you want to delete this application? This cannot be undone.
+        </p>
+        <div class="d-flex gap-2">
+            <form asp-action="Delete" method="post">
+                <input type="hidden" asp-for="Id" />
+                <button type="submit" class="btn btn-danger px-4">Yes, delete it</button>
+            </form>
+            <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </div>
+
+</div>

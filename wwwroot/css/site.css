@@ -773,6 +773,17 @@ textarea.form-control { min-height: 100px; resize: vertical; }
 
 .auth-switch a:hover { text-decoration: underline; }
 
+/* ── Row action buttons ──────────────────────────────── */
+.row-action-btn {
+  font-size: .72rem;
+  padding: .2rem .6rem;
+  border-radius: 6px;
+  opacity: 0;
+  transition: opacity var(--duration) var(--ease);
+}
+
+.app-table-wrapper .table tbody tr:hover .row-action-btn { opacity: 1; }
+
 /* ── Misc utilities ──────────────────────────────────── */
 .text-muted { color: var(--muted) !important; }
 

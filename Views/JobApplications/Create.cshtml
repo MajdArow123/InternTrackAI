@@ -11,12 +11,42 @@
             <h2>Add Application</h2>
             <p class="sub">Log a new internship you&rsquo;re tracking</p>
         </div>
-        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">
-            &larr; Back
-        </a>
+        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">&larr; Back</a>
     </div>
 
-    <form asp-action="Create" method="post">
+    <!-- ✨ AI Analyzer Panel -->
+    <div class="analyzer-card" id="analyzerCard">
+        <div class="analyzer-header" id="analyzerToggle">
+            <div class="analyzer-header-left">
+                <div class="analyzer-icon">✨</div>
+                <div>
+                    <h6>AI Job Analyzer</h6>
+                    <p>Paste a job description to auto-fill the form</p>
+                </div>
+            </div>
+            <button type="button" class="analyzer-toggle-btn" id="analyzerToggleBtn">
+                Open Analyzer
+            </button>
+        </div>
+
+        <div class="analyzer-body" id="analyzerBody">
+            <textarea class="analyzer-textarea" id="analyzerTextarea"
+                      placeholder="Paste the full job description here — job title, company info, requirements, salary, location...&#10;&#10;The AI will extract key details and fill the form below automatically." rows="6"></textarea>
+
+            <div class="d-flex align-items-center gap-2 mt-2">
+                <button type="button" class="analyzer-submit" id="analyzeBtn">
+                    ✨ Analyze with AI
+                </button>
+                <span class="analyzer-model-tag">GPT-4o mini</span>
+            </div>
+
+            <div class="analyzer-result" id="analyzerResult" hidden></div>
+            <div class="analyzer-error"  id="analyzerError"  hidden></div>
+        </div>
+    </div>
+
+    <!-- Application form -->
+    <form asp-action="Create" method="post" id="appForm">
 
         <!-- Core info -->
         <div class="form-card mb-3">
@@ -76,8 +106,11 @@
         <!-- Notes -->
         <div class="form-card mb-4">
             <p class="form-section-title">Notes</p>
-            <label asp-for="JobDescription" class="form-label">Job Description / Notes <span class="text-muted fw-normal">(optional)</span></label>
-            <textarea asp-for="JobDescription" class="form-control" placeholder="Paste the job description or add notes..."></textarea>
+            <label asp-for="JobDescription" class="form-label">
+                Job Description / Notes <span class="text-muted fw-normal">(optional)</span>
+            </label>
+            <textarea asp-for="JobDescription" class="form-control"
+                      placeholder="Paste the job description or add notes..."></textarea>
         </div>
 
         <div class="d-flex gap-2">
@@ -90,4 +123,116 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+    (function () {
+        const card       = document.getElementById('analyzerCard');
+        const body       = document.getElementById('analyzerBody');
+        const toggleBtn  = document.getElementById('analyzerToggleBtn');
+        const textarea   = document.getElementById('analyzerTextarea');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const resultEl   = document.getElementById('analyzerResult');
+        const errorEl    = document.getElementById('analyzerError');
+
+        // ── Toggle open/close ────────────────────────────────
+        function setOpen(open) {
+            card.classList.toggle('analyzer-open', open);
+            toggleBtn.textContent = open ? 'Close' : 'Open Analyzer';
+        }
+
+        document.getElementById('analyzerToggle').addEventListener('click', function (e) {
+            if (e.target === analyzeBtn) return;
+            setOpen(!card.classList.contains('analyzer-open'));
+        });
+
+        // ── Analyze ──────────────────────────────────────────
+        analyzeBtn.addEventListener('click', async function (e) {
+            e.stopPropagation();
+            const text = textarea.value.trim();
+            if (!text) { textarea.focus(); return; }
+
+            setLoading(true);
+            resultEl.hidden = true;
+            errorEl.hidden  = true;
+
+            const token = document.querySelector('[name="__RequestVerificationToken"]').value;
+
+            try {
+                const resp = await fetch('/Analyzer/Analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({ jobDescription: text })
+                });
+
+                const data = await resp.json();
+
+                if (data.success) {
+                    autofill('CompanyName',   data.companyName);
+                    autofill('RoleTitle',     data.roleTitle);
+                    autofill('Location',      data.location);
+                    autofill('Salary',        data.salary);
+
+                    if (data.skills && data.skills.length) {
+                        autofill('JobDescription',
+                            'Key Skills:\n' + data.skills.map(s => '• ' + s).join('\n'));
+                    }
+
+                    showResult(data);
+                    setTimeout(() => {
+                        document.getElementById('appForm')
+                            .scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 300);
+                } else {
+                    showError(data.error || 'Analysis failed. Please try again.');
+                }
+            } catch (_) {
+                showError('Request failed. Check your connection and try again.');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // ── Helpers ──────────────────────────────────────────
+        function autofill(id, value) {
+            if (!value) return;
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.value = value;
+            el.classList.remove('ai-autofilled');
+            void el.offsetWidth; // force reflow to restart animation
+            el.classList.add('ai-autofilled');
+        }
+
+        function setLoading(on) {
+            analyzeBtn.disabled = on;
+            analyzeBtn.innerHTML = on
+                ? '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Analyzing...'
+                : '✨ Analyze with AI';
+        }
+
+        function showResult(data) {
+            const filled = [data.companyName, data.roleTitle, data.location]
+                .filter(Boolean).join(' · ');
+            const skillsHtml = data.skills && data.skills.length
+                ? `<div class="analyzer-skills">` +
+                  data.skills.map(s => `<span class="analyzer-skill-tag">${s}</span>`).join('') +
+                  `</div>`
+                : '';
+
+            resultEl.innerHTML =
+                `<div class="analyzer-result-top">` +
+                `<span class="analyzer-check">✓</span>` +
+                `<span>Form auto-filled${filled ? ' — ' + filled : ''}</span>` +
+                `</div>` + skillsHtml;
+            resultEl.hidden = false;
+        }
+
+        function showError(msg) {
+            errorEl.textContent = '⚠ ' + msg;
+            errorEl.hidden = false;
+        }
+    })();
+    </script>
 }

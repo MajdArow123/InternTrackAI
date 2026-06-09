@@ -21,6 +21,7 @@ wwwroot/lib/
 ## Logs
 *.log
 
-## User secrets
+## Secrets — never commit real keys
+appsettings.json
 secrets.json
 appsettings.local.json

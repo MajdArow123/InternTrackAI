@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using InternTrackAI.Models.ViewModels;
 
 namespace InternTrackAI.Services;
@@ -8,6 +9,7 @@ namespace InternTrackAI.Services;
 public class JobAnalyzerService
 {
     private readonly HttpClient _http;
+    private readonly IHttpClientFactory _factory;
     private readonly string _apiKey;
     private readonly ILogger<JobAnalyzerService> _logger;
 
@@ -16,17 +18,28 @@ public class JobAnalyzerService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    public JobAnalyzerService(HttpClient http, IConfiguration config, ILogger<JobAnalyzerService> logger)
+    public JobAnalyzerService(HttpClient http, IHttpClientFactory factory, IConfiguration config, ILogger<JobAnalyzerService> logger)
     {
         _http = http;
+        _factory = factory;
         _apiKey = config["OpenAI:ApiKey"] ?? string.Empty;
         _logger = logger;
     }
 
-    public async Task<JobAnalysisResult> AnalyzeAsync(string jobDescription)
+    public async Task<JobAnalysisResult> AnalyzeAsync(string input)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
             return Fail("OpenAI API key is not configured. Add it to appsettings.json under OpenAI:ApiKey.");
+
+        string jobDescription = input;
+
+        if (IsUrl(input))
+        {
+            var fetched = await FetchPageTextAsync(input);
+            if (fetched == null || fetched.Length < 50)
+                return Fail("Could not fetch the job posting from that URL. The site may require a login or block automated access. Try pasting the job description text instead.");
+            jobDescription = fetched;
+        }
 
         var systemPrompt =
             "You are a job description parser. " +
@@ -78,7 +91,6 @@ public class JobAnalyzerService
                     _   => $"OpenAI returned {(int)response.StatusCode}. Check your API key and account."
                 };
 
-                // Surface the OpenAI error detail when available
                 try
                 {
                     using var errDoc = JsonDocument.Parse(raw);
@@ -105,6 +117,63 @@ public class JobAnalyzerService
             _logger.LogError(ex, "Error calling OpenAI API");
             return Fail("Request to OpenAI failed. Check your network connection.");
         }
+    }
+
+    private static bool IsUrl(string input) =>
+        input.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+        input.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
+
+    private async Task<string?> FetchPageTextAsync(string url)
+    {
+        try
+        {
+            using var client = _factory.CreateClient("UrlFetcher");
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("User-Agent",
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+            request.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
+
+            var response = await client.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("URL fetch returned {Status} for {Url}", (int)response.StatusCode, url);
+                return null;
+            }
+
+            var html = await response.Content.ReadAsStringAsync();
+            var text = StripHtml(html);
+
+            return text.Length > 8000 ? text[..8000] : text;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch URL: {Url}", url);
+            return null;
+        }
+    }
+
+    private static string StripHtml(string html)
+    {
+        // Drop entire script, style, head, nav, footer blocks
+        html = Regex.Replace(html,
+            @"<(script|style|head|nav|footer|header)[^>]*>[\s\S]*?<\/\1>",
+            " ", RegexOptions.IgnoreCase);
+
+        // Strip remaining tags
+        html = Regex.Replace(html, @"<[^>]+>", " ");
+
+        // Decode common entities
+        html = html
+            .Replace("&amp;", "&").Replace("&lt;", "<").Replace("&gt;", ">")
+            .Replace("&nbsp;", " ").Replace("&quot;", "\"").Replace("&#39;", "'")
+            .Replace("&mdash;", "—").Replace("&ndash;", "–").Replace("&bull;", "•");
+
+        // Collapse whitespace
+        html = Regex.Replace(html, @"[ \t]{2,}", " ");
+        html = Regex.Replace(html, @"\n{3,}", "\n\n");
+
+        return html.Trim();
     }
 
     private static JobAnalysisResult Parse(string json)

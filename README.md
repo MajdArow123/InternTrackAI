@@ -27,9 +27,10 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 - Split-screen login and register pages with ASP.NET Core Identity
 
 **Phase 2 — AI Analyzer**
-- Paste any job description and click Analyze
+- Paste a job description **or a job posting URL** and click Analyze
+- URLs are auto-detected — the page is fetched and parsed server-side before analysis
 - GPT-4o-mini extracts company name, role title, location, salary, and up to 8 required skills
-- Extracted data auto-fills the form with an animated highlight effect
+- Extracted data auto-fills the form with an animated highlight effect; Job Link field populated from URL input
 - Skill tags displayed inline after analysis
 - CSRF-protected JSON API endpoint
 
@@ -99,7 +100,7 @@ Models/
   ViewModels/JobAnalysisResult.cs
 
 Services/
-  JobAnalyzerService.cs       # OpenAI chat completions with json_object format
+  JobAnalyzerService.cs       # URL fetch + HTML strip + OpenAI chat completions
 
 Views/
   Home/Index.cshtml           # Hero landing page

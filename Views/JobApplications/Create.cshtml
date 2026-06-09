@@ -21,7 +21,7 @@
                 <div class="analyzer-icon">AI</div>
                 <div>
                     <h6>AI Job Analyzer</h6>
-                    <p>Paste a job description to auto-fill the form</p>
+                    <p>Paste a job description or a job posting URL to auto-fill the form</p>
                 </div>
             </div>
             <button type="button" class="analyzer-toggle-btn" id="analyzerToggleBtn">
@@ -31,7 +31,7 @@
 
         <div class="analyzer-body" id="analyzerBody">
             <textarea class="analyzer-textarea" id="analyzerTextarea"
-                      placeholder="Paste the full job description here — job title, company info, requirements, salary, location...&#10;&#10;The AI will extract key details and fill the form below automatically." rows="6"></textarea>
+                      placeholder="Paste a job posting URL (e.g. https://jobs.lever.co/...) or the full job description text — company, role, requirements, salary, location.&#10;&#10;The AI will extract key details and fill the form automatically." rows="6"></textarea>
 
             <div class="d-flex align-items-center gap-2 mt-2">
                 <button type="button" class="analyzer-submit" id="analyzeBtn">
@@ -150,7 +150,8 @@
             const text = textarea.value.trim();
             if (!text) { textarea.focus(); return; }
 
-            setLoading(true);
+            const isUrl = /^https?:\/\//i.test(text);
+            setLoading(true, isUrl);
             resultEl.hidden = true;
             errorEl.hidden  = true;
 
@@ -173,6 +174,9 @@
                     autofill('RoleTitle',     data.roleTitle);
                     autofill('Location',      data.location);
                     autofill('Salary',        data.salary);
+
+                    // If input was a URL, auto-fill the Job Link field with it
+                    if (isUrl) autofill('JobLink', text);
 
                     if (data.skills && data.skills.length) {
                         autofill('JobDescription',
@@ -205,11 +209,15 @@
             el.classList.add('ai-autofilled');
         }
 
-        function setLoading(on) {
+        function setLoading(on, isUrl) {
             analyzeBtn.disabled = on;
-            analyzeBtn.innerHTML = on
-                ? '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Analyzing...'
-                : 'Analyze with AI';
+            if (on) {
+                const label = isUrl ? 'Fetching page...' : 'Analyzing...';
+                analyzeBtn.innerHTML =
+                    '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> ' + label;
+            } else {
+                analyzeBtn.innerHTML = 'Analyze with AI';
+            }
         }
 
         function showResult(data) {

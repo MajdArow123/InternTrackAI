@@ -70,7 +70,25 @@ public class JobAnalyzerService
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogError("OpenAI error {Status}: {Body}", (int)response.StatusCode, raw);
-                return Fail($"OpenAI returned {(int)response.StatusCode}. Check your API key and quota.");
+
+                var userMessage = (int)response.StatusCode switch
+                {
+                    401 => "Invalid API key. Check the value in appsettings.json.",
+                    429 => "OpenAI rate limit or quota exceeded. Add credits at platform.openai.com/settings/billing.",
+                    _   => $"OpenAI returned {(int)response.StatusCode}. Check your API key and account."
+                };
+
+                // Surface the OpenAI error detail when available
+                try
+                {
+                    using var errDoc = JsonDocument.Parse(raw);
+                    if (errDoc.RootElement.TryGetProperty("error", out var err) &&
+                        err.TryGetProperty("message", out var msg))
+                        userMessage += $" Detail: {msg.GetString()}";
+                }
+                catch { /* ignore parse failure */ }
+
+                return Fail(userMessage);
             }
 
             using var doc = JsonDocument.Parse(raw);

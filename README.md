@@ -1,6 +1,6 @@
 # InternTrackAI
 
-A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track every application through the entire pipeline — from saved to offer — with AI-powered job analysis, resume matching, and a career portfolio system.
+A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track every application through the entire pipeline — from saved to offer — with AI-powered job analysis, resume matching, cover letter generation, and a career portfolio system.
 
 ## Screenshots
 
@@ -12,13 +12,13 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 |---|---|
 | ![Applications](docs/screenshots/applications.png) | ![Add Application](docs/screenshots/create.png) |
 
-| Profile | Sign In |
+| Cover Letter | Profile |
 |---|---|
-| ![Profile](docs/screenshots/profile.png) | ![Sign In](docs/screenshots/login.png) |
+| ![Cover Letter](docs/screenshots/cover_letter.png) | ![Profile](docs/screenshots/profile.png) |
 
-| Register | |
+| Sign In | Register |
 |---|---|
-| ![Register](docs/screenshots/register.png) | |
+| ![Sign In](docs/screenshots/login.png) | ![Register](docs/screenshots/register.png) |
 
 ## Features
 
@@ -46,6 +46,15 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 - Application stats: total count, per-status breakdown, success rate percentage
 - AI Resume Score: sends active resume to GPT-4o-mini and returns a score, strengths, and specific improvement suggestions
 
+**Phase 4 — AI Cover Letter Generator (`/CoverLetter/Generate`)**
+- Select any tracked job application and click Generate — AI writes a personalized 3–4 paragraph cover letter
+- Pulls context from the job's description, your active resume, your profile skills, target roles, and name
+- Optional notes field to guide tone, length, or specific talking points
+- Editable output textarea with live word count, copy to clipboard, and download as PDF (client-side via jsPDF)
+- Save to profile with automatic version numbering and per-letter company/role snapshot
+- Saved letter history with Load, Set Active, Download (.txt), and Delete actions
+- "Cover Letter" button on every row of the Applications list for one-click access
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -54,7 +63,7 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 | Database | SQLite via Entity Framework Core 9 |
 | Auth | ASP.NET Core Identity |
 | AI | OpenAI API — GPT-4o-mini |
-| PDF | PdfPig (text extraction) |
+| PDF | PdfPig (server-side text extraction), jsPDF (client-side generation) |
 | Frontend | Bootstrap 5, Vanilla JS (fetch) |
 | Fonts | Inter (Google Fonts) |
 
@@ -105,26 +114,31 @@ Controllers/
   JobApplicationsController.cs  # CRUD for applications
   AnalyzerController.cs         # POST /Analyzer/Analyze — job description parser
   ProfileController.cs          # Full profile + document management + AI scoring
+  CoverLetterController.cs      # AI cover letter generation, save, download, delete
 
 Models/
   JobApplication.cs             # Core application entity
+  GeneratedCoverLetter.cs       # AI-generated cover letter entity (version history)
   UserProfile.cs                # Personal info, skills JSON, target roles JSON
   ResumeVersion.cs              # Resume file metadata + version history
   CoverLetterVersion.cs         # Cover letter file metadata + version history
   Enums/ApplicationStatus.cs    # Saved | Applied | Interview | Offer | Rejected
   Enums/WorkMode.cs             # Remote | Hybrid | OnSite
-  ViewModels/                   # DashboardViewModel, JobAnalysisResult,
-                                #   ResumeMatchResult, ResumeScoreResult, ProfileViewModel
+  ViewModels/                   # DashboardViewModel, CoverLetterGeneratorViewModel,
+                                #   JobAnalysisResult, ResumeMatchResult, ResumeScoreResult,
+                                #   ProfileViewModel
 
 Services/
   JobAnalyzerService.cs         # URL fetch + HTML strip + OpenAI extraction
   ResumeMatcherService.cs       # PDF text extraction + OpenAI match scoring
   ResumeScoreService.cs         # OpenAI resume quality scoring + suggestions
+  CoverLetterGeneratorService.cs # OpenAI cover letter generation
 
 Views/
   Home/Index.cshtml             # Hero landing page
   Home/Dashboard.cshtml         # Stats + recent applications table
   JobApplications/              # Index, Create (with AI analyzer), Edit, Delete
+  CoverLetter/Generate.cshtml   # AI cover letter generator + saved letter history
   Profile/Index.cshtml          # Career portfolio (all sections)
   Shared/_Layout.cshtml         # Main layout with dark navbar
   Shared/_AuthLayout.cshtml     # Split-screen auth layout

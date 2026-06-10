@@ -1,0 +1,227 @@
+@model InternTrackAI.Models.ViewModels.ResumeMatchViewModel
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Resume Match";
+
+    const double Circ = 339.29;
+    int dashOff = (int)Circ;
+    string scoreColor = "maybe";
+    string recClass   = "maybe";
+
+    if (Model.Result?.Success == true)
+    {
+        dashOff    = (int)(Circ * (1.0 - Model.Result.Score / 100.0));
+        scoreColor = Model.Result.Score >= 70 ? "apply" : Model.Result.Score >= 40 ? "maybe" : "noapply";
+        recClass   = Model.Result.Recommendation switch
+        {
+            "Apply"       => "apply",
+            "Maybe"       => "maybe",
+            _             => "noapply"
+        };
+    }
+
+    string CircStr = Circ.ToString("F2", CultureInfo.InvariantCulture);
+}
+
+<div class="container py-4" style="max-width:860px;">
+
+    <div class="page-header">
+        <div>
+            <h2>Resume Match</h2>
+            <p class="sub">Upload your resume and paste a job description &mdash; AI scores the fit instantly</p>
+        </div>
+    </div>
+
+    @if (!ViewData.ModelState.IsValid)
+    {
+        <div class="match-error-banner mb-3">
+            @foreach (var entry in ViewData.ModelState.Values)
+            {
+                @foreach (var err in entry.Errors)
+                {
+                    <p class="mb-0">@err.ErrorMessage</p>
+                }
+            }
+        </div>
+    }
+
+    <!-- Upload form -->
+    <form asp-action="Match" method="post" enctype="multipart/form-data" id="matchForm">
+        @Html.AntiForgeryToken()
+
+        <div class="row g-3 mb-3">
+
+            <!-- Resume upload -->
+            <div class="col-md-4">
+                <div class="form-card h-100" style="padding:1.5rem;">
+                    <p class="form-section-title">Resume</p>
+                    <div class="match-upload-zone" id="uploadZone">
+                        <div class="match-upload-icon">PDF</div>
+                        <p class="match-upload-label" id="uploadLabel">Click to select file</p>
+                        <p class="match-upload-hint">PDF only &middot; Max 5 MB</p>
+                        <input type="file" name="resume" id="resumeFile"
+                               accept=".pdf" class="match-file-input" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Job description -->
+            <div class="col-md-8">
+                <div class="form-card h-100 d-flex flex-column" style="padding:1.5rem;">
+                    <p class="form-section-title">Job Description</p>
+                    <textarea name="jobDescription" id="jobDescField"
+                              class="form-control flex-grow-1"
+                              rows="7"
+                              placeholder="Paste the full job description here — role title, requirements, qualifications, responsibilities, tech stack...">@Model.JobDescription</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex align-items-center gap-3 mb-5">
+            <button type="submit" class="btn btn-dark px-4" id="matchBtn">
+                Analyze Match
+            </button>
+            <span style="font-size:.78rem;color:var(--muted)">Powered by GPT-4o mini</span>
+        </div>
+    </form>
+
+    <!-- ── Results ── -->
+    @if (Model.Result != null)
+    {
+        if (Model.Result.Success)
+        {
+            <div id="matchResult">
+
+                <div class="divider" style="margin-top:0;margin-bottom:1.75rem;"></div>
+
+                <!-- Score + Summary -->
+                <div class="match-score-card mb-3" id="scoreCard">
+
+                    <div class="match-score-left">
+                        <div class="score-ring-wrap">
+                            <svg class="score-svg" viewBox="0 0 140 140" aria-label="Match score @Model.Result.Score percent">
+                                <circle class="score-track" cx="70" cy="70" r="54" />
+                                <circle class="score-fill score-fill--@scoreColor"
+                                        cx="70" cy="70" r="54"
+                                        style="stroke-dasharray:@CircStr;stroke-dashoffset:@dashOff" />
+                            </svg>
+                            <div class="score-label">
+                                <span class="score-number">@Model.Result.Score</span>
+                                <span class="score-unit">%</span>
+                            </div>
+                        </div>
+                        <span class="rec-badge rec-badge--@recClass">@Model.Result.Recommendation</span>
+                    </div>
+
+                    <div class="match-score-right">
+                        <p class="match-score-title">Match Analysis</p>
+                        <p class="match-summary">@Model.Result.Summary</p>
+                    </div>
+                </div>
+
+                <!-- Skills row -->
+                <div class="row g-3 mb-3">
+
+                    <div class="col-md-6">
+                        <div class="form-card h-100">
+                            <p class="form-section-title" style="color:#15803d;border-color:#bbf7d0;">
+                                Matching Skills
+                                <span class="skill-count">@Model.Result.MatchingSkills.Count</span>
+                            </p>
+                            @if (Model.Result.MatchingSkills.Any())
+                            {
+                                <div class="match-skills-wrap">
+                                    @foreach (var skill in Model.Result.MatchingSkills)
+                                    {
+                                        <span class="skill-tag skill-tag--match">@skill</span>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted mb-0" style="font-size:.875rem">No matching skills found.</p>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-card h-100">
+                            <p class="form-section-title" style="color:#be123c;border-color:#fecdd3;">
+                                Missing Skills
+                                <span class="skill-count">@Model.Result.MissingSkills.Count</span>
+                            </p>
+                            @if (Model.Result.MissingSkills.Any())
+                            {
+                                <div class="match-skills-wrap">
+                                    @foreach (var skill in Model.Result.MissingSkills)
+                                    {
+                                        <span class="skill-tag skill-tag--missing">@skill</span>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <p class="text-muted mb-0" style="font-size:.875rem">No gaps identified.</p>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Strengths -->
+                @if (Model.Result.Strengths.Any())
+                {
+                    <div class="form-card">
+                        <p class="form-section-title">Strengths for This Role</p>
+                        <ul class="match-strengths-list">
+                            @foreach (var strength in Model.Result.Strengths)
+                            {
+                                <li>@strength</li>
+                            }
+                        </ul>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="match-error-banner" id="matchResult">
+                @Model.Result.Error
+            </div>
+        }
+    }
+
+</div>
+
+@section Scripts {
+    <script>
+    (function () {
+
+        // File picker label
+        const fileInput  = document.getElementById('resumeFile');
+        const uploadZone = document.getElementById('uploadZone');
+        const uploadLabel = document.getElementById('uploadLabel');
+
+        fileInput.addEventListener('change', function () {
+            const name = this.files[0]?.name;
+            uploadLabel.textContent = name || 'Click to select file';
+            uploadZone.classList.toggle('has-file', !!name);
+        });
+
+        // Loading state
+        document.getElementById('matchForm').addEventListener('submit', function () {
+            const btn = document.getElementById('matchBtn');
+            btn.disabled = true;
+            btn.innerHTML =
+                '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Analyzing...';
+        });
+
+        // Scroll to results after POST
+        const result = document.getElementById('matchResult');
+        if (result) {
+            setTimeout(() => result.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+        }
+
+    })();
+    </script>
+}

@@ -16,6 +16,10 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 |---|---|
 | ![Sign In](docs/screenshots/login.png) | ![Register](docs/screenshots/register.png) |
 
+| Resume Match |
+|---|
+| ![Resume Match](docs/screenshots/resume_match.png) |
+
 ## Features
 
 **Phase 1 — Core Tracker**
@@ -34,6 +38,13 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 - Skill tags displayed inline after analysis
 - CSRF-protected JSON API endpoint
 
+**Phase 3 — Resume Matcher**
+- Upload a PDF resume and paste a job description
+- Text extracted from the PDF server-side using PdfPig (no native dependencies)
+- GPT-4o-mini returns a match score (0–100%), matching skills, missing skills, candidate strengths, and a summary
+- Clear recommendation badge: **Apply**, **Maybe**, or **Don't Apply**
+- Accessible at `/Resume/Match` from the main navigation
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -42,6 +53,7 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 | Database | SQLite via Entity Framework Core 9 |
 | Auth | ASP.NET Core Identity |
 | AI | OpenAI API — GPT-4o-mini |
+| PDF | PdfPig (text extraction) |
 | Frontend | Bootstrap 5, Vanilla JS (fetch) |
 | Fonts | Inter (Google Fonts) |
 
@@ -91,6 +103,7 @@ Controllers/
   HomeController.cs           # Homepage + dashboard (queries DB for stats)
   JobApplicationsController.cs # CRUD for applications
   AnalyzerController.cs       # POST /Analyzer/Analyze — calls OpenAI
+  ResumeController.cs         # GET/POST /Resume/Match — PDF upload + scoring
 
 Models/
   JobApplication.cs           # Core entity
@@ -101,6 +114,7 @@ Models/
 
 Services/
   JobAnalyzerService.cs       # URL fetch + HTML strip + OpenAI chat completions
+  ResumeMatcherService.cs     # PDF text extraction + OpenAI resume match scoring
 
 Views/
   Home/Index.cshtml           # Hero landing page

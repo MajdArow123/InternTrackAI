@@ -12,4 +12,7 @@ public class ApplicationDbContext : IdentityDbContext
     }
 
     public DbSet<JobApplication> JobApplications { get; set; }
+    public DbSet<UserProfile> UserProfiles { get; set; }
+    public DbSet<ResumeVersion> ResumeVersions { get; set; }
+    public DbSet<CoverLetterVersion> CoverLetterVersions { get; set; }
 }

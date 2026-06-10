@@ -50,13 +50,13 @@
     <form asp-action="Match" method="post" enctype="multipart/form-data" id="matchForm">
         @Html.AntiForgeryToken()
 
-        <div class="row g-3 mb-3">
+        <div class="row g-3 mb-3" style="align-items:stretch;">
 
             <!-- Resume upload -->
-            <div class="col-md-4">
-                <div class="form-card h-100" style="padding:1.5rem;">
+            <div class="col-md-4 d-flex">
+                <div class="form-card w-100 d-flex flex-column" style="padding:1.5rem;">
                     <p class="form-section-title">Resume</p>
-                    <div class="match-upload-zone" id="uploadZone">
+                    <div class="match-upload-zone flex-grow-1" id="uploadZone">
                         <div class="match-upload-icon">PDF</div>
                         <p class="match-upload-label" id="uploadLabel">Click to select file</p>
                         <p class="match-upload-hint">PDF only &middot; Max 5 MB</p>
@@ -67,12 +67,12 @@
             </div>
 
             <!-- Job description -->
-            <div class="col-md-8">
-                <div class="form-card h-100 d-flex flex-column" style="padding:1.5rem;">
+            <div class="col-md-8 d-flex">
+                <div class="form-card w-100 d-flex flex-column" style="padding:1.5rem;">
                     <p class="form-section-title">Job Description</p>
                     <textarea name="jobDescription" id="jobDescField"
                               class="form-control flex-grow-1"
-                              rows="7"
+                              style="resize:none;min-height:220px;"
                               placeholder="Paste the full job description here — role title, requirements, qualifications, responsibilities, tech stack...">@Model.JobDescription</textarea>
                 </div>
             </div>

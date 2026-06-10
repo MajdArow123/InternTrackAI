@@ -42,6 +42,9 @@
 
             <div class="analyzer-result" id="analyzerResult" hidden></div>
             <div class="analyzer-error"  id="analyzerError"  hidden></div>
+            <div id="inlineMatchWrap" hidden>
+                <div class="inline-match-card" id="inlineMatchCard"></div>
+            </div>
         </div>
     </div>
 
@@ -188,6 +191,9 @@
                         document.getElementById('appForm')
                             .scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }, 300);
+
+                    // Auto-match against saved resume
+                    runAutoMatch(text, token);
                 } else {
                     showError(data.error || 'Analysis failed. Please try again.');
                 }
@@ -240,6 +246,58 @@
         function showError(msg) {
             errorEl.textContent = msg;
             errorEl.hidden = false;
+        }
+
+        // ── Auto-match against saved resume ──────────────
+        async function runAutoMatch(jobDescription, token) {
+            const wrap = document.getElementById('inlineMatchWrap');
+            const card = document.getElementById('inlineMatchCard');
+            wrap.hidden = true;
+
+            try {
+                const resp = await fetch('/Profile/AutoMatch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({ jobDescription })
+                });
+                const d = await resp.json();
+
+                if (!d.hasResume) return; // no active resume — silently skip
+
+                wrap.hidden = false;
+
+                if (!d.success) {
+                    card.innerHTML = `<p style="font-size:.82rem;color:#be123c;margin:0">${d.error || 'Resume match failed.'}</p>`;
+                    return;
+                }
+
+                const sc = d.score;
+                const cls = sc >= 70 ? 'apply' : sc >= 40 ? 'maybe' : 'noapply';
+
+                const matchHtml = (d.matchingSkills || []).length
+                    ? (d.matchingSkills || []).map(s => `<span class="skill-tag skill-tag--match">${s}</span>`).join('')
+                    : '';
+                const missingHtml = (d.missingSkills || []).length
+                    ? (d.missingSkills || []).map(s => `<span class="skill-tag skill-tag--missing">${s}</span>`).join('')
+                    : '';
+
+                card.innerHTML = `
+                    <div class="inline-match-header">
+                        <span style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Resume Match</span>
+                        <span class="inline-score-pill inline-score-${cls}">${sc}% &mdash; ${d.recommendation}</span>
+                    </div>
+                    ${d.summary ? `<p style="font-size:.82rem;color:var(--text);margin-bottom:.6rem;line-height:1.55">${d.summary}</p>` : ''}
+                    ${matchHtml || missingHtml ? `
+                    <div style="display:flex;flex-wrap:wrap;gap:.75rem;">
+                        ${matchHtml ? `<div><div style="font-size:.68rem;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Matching</div><div style="display:flex;flex-wrap:wrap;gap:.3rem">${matchHtml}</div></div>` : ''}
+                        ${missingHtml ? `<div><div style="font-size:.68rem;font-weight:700;color:#be123c;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Missing</div><div style="display:flex;flex-wrap:wrap;gap:.3rem">${missingHtml}</div></div>` : ''}
+                    </div>` : ''}`;
+            } catch (_) {
+                // network error — silently ignore
+            }
         }
     })();
     </script>

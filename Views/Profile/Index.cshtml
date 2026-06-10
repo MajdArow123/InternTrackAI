@@ -1,0 +1,469 @@
+@model InternTrackAI.Models.ViewModels.ProfileViewModel
+@using System.Globalization
+
+@{
+    ViewData["Title"] = "Profile";
+
+    var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ?? "";
+
+    var initials = string.IsNullOrWhiteSpace(Model.Profile.FullName)
+        ? (Model.Email?.Substring(0, 1).ToUpperInvariant() ?? "?")
+        : string.Concat(Model.Profile.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+              .Take(2).Select(w => char.ToUpperInvariant(w[0])));
+
+    var photoPath = Model.Profile.PhotoFileName != null
+        ? $"/uploads/photos/{Model.Profile.PhotoFileName}?v={Model.Profile.PhotoVersion}"
+        : null;
+
+    // Score ring vars
+    const double Circ = 339.29;
+    int scoreDashOff = (int)Circ;
+    string scoreColor = "maybe";
+    if (Model.ScoreResult?.Success == true)
+    {
+        scoreDashOff = (int)(Circ * (1.0 - Model.ScoreResult.Score / 100.0));
+        scoreColor   = Model.ScoreResult.Score >= 70 ? "apply" : Model.ScoreResult.Score >= 40 ? "maybe" : "noapply";
+    }
+    string CircStr = Circ.ToString("F2", CultureInfo.InvariantCulture);
+}
+
+<div class="container py-4" style="max-width:900px;">
+
+    <div class="page-header">
+        <div>
+            <h2>Profile</h2>
+            <p class="sub">Manage your career information, documents, and AI tools</p>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show py-2 mb-3" role="alert"
+             style="font-size:.875rem;background:#f0fdf4;color:#15803d;border-color:#bbf7d0;">
+            @TempData["Success"]
+            <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="match-error-banner mb-3">@TempData["Error"]</div>
+    }
+    @if (TempData["ScoreError"] != null)
+    {
+        <div class="match-error-banner mb-3">@TempData["ScoreError"]</div>
+    }
+
+    <!-- ── Personal Info ── -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">Personal Info</p>
+
+        <div class="profile-photo-row">
+            @if (photoPath != null)
+            {
+                <img src="@photoPath" class="profile-avatar" alt="Profile photo" />
+            }
+            else
+            {
+                <div class="profile-avatar-placeholder">@initials</div>
+            }
+            <div>
+                <p class="profile-photo-name mb-0">@(Model.Profile.FullName ?? "Your Name")</p>
+                <p class="profile-photo-email">@Model.Email</p>
+                <form asp-action="UploadPhoto" method="post" enctype="multipart/form-data" class="d-inline-flex align-items-center gap-2 mt-1">
+                    @Html.AntiForgeryToken()
+                    <input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp"
+                           class="form-control form-control-sm" style="width:auto;font-size:.78rem;" />
+                    <button type="submit" class="btn btn-sm btn-outline-secondary">Update Photo</button>
+                </form>
+            </div>
+        </div>
+
+        <form asp-action="SaveInfo" method="post">
+            @Html.AntiForgeryToken()
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <label class="form-label">Full Name</label>
+                    <input name="fullName" class="form-control" placeholder="e.g. Alex Johnson"
+                           value="@Model.Profile.FullName" />
+                </div>
+                <div class="col-sm-3">
+                    <label class="form-label">Age</label>
+                    <input name="age" type="number" min="16" max="99" class="form-control"
+                           placeholder="e.g. 21" value="@Model.Profile.Age" />
+                </div>
+                <div class="col-sm-3">
+                    <label class="form-label">Country</label>
+                    <input name="country" class="form-control" placeholder="e.g. United States"
+                           value="@Model.Profile.Country" />
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label">Email <span class="text-muted fw-normal">(from account)</span></label>
+                    <input class="form-control" value="@Model.Email" disabled />
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label">Phone Number <span class="text-muted fw-normal">(optional)</span></label>
+                    <input name="phoneNumber" class="form-control" placeholder="e.g. +1 555 123 4567"
+                           value="@Model.Profile.PhoneNumber" />
+                </div>
+            </div>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-dark px-4">Save Info</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ── Application Stats ── -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">Application Stats</p>
+        <div class="row g-2 mb-2">
+            <div class="col-6 col-sm-4 col-md-2">
+                <div class="mini-stat">
+                    <div class="mini-stat-num" style="color:var(--primary)">@Model.TotalApplications</div>
+                    <div class="mini-stat-label">Total</div>
+                </div>
+            </div>
+            @foreach (var entry in Model.StatusCounts)
+            {
+                var col = entry.Key switch
+                {
+                    InternTrackAI.Models.Enums.ApplicationStatus.Saved      => "#475569",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Applied    => "#2563eb",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Interview  => "#d97706",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Offer      => "#059669",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Rejected   => "#dc2626",
+                    _ => "var(--muted)"
+                };
+                <div class="col-6 col-sm-4 col-md-2">
+                    <div class="mini-stat">
+                        <div class="mini-stat-num" style="color:@col">@entry.Value</div>
+                        <div class="mini-stat-label">@entry.Key</div>
+                    </div>
+                </div>
+            }
+            <div class="col-6 col-sm-4 col-md-2">
+                <div class="mini-stat">
+                    <div class="mini-stat-num" style="color:#059669">@Model.SuccessRate<span style="font-size:1rem;font-weight:600">%</span></div>
+                    <div class="mini-stat-label">Success Rate</div>
+                </div>
+            </div>
+        </div>
+        <p class="text-muted mb-0" style="font-size:.75rem">Success rate = Offers &divide; Total applications</p>
+    </div>
+
+    <!-- ── Skills ── -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">Skills</p>
+        <p class="text-muted mb-3" style="font-size:.82rem">Add your technical and professional skills. These are used as context during AI resume matching.</p>
+        <form asp-action="SaveSkills" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="skillsJson" id="skillsJsonInput" />
+            <div class="tag-cloud" id="skillsCloud">
+                <div class="tag-input-row">
+                    <input type="text" class="tag-text-input" id="skillsText" placeholder="e.g. Python" />
+                    <button type="button" class="tag-add-btn" id="skillsAdd">Add</button>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-dark px-4">Save Skills</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ── Target Roles ── -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">Target Roles</p>
+        <p class="text-muted mb-3" style="font-size:.82rem">Add the types of roles you are targeting. These help the AI give more relevant scoring and advice.</p>
+        <form asp-action="SaveTargetRoles" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="targetRolesJson" id="rolesJsonInput" />
+            <div class="tag-cloud" id="rolesCloud">
+                <div class="tag-input-row">
+                    <input type="text" class="tag-text-input" id="rolesText" placeholder="e.g. Software Engineering Intern" />
+                    <button type="button" class="tag-add-btn" id="rolesAdd">Add</button>
+                </div>
+            </div>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-dark px-4">Save Roles</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- ── Resumes ── -->
+    <div class="form-card mb-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <p class="form-section-title mb-0">Resumes</p>
+            <span class="text-muted" style="font-size:.75rem">@Model.Resumes.Count version(s)</span>
+        </div>
+
+        @if (Model.Resumes.Any())
+        {
+            <div class="doc-list mb-3">
+                @foreach (var r in Model.Resumes)
+                {
+                    <div class="doc-row @(r.IsActive ? "doc-active" : "")">
+                        <span class="doc-version-badge">v@r.VersionNumber</span>
+                        <div class="doc-info">
+                            <div class="doc-filename">@r.OriginalFileName</div>
+                            <div class="doc-meta">
+                                @r.UploadedAt.ToLocalTime().ToString("MMM d, yyyy") &middot;
+                                @((r.FileSize / 1024.0).ToString("F0")) KB
+                            </div>
+                        </div>
+                        @if (r.IsActive)
+                        {
+                            <span class="active-label">Active</span>
+                        }
+                        else
+                        {
+                            <form asp-action="SetActiveResume" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@r.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:.72rem;padding:.2rem .6rem;">Set Active</button>
+                            </form>
+                        }
+                        <a asp-action="DownloadResume" asp-route-id="@r.Id"
+                           class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:.2rem .6rem;">Download</a>
+                        <form asp-action="DeleteResume" method="post" class="d-inline"
+                              onsubmit="return confirm('Delete Resume v@r.VersionNumber? This cannot be undone.')">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@r.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:.2rem .6rem;">Delete</button>
+                        </form>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="text-muted mb-3" style="font-size:.875rem">No resumes uploaded yet.</p>
+        }
+
+        <form asp-action="UploadResume" method="post" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <input type="file" name="resume" accept=".pdf"
+                       class="form-control" style="width:auto;font-size:.875rem;" />
+                <button type="submit" class="btn btn-dark">Upload New Resume</button>
+                <span class="text-muted" style="font-size:.75rem">PDF only &middot; Max 5 MB</span>
+            </div>
+        </form>
+    </div>
+
+    <!-- ── Cover Letters ── -->
+    <div class="form-card mb-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <p class="form-section-title mb-0">Cover Letters</p>
+            <span class="text-muted" style="font-size:.75rem">@Model.CoverLetters.Count version(s)</span>
+        </div>
+
+        @if (Model.CoverLetters.Any())
+        {
+            <div class="doc-list mb-3">
+                @foreach (var cl in Model.CoverLetters)
+                {
+                    <div class="doc-row @(cl.IsActive ? "doc-active" : "")">
+                        <span class="doc-version-badge">v@cl.VersionNumber</span>
+                        <div class="doc-info">
+                            <div class="doc-filename">@cl.OriginalFileName</div>
+                            <div class="doc-meta">
+                                @cl.UploadedAt.ToLocalTime().ToString("MMM d, yyyy") &middot;
+                                @((cl.FileSize / 1024.0).ToString("F0")) KB
+                            </div>
+                        </div>
+                        @if (cl.IsActive)
+                        {
+                            <span class="active-label">Active</span>
+                        }
+                        else
+                        {
+                            <form asp-action="SetActiveCoverLetter" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@cl.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:.72rem;padding:.2rem .6rem;">Set Active</button>
+                            </form>
+                        }
+                        <a asp-action="DownloadCoverLetter" asp-route-id="@cl.Id"
+                           class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:.2rem .6rem;">Download</a>
+                        <form asp-action="DeleteCoverLetter" method="post" class="d-inline"
+                              onsubmit="return confirm('Delete Cover Letter v@cl.VersionNumber? This cannot be undone.')">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@cl.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:.2rem .6rem;">Delete</button>
+                        </form>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="text-muted mb-3" style="font-size:.875rem">No cover letters uploaded yet.</p>
+        }
+
+        <form asp-action="UploadCoverLetter" method="post" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <input type="file" name="coverLetter" accept=".pdf"
+                       class="form-control" style="width:auto;font-size:.875rem;" />
+                <button type="submit" class="btn btn-dark">Upload New Cover Letter</button>
+                <span class="text-muted" style="font-size:.75rem">PDF only &middot; Max 5 MB</span>
+            </div>
+        </form>
+    </div>
+
+    <!-- ── AI Resume Score ── -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">AI Resume Score</p>
+        <p class="text-muted mb-3" style="font-size:.82rem">
+            Score your active resume using GPT-4o mini. Get an overall quality score, strengths, and specific improvement suggestions.
+        </p>
+
+        @if (!Model.Resumes.Any(r => r.IsActive))
+        {
+            <p class="text-muted" style="font-size:.875rem">
+                Upload a resume and set it as active to enable scoring.
+            </p>
+        }
+        else
+        {
+            <form asp-action="ScoreResume" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-dark px-4" id="scoreBtn">
+                    Score My Resume
+                </button>
+                <span class="ms-2 text-muted" style="font-size:.78rem">Powered by GPT-4o mini</span>
+            </form>
+
+            @if (Model.ScoreResult != null)
+            {
+                if (Model.ScoreResult.Success)
+                {
+                    <div class="match-score-card mt-3">
+                        <div class="match-score-left">
+                            <div class="score-ring-wrap score-ring-sm">
+                                <svg class="score-svg" viewBox="0 0 140 140">
+                                    <circle class="score-track" cx="70" cy="70" r="54" />
+                                    <circle class="score-fill score-fill--@scoreColor"
+                                            cx="70" cy="70" r="54"
+                                            style="stroke-dasharray:@CircStr;stroke-dashoffset:@scoreDashOff" />
+                                </svg>
+                                <div class="score-label">
+                                    <span class="score-number">@Model.ScoreResult.Score</span>
+                                    <span class="score-unit">%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="match-score-right">
+                            <p class="match-score-title">Resume Quality Score</p>
+                            <p class="match-summary">@Model.ScoreResult.Summary</p>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-0">
+                        @if (Model.ScoreResult.Strengths.Any())
+                        {
+                            <div class="col-md-6">
+                                <div class="form-card">
+                                    <p class="form-section-title" style="color:#15803d;border-color:#bbf7d0;">Strengths</p>
+                                    <ul class="match-strengths-list">
+                                        @foreach (var s in Model.ScoreResult.Strengths)
+                                        { <li>@s</li> }
+                                    </ul>
+                                </div>
+                            </div>
+                        }
+                        @if (Model.ScoreResult.Improvements.Any())
+                        {
+                            <div class="col-md-6">
+                                <div class="form-card">
+                                    <p class="form-section-title" style="color:#b45309;border-color:#fde68a;">Improvements</p>
+                                    <ul class="match-strengths-list">
+                                        @foreach (var imp in Model.ScoreResult.Improvements)
+                                        { <li>@imp</li> }
+                                    </ul>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="match-error-banner mt-3">@Model.ScoreResult.Error</div>
+                }
+            }
+        }
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+    (function () {
+
+        // ── Tag input helper ─────────────────────────────
+        function initTagInput(cloudId, hiddenId, textId, addBtnId, initialValues) {
+            const cloud   = document.getElementById(cloudId);
+            const hidden  = document.getElementById(hiddenId);
+            const textEl  = document.getElementById(textId);
+            const addBtn  = document.getElementById(addBtnId);
+            let values    = Array.isArray(initialValues) ? [...initialValues] : [];
+
+            function render() {
+                cloud.querySelectorAll('.tag-item').forEach(t => t.remove());
+                const inputRow = cloud.querySelector('.tag-input-row');
+                values.forEach((val, i) => {
+                    const tag = document.createElement('span');
+                    tag.className = 'tag-item';
+                    tag.innerHTML = `${escHtml(val)} <button type="button" data-i="${i}" aria-label="Remove">&times;</button>`;
+                    cloud.insertBefore(tag, inputRow);
+                });
+                hidden.value = JSON.stringify(values);
+            }
+
+            cloud.addEventListener('click', e => {
+                const btn = e.target.closest('button[data-i]');
+                if (btn) { values.splice(parseInt(btn.dataset.i), 1); render(); }
+            });
+
+            function add() {
+                const v = textEl.value.trim();
+                if (v && !values.includes(v)) { values.push(v); render(); }
+                textEl.value = '';
+                textEl.focus();
+            }
+
+            addBtn.addEventListener('click', add);
+            textEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+
+            render();
+        }
+
+        function escHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        // Initialise tag inputs with server-side values
+        initTagInput('skillsCloud',  'skillsJsonInput', 'skillsText', 'skillsAdd',
+            @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Skills)));
+
+        initTagInput('rolesCloud', 'rolesJsonInput', 'rolesText', 'rolesAdd',
+            @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TargetRoles)));
+
+        // Loading state for score button
+        const scoreBtn = document.getElementById('scoreBtn');
+        if (scoreBtn) {
+            scoreBtn.closest('form').addEventListener('submit', () => {
+                scoreBtn.disabled = true;
+                scoreBtn.innerHTML =
+                    '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Scoring...';
+            });
+        }
+
+        // Scroll to score result if present
+        const scoreCard = document.querySelector('.match-score-card');
+        if (scoreCard) {
+            setTimeout(() => scoreCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+        }
+
+    })();
+    </script>
+}

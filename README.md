@@ -12,13 +12,13 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 |---|---|
 | ![Applications](docs/screenshots/applications.png) | ![Add Application](docs/screenshots/create.png) |
 
-| Resume Match | Profile |
+| Profile | Sign In |
 |---|---|
-| ![Resume Match](docs/screenshots/resume_match.png) | ![Profile](docs/screenshots/profile.png) |
+| ![Profile](docs/screenshots/profile.png) | ![Sign In](docs/screenshots/login.png) |
 
-| Sign In | Register |
+| Register | |
 |---|---|
-| ![Sign In](docs/screenshots/login.png) | ![Register](docs/screenshots/register.png) |
+| ![Register](docs/screenshots/register.png) | |
 
 ## Features
 
@@ -36,12 +36,6 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 - GPT-4o-mini extracts company name, role title, location, salary, and up to 8 required skills
 - Extracted data auto-fills the form with an animated highlight effect
 - After analysis, automatically runs a resume match against the user's active resume (if uploaded) and shows an inline match score, recommendation, and skill breakdown
-
-**Phase 3 — Resume Matcher**
-- Upload a PDF resume and paste a job description on the standalone `/Resume/Match` page
-- GPT-4o-mini returns a match score (0–100%), matching skills, missing skills, candidate strengths, and a plain-English summary
-- Clear recommendation badge: **Apply**, **Maybe**, or **Don't Apply**
-- SVG score ring with color-coded arc (green / amber / red)
 
 **Phase 3 — Career Portfolio (`/Profile`)**
 - Personal info: full name, age, country, phone, profile photo
@@ -110,7 +104,6 @@ Controllers/
   HomeController.cs             # Homepage + dashboard
   JobApplicationsController.cs  # CRUD for applications
   AnalyzerController.cs         # POST /Analyzer/Analyze — job description parser
-  ResumeController.cs           # GET/POST /Resume/Match — standalone resume matcher
   ProfileController.cs          # Full profile + document management + AI scoring
 
 Models/
@@ -121,8 +114,7 @@ Models/
   Enums/ApplicationStatus.cs    # Saved | Applied | Interview | Offer | Rejected
   Enums/WorkMode.cs             # Remote | Hybrid | OnSite
   ViewModels/                   # DashboardViewModel, JobAnalysisResult,
-                                #   ResumeMatchResult, ResumeMatchViewModel,
-                                #   ResumeScoreResult, ProfileViewModel
+                                #   ResumeMatchResult, ResumeScoreResult, ProfileViewModel
 
 Services/
   JobAnalyzerService.cs         # URL fetch + HTML strip + OpenAI extraction
@@ -133,7 +125,6 @@ Views/
   Home/Index.cshtml             # Hero landing page
   Home/Dashboard.cshtml         # Stats + recent applications table
   JobApplications/              # Index, Create (with AI analyzer), Edit, Delete
-  Resume/Match.cshtml           # Standalone resume vs job description matcher
   Profile/Index.cshtml          # Career portfolio (all sections)
   Shared/_Layout.cshtml         # Main layout with dark navbar
   Shared/_AuthLayout.cshtml     # Split-screen auth layout

@@ -201,7 +201,7 @@
                 @foreach (var r in Model.Resumes)
                 {
                     <div class="doc-row @(r.IsActive ? "doc-active" : "")">
-                        <span class="doc-version-badge">v@r.VersionNumber</span>
+                        <span class="doc-version-badge">v@(r.VersionNumber)</span>
                         <div class="doc-info">
                             <div class="doc-filename">@r.OriginalFileName</div>
                             <div class="doc-meta">
@@ -224,7 +224,7 @@
                         <a asp-action="DownloadResume" asp-route-id="@r.Id"
                            class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:.2rem .6rem;">Download</a>
                         <form asp-action="DeleteResume" method="post" class="d-inline"
-                              onsubmit="return confirm('Delete Resume v@r.VersionNumber? This cannot be undone.')">
+                              onsubmit="return confirm('Delete Resume v@(r.VersionNumber)? This cannot be undone.')">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@r.Id" />
                             <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:.2rem .6rem;">Delete</button>
@@ -262,7 +262,7 @@
                 @foreach (var cl in Model.CoverLetters)
                 {
                     <div class="doc-row @(cl.IsActive ? "doc-active" : "")">
-                        <span class="doc-version-badge">v@cl.VersionNumber</span>
+                        <span class="doc-version-badge">v@(cl.VersionNumber)</span>
                         <div class="doc-info">
                             <div class="doc-filename">@cl.OriginalFileName</div>
                             <div class="doc-meta">
@@ -285,7 +285,7 @@
                         <a asp-action="DownloadCoverLetter" asp-route-id="@cl.Id"
                            class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:.2rem .6rem;">Download</a>
                         <form asp-action="DeleteCoverLetter" method="post" class="d-inline"
-                              onsubmit="return confirm('Delete Cover Letter v@cl.VersionNumber? This cannot be undone.')">
+                              onsubmit="return confirm('Delete Cover Letter v@(cl.VersionNumber)? This cannot be undone.')">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@cl.Id" />
                             <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:.2rem .6rem;">Delete</button>
@@ -339,7 +339,7 @@
                 {
                     <div class="match-score-card mt-3">
                         <div class="match-score-left">
-                            <div class="score-ring-wrap score-ring-sm">
+                            <div class="score-ring-wrap">
                                 <svg class="score-svg" viewBox="0 0 140 140">
                                     <circle class="score-track" cx="70" cy="70" r="54" />
                                     <circle class="score-fill score-fill--@scoreColor"

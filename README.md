@@ -1,6 +1,6 @@
 # InternTrackAI
 
-A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track every application through the entire pipeline — from saved to offer — with an AI-powered job description analyzer that auto-fills your form in seconds.
+A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track every application through the entire pipeline — from saved to offer — with AI-powered job analysis, resume matching, and a career portfolio system.
 
 ## Screenshots
 
@@ -12,13 +12,13 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 |---|---|
 | ![Applications](docs/screenshots/applications.png) | ![Add Application](docs/screenshots/create.png) |
 
+| Resume Match | Profile |
+|---|---|
+| ![Resume Match](docs/screenshots/resume_match.png) | ![Profile](docs/screenshots/profile.png) |
+
 | Sign In | Register |
 |---|---|
 | ![Sign In](docs/screenshots/login.png) | ![Register](docs/screenshots/register.png) |
-
-| Resume Match |
-|---|
-| ![Resume Match](docs/screenshots/resume_match.png) |
 
 ## Features
 
@@ -30,20 +30,27 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 - Responsive Bootstrap 5 layout with dark navbar and Inter typography
 - Split-screen login and register pages with ASP.NET Core Identity
 
-**Phase 2 — AI Analyzer**
+**Phase 2 — AI Job Analyzer**
 - Paste a job description **or a job posting URL** and click Analyze
 - URLs are auto-detected — the page is fetched and parsed server-side before analysis
 - GPT-4o-mini extracts company name, role title, location, salary, and up to 8 required skills
-- Extracted data auto-fills the form with an animated highlight effect; Job Link field populated from URL input
-- Skill tags displayed inline after analysis
-- CSRF-protected JSON API endpoint
+- Extracted data auto-fills the form with an animated highlight effect
+- After analysis, automatically runs a resume match against the user's active resume (if uploaded) and shows an inline match score, recommendation, and skill breakdown
 
 **Phase 3 — Resume Matcher**
-- Upload a PDF resume and paste a job description
-- Text extracted from the PDF server-side using PdfPig (no native dependencies)
-- GPT-4o-mini returns a match score (0–100%), matching skills, missing skills, candidate strengths, and a summary
+- Upload a PDF resume and paste a job description on the standalone `/Resume/Match` page
+- GPT-4o-mini returns a match score (0–100%), matching skills, missing skills, candidate strengths, and a plain-English summary
 - Clear recommendation badge: **Apply**, **Maybe**, or **Don't Apply**
-- Accessible at `/Resume/Match` from the main navigation
+- SVG score ring with color-coded arc (green / amber / red)
+
+**Phase 3 — Career Portfolio (`/Profile`)**
+- Personal info: full name, age, country, phone, profile photo
+- Resume management: upload PDFs, full version history, set any version as Active, download or delete
+- Cover letter management: same version history system as resumes
+- Skills profile: tag-based input, saved to profile, used as AI context
+- Target roles: save job types you are pursuing (e.g. Software Engineering Intern)
+- Application stats: total count, per-status breakdown, success rate percentage
+- AI Resume Score: sends active resume to GPT-4o-mini and returns a score, strengths, and specific improvement suggestions
 
 ## Tech Stack
 
@@ -94,38 +101,51 @@ dotnet run
 
 Open [http://localhost:5240](http://localhost:5240). Register an account to get started.
 
-> The AI analyzer requires billing credits on your OpenAI account. Add them at [platform.openai.com/settings/billing](https://platform.openai.com/settings/billing). GPT-4o-mini costs roughly $0.00015 per analysis.
+> The AI features require billing credits on your OpenAI account. Add them at [platform.openai.com/settings/billing](https://platform.openai.com/settings/billing). GPT-4o-mini costs roughly $0.00015 per analysis.
 
 ## Project Structure
 
 ```
 Controllers/
-  HomeController.cs           # Homepage + dashboard (queries DB for stats)
-  JobApplicationsController.cs # CRUD for applications
-  AnalyzerController.cs       # POST /Analyzer/Analyze — calls OpenAI
-  ResumeController.cs         # GET/POST /Resume/Match — PDF upload + scoring
+  HomeController.cs             # Homepage + dashboard
+  JobApplicationsController.cs  # CRUD for applications
+  AnalyzerController.cs         # POST /Analyzer/Analyze — job description parser
+  ResumeController.cs           # GET/POST /Resume/Match — standalone resume matcher
+  ProfileController.cs          # Full profile + document management + AI scoring
 
 Models/
-  JobApplication.cs           # Core entity
-  Enums/ApplicationStatus.cs  # Saved | Applied | Interview | Offer | Rejected
-  Enums/WorkMode.cs           # Remote | Hybrid | OnSite
-  ViewModels/DashboardViewModel.cs
-  ViewModels/JobAnalysisResult.cs
+  JobApplication.cs             # Core application entity
+  UserProfile.cs                # Personal info, skills JSON, target roles JSON
+  ResumeVersion.cs              # Resume file metadata + version history
+  CoverLetterVersion.cs         # Cover letter file metadata + version history
+  Enums/ApplicationStatus.cs    # Saved | Applied | Interview | Offer | Rejected
+  Enums/WorkMode.cs             # Remote | Hybrid | OnSite
+  ViewModels/                   # DashboardViewModel, JobAnalysisResult,
+                                #   ResumeMatchResult, ResumeMatchViewModel,
+                                #   ResumeScoreResult, ProfileViewModel
 
 Services/
-  JobAnalyzerService.cs       # URL fetch + HTML strip + OpenAI chat completions
-  ResumeMatcherService.cs     # PDF text extraction + OpenAI resume match scoring
+  JobAnalyzerService.cs         # URL fetch + HTML strip + OpenAI extraction
+  ResumeMatcherService.cs       # PDF text extraction + OpenAI match scoring
+  ResumeScoreService.cs         # OpenAI resume quality scoring + suggestions
 
 Views/
-  Home/Index.cshtml           # Hero landing page
-  Home/Dashboard.cshtml       # Stats + recent applications
-  JobApplications/            # Index, Create, Edit, Delete
-  Shared/_Layout.cshtml       # Main layout (dark navbar)
-  Shared/_AuthLayout.cshtml   # Split-screen auth layout
+  Home/Index.cshtml             # Hero landing page
+  Home/Dashboard.cshtml         # Stats + recent applications table
+  JobApplications/              # Index, Create (with AI analyzer), Edit, Delete
+  Resume/Match.cshtml           # Standalone resume vs job description matcher
+  Profile/Index.cshtml          # Career portfolio (all sections)
+  Shared/_Layout.cshtml         # Main layout with dark navbar
+  Shared/_AuthLayout.cshtml     # Split-screen auth layout
 
 Data/
-  ApplicationDbContext.cs     # EF Core + Identity DbContext
-  Migrations/                 # SQLite migrations
+  ApplicationDbContext.cs       # EF Core + Identity DbContext
+  Migrations/                   # SQLite migrations
+
+uploads/                        # Server-side file storage (gitignored)
+  resumes/{userId}/             # Resume PDFs — served via controller, not public
+  coverletters/{userId}/        # Cover letter PDFs — served via controller
+wwwroot/uploads/photos/         # Profile photos — served as static files
 ```
 
 ## Author

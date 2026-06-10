@@ -1,0 +1,386 @@
+@model InternTrackAI.Models.ViewModels.CoverLetterGeneratorViewModel
+
+@{
+    ViewData["Title"] = "Cover Letter Generator";
+}
+
+<div class="container py-4" style="max-width:860px;">
+
+    <div class="page-header">
+        <div>
+            <h2>Cover Letter Generator</h2>
+            <p class="sub">AI-generated cover letters personalized to each job</p>
+        </div>
+        <a asp-controller="Profile" asp-action="Index" class="btn btn-outline-secondary btn-sm">View Profile</a>
+    </div>
+
+    @if (TempData["SavedOk"] is string savedMsg)
+    {
+        <div class="cl-success-banner mb-3">@savedMsg</div>
+    }
+
+    @if (!Model.HasActiveResume)
+    {
+        <div class="cl-info-banner mb-3">
+            No active resume found. <a asp-controller="Profile" asp-action="Index" class="cl-info-link">Upload a resume on your Profile page</a> to get fully personalized cover letters. You can still generate without one.
+        </div>
+    }
+
+    @if (!Model.Applications.Any())
+    {
+        <div class="cl-info-banner mb-3">
+            No job applications yet. <a asp-controller="JobApplications" asp-action="Create" class="cl-info-link">Add an application</a> to use its job description for generation.
+        </div>
+    }
+
+    <!-- ── Generation Form ── -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">Generate Cover Letter</p>
+
+        <div class="mb-3">
+            <label class="form-label">Job Application</label>
+            <select class="form-select" id="appSelect">
+                <option value="">-- No application selected --</option>
+                @foreach (var app in Model.Applications)
+                {
+                    if (Model.SelectedApplicationId == app.Id)
+                    {
+                        <option value="@app.Id" data-company="@app.CompanyName" data-role="@app.RoleTitle" selected>
+                            @app.CompanyName &mdash; @app.RoleTitle
+                        </option>
+                    }
+                    else
+                    {
+                        <option value="@app.Id" data-company="@app.CompanyName" data-role="@app.RoleTitle">
+                            @app.CompanyName &mdash; @app.RoleTitle
+                        </option>
+                    }
+                }
+            </select>
+            <div class="form-text">The AI will use this application's job description and your active resume.</div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">
+                Extra Notes
+                <span class="text-muted fw-normal">(optional)</span>
+            </label>
+            <textarea class="form-control" id="extraNotes" rows="3"
+                      placeholder="e.g. Mention I am available to start immediately. Emphasize my Python and data analysis experience. Keep it under 350 words."></textarea>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+            <button type="button" class="btn btn-dark px-4" id="generateBtn">
+                Generate Cover Letter
+            </button>
+            <span class="text-muted" style="font-size:.78rem">Powered by GPT-4o mini</span>
+        </div>
+
+        <div class="match-error-banner mt-3" id="generateError" hidden></div>
+    </div>
+
+    <!-- ── Output Section ── -->
+    <div id="outputSection" hidden>
+        <div class="form-card mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <p class="form-section-title mb-0">Generated Cover Letter</p>
+                <span class="word-count" id="wordCountDisplay"></span>
+            </div>
+            <p class="text-muted mb-3" style="font-size:.78rem" id="outputMeta"></p>
+
+            <textarea class="form-control cl-output" id="coverLetterOutput"
+                      rows="22" spellcheck="true"></textarea>
+
+            <div class="d-flex gap-2 flex-wrap mt-3">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="copyBtn">
+                    Copy to Clipboard
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="downloadPdfBtn">
+                    Download as PDF
+                </button>
+                <form asp-action="Save" method="post" id="saveForm" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="applicationId" id="saveAppId" />
+                    <input type="hidden" name="content"       id="saveContent" />
+                    <input type="hidden" name="company"       id="saveCompany" />
+                    <input type="hidden" name="role"          id="saveRole" />
+                    <button type="submit" class="btn btn-dark btn-sm">Save to Profile</button>
+                </form>
+            </div>
+            <div id="copyConfirm" class="text-muted mt-2" style="font-size:.78rem" hidden>Copied to clipboard.</div>
+        </div>
+    </div>
+
+    <!-- ── Saved Cover Letters ── -->
+    @if (Model.SavedLetters.Any())
+    {
+        <div class="form-card">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+                <p class="form-section-title mb-0">Saved Cover Letters</p>
+                <span class="text-muted" style="font-size:.75rem">@Model.SavedLetters.Count saved</span>
+            </div>
+
+            <div class="doc-list">
+                @foreach (var letter in Model.SavedLetters)
+                {
+                    <div class="doc-row @(letter.IsActive ? "doc-active" : "")">
+                        <span class="doc-version-badge">v@(letter.VersionNumber)</span>
+
+                        <div class="doc-info">
+                            <div class="doc-filename">
+                                @if (!string.IsNullOrEmpty(letter.CompanyName))
+                                {
+                                    @letter.CompanyName
+                                    if (!string.IsNullOrEmpty(letter.RoleTitle))
+                                    {
+                                        <span class="text-muted"> &mdash; @letter.RoleTitle</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted">No application linked</span>
+                                }
+                            </div>
+                            <div class="doc-meta">
+                                @letter.GeneratedAt.ToLocalTime().ToString("MMM d, yyyy 'at' h:mm tt")
+                                &middot; @WordCount(letter.Content) words
+                            </div>
+                        </div>
+
+                        @if (letter.IsActive)
+                        {
+                            <span class="active-label">Active</span>
+                        }
+                        else
+                        {
+                            <form asp-action="SetActive" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@letter.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-primary"
+                                        style="font-size:.72rem;padding:.2rem .6rem;">Set Active</button>
+                            </form>
+                        }
+
+                        <button type="button" class="btn btn-sm btn-outline-secondary"
+                                style="font-size:.72rem;padding:.2rem .6rem;"
+                                onclick="loadLetter(@letter.Id)">Load</button>
+
+                        <a asp-action="Download" asp-route-id="@letter.Id"
+                           class="btn btn-sm btn-outline-secondary"
+                           style="font-size:.72rem;padding:.2rem .6rem;">Download</a>
+
+                        <form asp-action="Delete" method="post" class="d-inline"
+                              onsubmit="return confirm('Delete cover letter v@(letter.VersionNumber)? This cannot be undone.')">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@letter.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger"
+                                    style="font-size:.72rem;padding:.2rem .6rem;">Delete</button>
+                        </form>
+                    </div>
+
+                    @* Hidden content for Load button *@
+                    <textarea hidden id="cl-content-@letter.Id" style="display:none">@letter.Content</textarea>
+                }
+            </div>
+        </div>
+    }
+
+</div>
+
+@functions {
+    static int WordCount(string text) =>
+        string.IsNullOrWhiteSpace(text) ? 0 :
+        text.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
+}
+
+@section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
+            integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfYzoFMB4G/g=="
+            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script>
+    (function () {
+
+        const generateBtn  = document.getElementById('generateBtn');
+        const appSelect    = document.getElementById('appSelect');
+        const extraNotes   = document.getElementById('extraNotes');
+        const errorBanner  = document.getElementById('generateError');
+        const outputSection = document.getElementById('outputSection');
+        const outputTA     = document.getElementById('coverLetterOutput');
+        const wordDisplay  = document.getElementById('wordCountDisplay');
+        const outputMeta   = document.getElementById('outputMeta');
+        const copyBtn      = document.getElementById('copyBtn');
+        const copyConfirm  = document.getElementById('copyConfirm');
+        const downloadBtn  = document.getElementById('downloadPdfBtn');
+        const saveForm     = document.getElementById('saveForm');
+        const token        = document.querySelector('[name="__RequestVerificationToken"]').value;
+
+        // Current generation metadata
+        let currentCompany = '';
+        let currentRole    = '';
+        let currentAppId   = null;
+
+        // ── Word count ────────────────────────────────────────
+        function updateWordCount() {
+            const words = outputTA.value.trim()
+                ? outputTA.value.trim().split(/\s+/).length : 0;
+            wordDisplay.textContent = words + ' words';
+        }
+        outputTA.addEventListener('input', updateWordCount);
+
+        // ── Generate ──────────────────────────────────────────
+        generateBtn.addEventListener('click', async function () {
+            errorBanner.hidden = true;
+            setLoading(true);
+
+            const appId = appSelect.value ? parseInt(appSelect.value, 10) : null;
+
+            try {
+                const resp = await fetch('/CoverLetter/GenerateAjax', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({
+                        applicationId: appId,
+                        extraNotes: extraNotes.value.trim()
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (!data.success) {
+                    showError(data.error || 'Generation failed. Please try again.');
+                    return;
+                }
+
+                // Show output
+                currentCompany = data.company || '';
+                currentRole    = data.role    || '';
+                currentAppId   = data.applicationId || null;
+
+                outputTA.value = data.content;
+                updateWordCount();
+
+                const metaParts = [currentCompany, currentRole].filter(Boolean);
+                outputMeta.textContent = metaParts.length
+                    ? 'For: ' + metaParts.join(' — ')
+                    : 'No application linked';
+
+                // Pre-fill save form hidden inputs
+                document.getElementById('saveAppId').value  = currentAppId ?? '';
+                document.getElementById('saveCompany').value = currentCompany;
+                document.getElementById('saveRole').value    = currentRole;
+
+                outputSection.hidden = false;
+                outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            } catch (_) {
+                showError('Request failed. Check your connection and try again.');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // ── Sync save content before submit ───────────────────
+        saveForm.addEventListener('submit', function () {
+            document.getElementById('saveContent').value = outputTA.value;
+        });
+
+        // ── Copy ─────────────────────────────────────────────
+        copyBtn.addEventListener('click', async function () {
+            try {
+                await navigator.clipboard.writeText(outputTA.value);
+                copyConfirm.hidden = false;
+                setTimeout(() => { copyConfirm.hidden = true; }, 2500);
+            } catch (_) {
+                outputTA.select();
+                document.execCommand('copy');
+            }
+        });
+
+        // ── Download as PDF ───────────────────────────────────
+        downloadBtn.addEventListener('click', function () {
+            generatePdf(outputTA.value, buildFilename());
+        });
+
+        function buildFilename() {
+            const parts = [currentCompany, currentRole].filter(Boolean);
+            return (parts.length ? parts.join('_') : 'cover_letter')
+                .replace(/[^a-z0-9_\- ]/gi, '')
+                .replace(/\s+/g, '_')
+                .toLowerCase() + '.pdf';
+        }
+
+        function generatePdf(text, filename) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+
+            const marginL  = 72;
+            const marginT  = 72;
+            const marginB  = 72;
+            const maxW     = doc.internal.pageSize.getWidth() - marginL * 2;
+            const pageH    = doc.internal.pageSize.getHeight();
+            const lineH    = 16;
+            const paraGap  = 10;
+
+            doc.setFont('Helvetica', 'normal');
+            doc.setFontSize(11);
+
+            let y = marginT;
+
+            const lines = text.split('\n');
+            for (const line of lines) {
+                if (line.trim() === '') {
+                    y += paraGap;
+                    continue;
+                }
+                const wrapped = doc.splitTextToSize(line, maxW);
+                if (y + wrapped.length * lineH > pageH - marginB) {
+                    doc.addPage();
+                    y = marginT;
+                }
+                doc.text(wrapped, marginL, y);
+                y += wrapped.length * lineH;
+            }
+
+            doc.save(filename);
+        }
+
+        // ── Load saved letter ─────────────────────────────────
+        window.loadLetter = function (id) {
+            const ta = document.getElementById('cl-content-' + id);
+            if (!ta) return;
+
+            outputTA.value = ta.value;
+            updateWordCount();
+
+            currentCompany = '';
+            currentRole    = '';
+            currentAppId   = null;
+            outputMeta.textContent = 'Loaded from saved version v' + id;
+
+            document.getElementById('saveAppId').value   = '';
+            document.getElementById('saveCompany').value = '';
+            document.getElementById('saveRole').value    = '';
+
+            outputSection.hidden = false;
+            outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+
+        // ── Helpers ───────────────────────────────────────────
+        function setLoading(on) {
+            generateBtn.disabled = on;
+            generateBtn.innerHTML = on
+                ? '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Generating...'
+                : 'Generate Cover Letter';
+        }
+
+        function showError(msg) {
+            errorBanner.textContent = msg;
+            errorBanner.hidden = false;
+        }
+
+    })();
+    </script>
+}

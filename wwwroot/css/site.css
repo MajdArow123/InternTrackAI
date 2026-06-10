@@ -1453,6 +1453,58 @@ textarea.form-control { min-height: 100px; resize: vertical; }
   .score-number     { font-size: 1.9rem; }
 }
 
+/* ── Cover Letter Generator ──────────────────────────── */
+.cl-output {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: .875rem;
+  line-height: 1.8;
+  min-height: 440px;
+  resize: vertical;
+  border-color: var(--border);
+  color: var(--text);
+  padding: 1.25rem;
+}
+
+.cl-output:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(79,70,229,.12);
+  outline: none;
+}
+
+.word-count {
+  font-size: .75rem;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: .02em;
+}
+
+.cl-info-banner {
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: var(--radius-sm);
+  padding: .75rem 1rem;
+  font-size: .875rem;
+  color: #3730a3;
+}
+
+.cl-info-link {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.cl-info-link:hover { color: var(--primary-h); }
+
+.cl-success-banner {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--radius-sm);
+  padding: .75rem 1rem;
+  font-size: .875rem;
+  color: #15803d;
+}
+
 /* ── Misc utilities ──────────────────────────────────── */
 .text-muted { color: var(--muted) !important; }
 

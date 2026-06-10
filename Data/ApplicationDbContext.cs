@@ -15,4 +15,5 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<UserProfile> UserProfiles { get; set; }
     public DbSet<ResumeVersion> ResumeVersions { get; set; }
     public DbSet<CoverLetterVersion> CoverLetterVersions { get; set; }
+    public DbSet<GeneratedCoverLetter> GeneratedCoverLetters { get; set; }
 }

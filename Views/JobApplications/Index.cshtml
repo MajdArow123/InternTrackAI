@@ -79,8 +79,13 @@
                                     @(item.Deadline.HasValue ? item.Deadline.Value.ToString("MMM d, yyyy") : "—")
                                 </td>
                                 <td class="text-end pe-3">
-                                    <a asp-action="Edit" asp-route-id="@item.Id"
-                                       class="btn btn-sm btn-outline-secondary row-action-btn">Edit</a>
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <a asp-controller="CoverLetter" asp-action="Generate"
+                                           asp-route-appId="@item.Id"
+                                           class="btn btn-sm btn-outline-primary row-action-btn">Cover Letter</a>
+                                        <a asp-action="Edit" asp-route-id="@item.Id"
+                                           class="btn btn-sm btn-outline-secondary row-action-btn">Edit</a>
+                                    </div>
                                 </td>
                             </tr>
                         }

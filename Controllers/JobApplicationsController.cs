@@ -94,6 +94,13 @@ public class JobApplicationsController : Controller
         var app = await _context.JobApplications.FindAsync(id);
         if (app is not null)
         {
+            // Remove related generated cover letters first to satisfy the FK constraint
+            var linkedLetters = await _context.GeneratedCoverLetters
+                .Where(c => c.JobApplicationId == id)
+                .ToListAsync();
+            _context.GeneratedCoverLetters.RemoveRange(linkedLetters);
+            await _context.SaveChangesAsync();
+
             _context.JobApplications.Remove(app);
             await _context.SaveChangesAsync();
         }

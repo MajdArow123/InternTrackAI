@@ -1334,8 +1334,6 @@ textarea.form-control { min-height: 100px; resize: vertical; }
   font-size: .95rem;
   font-weight: 600;
   color: var(--muted);
-  align-self: flex-start;
-  margin-top: .35rem;
 }
 
 /* Recommendation badge */

@@ -273,10 +273,61 @@
         }
 
         // ── Auto-match against saved resume ──────────────
+        const TIERS = [
+            { min: 80, num: 5, label: 'APPLY',            desc: 'Strong fit — most required skills are present.' },
+            { min: 60, num: 4, label: 'APPLY',            desc: 'Good fit — you have the core fundamentals for this role.' },
+            { min: 40, num: 3, label: 'MAYBE',            desc: 'Moderate fit — some upskilling would strengthen your application.' },
+            { min: 20, num: 2, label: 'CONSIDER SKIPPING',desc: 'Weak fit — several key requirements are missing from your profile.' },
+            { min: 0,  num: 1, label: 'SKIP',             desc: 'Poor fit — the role requirements don\'t match your current profile.' },
+        ];
+
+        function getTier(sc) {
+            return TIERS.find(t => sc >= t.min) || TIERS[TIERS.length - 1];
+        }
+
+        function esc(s) {
+            return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        }
+
+        function buildMatchCard(d) {
+            const sc   = d.score;
+            const tier = getTier(sc);
+            const matchingSkills = d.matchingSkills || [];
+            const missingSkills  = d.missingSkills  || [];
+
+            const matchTags = matchingSkills.map(s => `<span class="skill-tag skill-tag--match">${esc(s)}</span>`).join('');
+            const missTags  = missingSkills.map(s  => `<span class="skill-tag skill-tag--missing">${esc(s)}</span>`).join('');
+
+            const skillsHtml = (matchTags || missTags) ? `
+                <div class="match-skills-grid">
+                    ${matchTags ? `<div class="match-skills-col">
+                        <div class="match-skills-header match-skills-header--match">Matching (${matchingSkills.length})</div>
+                        <div class="match-skills-tags">${matchTags}</div>
+                    </div>` : ''}
+                    ${missTags ? `<div class="match-skills-col">
+                        <div class="match-skills-header match-skills-header--missing">Missing (${missingSkills.length})</div>
+                        <div class="match-skills-tags">${missTags}</div>
+                    </div>` : ''}
+                </div>` : '';
+
+            return `
+                <div class="match-result-title">Resume Match</div>
+                <div class="match-verdict-row">
+                    <span class="match-score-big match-score-big--tier-${tier.num}">${sc}%</span>
+                    <span class="match-rec-badge match-tier-${tier.num}">${tier.label}</span>
+                    <span class="match-verdict-desc">${tier.desc}</span>
+                </div>
+                ${d.summary ? `<p class="match-summary-text">${esc(d.summary)}</p>` : ''}
+                ${skillsHtml}`;
+        }
+
         async function runAutoMatch(jobDescription, token) {
             const wrap = document.getElementById('inlineMatchWrap');
             const card = document.getElementById('inlineMatchCard');
-            wrap.hidden = true;
+
+            // Show loading state
+            card.innerHTML = '<p style="font-size:.82rem;color:var(--muted);margin:0">Analyzing resume match...</p>';
+            wrap.hidden = false;
 
             try {
                 const resp = await fetch('/Profile/AutoMatch', {
@@ -289,38 +340,19 @@
                 });
                 const d = await resp.json();
 
-                if (!d.hasResume) return; // no active resume — silently skip
-
-                wrap.hidden = false;
-
-                if (!d.success) {
-                    card.innerHTML = `<p style="font-size:.82rem;color:#be123c;margin:0">${d.error || 'Resume match failed.'}</p>`;
+                if (!d.hasResume) {
+                    wrap.hidden = true; // no active resume — silently skip
                     return;
                 }
 
-                const sc = d.score;
-                const cls = sc >= 70 ? 'apply' : sc >= 40 ? 'maybe' : 'noapply';
+                if (!d.success) {
+                    card.innerHTML = `<p style="font-size:.82rem;color:#be123c;margin:0">${esc(d.error || 'Resume match failed.')}</p>`;
+                    return;
+                }
 
-                const matchHtml = (d.matchingSkills || []).length
-                    ? (d.matchingSkills || []).map(s => `<span class="skill-tag skill-tag--match">${s}</span>`).join('')
-                    : '';
-                const missingHtml = (d.missingSkills || []).length
-                    ? (d.missingSkills || []).map(s => `<span class="skill-tag skill-tag--missing">${s}</span>`).join('')
-                    : '';
-
-                card.innerHTML = `
-                    <div class="inline-match-header">
-                        <span style="font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em">Resume Match</span>
-                        <span class="inline-score-pill inline-score-${cls}">${sc}% &mdash; ${d.recommendation}</span>
-                    </div>
-                    ${d.summary ? `<p style="font-size:.82rem;color:var(--text);margin-bottom:.6rem;line-height:1.55">${d.summary}</p>` : ''}
-                    ${matchHtml || missingHtml ? `
-                    <div style="display:flex;flex-wrap:wrap;gap:.75rem;">
-                        ${matchHtml ? `<div><div style="font-size:.68rem;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Matching</div><div style="display:flex;flex-wrap:wrap;gap:.3rem">${matchHtml}</div></div>` : ''}
-                        ${missingHtml ? `<div><div style="font-size:.68rem;font-weight:700;color:#be123c;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem">Missing</div><div style="display:flex;flex-wrap:wrap;gap:.3rem">${missingHtml}</div></div>` : ''}
-                    </div>` : ''}`;
+                card.innerHTML = buildMatchCard(d);
             } catch (_) {
-                // network error — silently ignore
+                wrap.hidden = true; // network error — silently ignore
             }
         }
     })();

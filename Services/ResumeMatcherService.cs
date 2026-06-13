@@ -40,7 +40,7 @@ public class ResumeMatcherService
     public async Task<ResumeMatchResult> MatchAsync(string resumeText, string jobDescription)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
-            return Fail("OpenAI API key is not configured. Add it to appsettings.json under OpenAI:ApiKey.");
+            return Fail("OpenAI API key is not configured. Run: dotnet user-secrets set \"OpenAI:ApiKey\" \"sk-...\"");
 
         if (resumeText.Length > 6000)    resumeText     = resumeText[..6000];
         if (jobDescription.Length > 4000) jobDescription = jobDescription[..4000];
@@ -51,10 +51,9 @@ public class ResumeMatcherService
 
         var userPrompt = $"""
             Compare this resume against this job description and return a JSON object with exactly these keys:
-            - score          (integer 0-100 — overall fit percentage)
-            - recommendation (string — exactly one of: "Apply", "Maybe", "Don't Apply")
+            - score          (integer 0-100 — overall fit percentage; be realistic and precise)
             - matchingSkills (array of strings — skills present in both resume and JD, max 10)
-            - missingSkills  (array of strings — skills in JD not found in resume, max 8)
+            - missingSkills  (array of strings — important skills in JD not found in resume, max 8)
             - strengths      (array of strings — 2-4 specific candidate strengths for this role)
             - summary        (string — 2-3 sentence plain-English explanation of the match)
 
@@ -93,7 +92,7 @@ public class ResumeMatcherService
                 _logger.LogError("OpenAI error {Status}: {Body}", (int)response.StatusCode, raw);
                 var msg = (int)response.StatusCode switch
                 {
-                    401 => "Invalid API key. Check the value in appsettings.json.",
+                    401 => "Invalid API key. Set it via dotnet user-secrets.",
                     429 => "OpenAI quota exceeded. Add credits at platform.openai.com/settings/billing.",
                     _   => $"OpenAI returned {(int)response.StatusCode}."
                 };
@@ -135,7 +134,15 @@ public class ResumeMatcherService
             if (r.TryGetProperty("score", out var score))
                 result.Score = score.ValueKind == JsonValueKind.Number ? Math.Clamp(score.GetInt32(), 0, 100) : 0;
 
-            result.Recommendation = Str(r, "recommendation") ?? string.Empty;
+            result.Recommendation = result.Score switch
+            {
+                >= 80 => "APPLY",
+                >= 60 => "APPLY",
+                >= 40 => "MAYBE",
+                >= 20 => "CONSIDER SKIPPING",
+                _     => "SKIP"
+            };
+
             result.Summary        = Str(r, "summary");
             result.MatchingSkills = StrArray(r, "matchingSkills");
             result.MissingSkills  = StrArray(r, "missingSkills");

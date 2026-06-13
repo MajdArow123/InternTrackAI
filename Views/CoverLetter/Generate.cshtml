@@ -14,11 +14,6 @@
         <a asp-controller="Profile" asp-action="Index" class="btn btn-outline-secondary btn-sm">View Profile</a>
     </div>
 
-    @if (TempData["SavedOk"] is string savedMsg)
-    {
-        <div class="cl-success-banner mb-3">@savedMsg</div>
-    }
-
     @if (!Model.HasActiveResume)
     {
         <div class="cl-info-banner mb-3">
@@ -112,14 +107,24 @@
     </div>
 
     <!-- ── Saved Cover Letters ── -->
-    @if (Model.SavedLetters.Any())
-    {
-        <div class="form-card">
-            <div class="d-flex align-items-center justify-content-between mb-3">
-                <p class="form-section-title mb-0">Saved Cover Letters</p>
+    <div class="form-card">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <p class="form-section-title mb-0">Saved Cover Letters</p>
+            @if (Model.SavedLetters.Any())
+            {
                 <span class="text-muted" style="font-size:.75rem">@Model.SavedLetters.Count saved</span>
-            </div>
+            }
+        </div>
 
+        @if (!Model.SavedLetters.Any())
+        {
+            <div class="empty-state" style="padding:2.5rem 1rem">
+                <p class="fw-semibold mb-1" style="color:var(--text);font-size:.9rem">No saved cover letters yet.</p>
+                <p class="mb-0" style="font-size:.82rem">Generate a cover letter above and click Save to Profile.</p>
+            </div>
+        }
+        else
+        {
             <div class="doc-list">
                 @foreach (var letter in Model.SavedLetters)
                 {
@@ -182,8 +187,8 @@
                     <textarea hidden id="cl-content-@letter.Id" style="display:none">@letter.Content</textarea>
                 }
             </div>
-        </div>
-    }
+        }
+    </div>
 
 </div>
 

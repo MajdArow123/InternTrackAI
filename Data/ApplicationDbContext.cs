@@ -16,4 +16,5 @@ public class ApplicationDbContext : IdentityDbContext
     public DbSet<ResumeVersion> ResumeVersions { get; set; }
     public DbSet<CoverLetterVersion> CoverLetterVersions { get; set; }
     public DbSet<GeneratedCoverLetter> GeneratedCoverLetters { get; set; }
+    public DbSet<InterviewPrepSession> InterviewPrepSessions { get; set; }
 }

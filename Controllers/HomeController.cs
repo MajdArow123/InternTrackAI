@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using InternTrackAI.Data;
@@ -24,9 +26,13 @@ public class HomeController : Controller
         return View();
     }
 
+    [Authorize]
     public async Task<IActionResult> Dashboard()
     {
-        var applications = await _context.JobApplications.ToListAsync();
+        var uid          = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+        var applications = await _context.JobApplications
+            .Where(a => a.UserId == uid)
+            .ToListAsync();
 
         var vm = new DashboardViewModel
         {

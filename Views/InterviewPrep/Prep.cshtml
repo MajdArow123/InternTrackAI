@@ -1,0 +1,210 @@
+@model InternTrackAI.Models.ViewModels.InterviewPrepViewModel
+@using InternTrackAI.Models
+
+@{
+    ViewData["Title"] = "Interview Prep";
+    var app = Model.Application;
+}
+
+<div class="container py-4" style="max-width:860px;">
+
+    <div class="page-header">
+        <div>
+            <h2>Interview Prep</h2>
+            <p class="sub">AI-generated questions tailored to this role and your resume</p>
+        </div>
+        <a asp-controller="JobApplications" asp-action="Index" class="btn btn-outline-secondary btn-sm">&larr; Applications</a>
+    </div>
+
+    <!-- Job info card -->
+    <div class="form-card mb-3">
+        <div class="d-flex align-items-center gap-3">
+            <div class="company-avatar" style="width:42px;height:42px;font-size:.82rem;border-radius:10px">
+                @{
+                    var parts  = app.CompanyName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    var initials = parts.Length >= 2
+                        ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+                        : app.CompanyName.Length >= 2 ? app.CompanyName[..2].ToUpper() : app.CompanyName.ToUpper();
+                }
+                @initials
+            </div>
+            <div>
+                <div style="font-weight:700;font-size:.95rem">@app.CompanyName</div>
+                <div style="color:var(--muted);font-size:.82rem">@app.RoleTitle@(app.Location != null ? " · " + app.Location : "")</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Generate card -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">Generate Interview Questions</p>
+
+        @if (Model.Session is not null)
+        {
+            <p class="text-muted mb-3" style="font-size:.82rem">
+                Last generated on @Model.Session.GeneratedAt.ToLocalTime().ToString("MMM d, yyyy 'at' h:mm tt").
+                Regenerate to get a fresh set based on your current resume and skills.
+            </p>
+        }
+        else
+        {
+            <p class="text-muted mb-3" style="font-size:.82rem">
+                The AI will generate 8–10 interview questions covering Technical, Behavioral, and
+                Company-Specific topics, using the job description and your active resume.
+            </p>
+        }
+
+        @Html.AntiForgeryToken()
+        <div class="d-flex align-items-center gap-3">
+            <button type="button" class="btn btn-dark px-4" id="generateBtn">
+                @(Model.Session is null ? "Generate Interview Prep" : "Regenerate")
+            </button>
+            <span class="text-muted" style="font-size:.78rem">Powered by GPT-4o mini</span>
+        </div>
+        <div class="match-error-banner mt-3" id="generateError" hidden></div>
+    </div>
+
+    <!-- Questions section -->
+    <div id="questionsSection" @(Model.Questions.Any() ? "" : "hidden")>
+        <div id="generatedAt" class="text-muted mb-3" style="font-size:.78rem">
+            @if (Model.Session is not null)
+            {
+                @($"Generated on {Model.Session.GeneratedAt.ToLocalTime():MMM d, yyyy}")
+            }
+        </div>
+        <div id="questionsContainer">
+            @if (Model.Questions.Any())
+            {
+                var grouped = Model.Questions.GroupBy(q => q.Category).ToDictionary(g => g.Key, g => g.ToList());
+                var catOrder = new[] { "Technical", "Behavioral", "Company-Specific" };
+                var catCss   = new Dictionary<string, string>
+                {
+                    ["Technical"]        = "prep-cat-technical",
+                    ["Behavioral"]       = "prep-cat-behavioral",
+                    ["Company-Specific"] = "prep-cat-company"
+                };
+                foreach (var cat in catOrder)
+                {
+                    if (!grouped.TryGetValue(cat, out var qs)) continue;
+                    <div class="prep-category-section mb-4">
+                        <div class="prep-category-header">
+                            <span class="prep-category-badge @catCss.GetValueOrDefault(cat, "prep-cat-technical")">@cat</span>
+                            <span class="text-muted" style="font-size:.75rem">@qs.Count question@(qs.Count == 1 ? "" : "s")</span>
+                        </div>
+                        <div class="prep-questions-list">
+                            @foreach (var q in qs)
+                            {
+                                <div class="prep-question-card">
+                                    <div class="prep-question-text">@q.Question</div>
+                                    @if (!string.IsNullOrWhiteSpace(q.Tip))
+                                    {
+                                        <div class="prep-tip">
+                                            <span class="prep-tip-label">Tip</span>@q.Tip
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const generateBtn    = document.getElementById('generateBtn');
+    const errorBanner    = document.getElementById('generateError');
+    const questionsSection = document.getElementById('questionsSection');
+    const questionsContainer = document.getElementById('questionsContainer');
+    const generatedAtEl  = document.getElementById('generatedAt');
+    const token          = document.querySelector('[name="__RequestVerificationToken"]').value;
+    const appId          = @app.Id;
+
+    const CAT_CSS = {
+        'Technical':        'prep-cat-technical',
+        'Behavioral':       'prep-cat-behavioral',
+        'Company-Specific': 'prep-cat-company'
+    };
+    const CAT_ORDER = ['Technical', 'Behavioral', 'Company-Specific'];
+
+    generateBtn.addEventListener('click', async function () {
+        errorBanner.hidden = true;
+        setLoading(true);
+
+        try {
+            const resp = await fetch('/InterviewPrep/Generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': token
+                },
+                body: JSON.stringify({ appId })
+            });
+
+            const data = await resp.json();
+
+            if (!data.success) {
+                errorBanner.textContent = data.error || 'Generation failed. Please try again.';
+                errorBanner.hidden = false;
+                return;
+            }
+
+            renderQuestions(data.questions);
+            generatedAtEl.textContent = 'Generated just now';
+            questionsSection.hidden = false;
+            questionsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            generateBtn.textContent = 'Regenerate';
+
+        } catch (_) {
+            errorBanner.textContent = 'Request failed. Check your connection and try again.';
+            errorBanner.hidden = false;
+        } finally {
+            setLoading(false);
+        }
+    });
+
+    function renderQuestions(questions) {
+        const groups = {};
+        questions.forEach(q => {
+            if (!groups[q.category]) groups[q.category] = [];
+            groups[q.category].push(q);
+        });
+
+        let html = '';
+        for (const cat of CAT_ORDER) {
+            const qs = groups[cat];
+            if (!qs || !qs.length) continue;
+            html += `<div class="prep-category-section mb-4">
+                <div class="prep-category-header">
+                    <span class="prep-category-badge ${CAT_CSS[cat] || 'prep-cat-technical'}">${cat}</span>
+                    <span class="text-muted" style="font-size:.75rem">${qs.length} question${qs.length > 1 ? 's' : ''}</span>
+                </div>
+                <div class="prep-questions-list">`;
+            qs.forEach(q => {
+                html += `<div class="prep-question-card">
+                    <div class="prep-question-text">${esc(q.question)}</div>
+                    ${q.tip ? `<div class="prep-tip"><span class="prep-tip-label">Tip</span>${esc(q.tip)}</div>` : ''}
+                </div>`;
+            });
+            html += `</div></div>`;
+        }
+        questionsContainer.innerHTML = html;
+    }
+
+    function esc(s) {
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function setLoading(on) {
+        generateBtn.disabled = on;
+        generateBtn.innerHTML = on
+            ? '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Generating...'
+            : (questionsSection.hidden ? 'Generate Interview Prep' : 'Regenerate');
+    }
+})();
+</script>
+}

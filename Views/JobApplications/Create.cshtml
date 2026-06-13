@@ -48,8 +48,26 @@
         </div>
     </div>
 
+    @if (ViewBag.DuplicateWarning == true)
+    {
+        <div class="duplicate-warning mb-3" id="duplicateWarning">
+            <div class="d-flex align-items-start gap-2">
+                <div class="flex-1">
+                    <strong>Possible duplicate</strong> — you already have an application for
+                    <strong>@Model.CompanyName</strong> &mdash; <strong>@Model.RoleTitle</strong>.
+                    Review your existing applications or save anyway if this is intentional.
+                </div>
+            </div>
+            <div class="mt-2 d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-dark" id="saveAnywayBtn">Save Anyway</button>
+                <a asp-action="Index" class="btn btn-sm btn-outline-secondary">Back to Applications</a>
+            </div>
+        </div>
+    }
+
     <!-- Application form -->
     <form asp-action="Create" method="post" id="appForm">
+        <input type="hidden" name="forceCreate" id="forceCreate" value="false" />
 
         <!-- Core info -->
         <div class="form-card mb-3">
@@ -126,6 +144,12 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+    document.getElementById('saveAnywayBtn')?.addEventListener('click', function () {
+        document.getElementById('forceCreate').value = 'true';
+        document.getElementById('appForm').submit();
+    });
+    </script>
     <script>
     (function () {
         const card       = document.getElementById('analyzerCard');

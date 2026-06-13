@@ -76,5 +76,30 @@
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
+
+    @if (TempData["Toast"] is string toastData)
+    {
+        var parts     = toastData.Split('|', 2);
+        var toastType = parts.Length > 0 ? parts[0] : "info";
+        var toastMsg  = parts.Length > 1 ? parts[1] : "";
+        <div id="app-toast" class="app-toast app-toast-@toastType" role="alert" aria-live="polite">
+            <span class="app-toast-dot"></span>
+            <span class="app-toast-msg">@toastMsg</span>
+            <button type="button" class="app-toast-close" onclick="dismissToast()" aria-label="Dismiss">&#215;</button>
+        </div>
+        <script>
+        window.addEventListener('DOMContentLoaded', function () {
+            var t = document.getElementById('app-toast');
+            if (t) {
+                requestAnimationFrame(function () { t.classList.add('app-toast-show'); });
+                setTimeout(dismissToast, 4500);
+            }
+        });
+        function dismissToast() {
+            var t = document.getElementById('app-toast');
+            if (t) { t.classList.remove('app-toast-show'); setTimeout(function () { t.remove(); }, 280); }
+        }
+        </script>
+    }
 </body>
 </html>

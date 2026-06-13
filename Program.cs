@@ -17,6 +17,7 @@ builder.Services.AddHttpClient<JobAnalyzerService>();
 builder.Services.AddHttpClient<ResumeMatcherService>();
 builder.Services.AddHttpClient<ResumeScoreService>();
 builder.Services.AddHttpClient<CoverLetterGeneratorService>();
+builder.Services.AddHttpClient<InterviewPrepService>();
 builder.Services.AddHttpClient("UrlFetcher")
     .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddControllersWithViews();

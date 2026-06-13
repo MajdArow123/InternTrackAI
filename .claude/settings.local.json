@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dotnet build *)",
+      "Skill(run)",
+      "Bash(pkill -f \"dotnet.*InternTrackAI\")",
+      "Bash(gh auth *)",
+      "Bash(gh repo *)",
+      "Bash(git -C /Users/majdarow/Desktop/InternTrackAI/InternTrackAI remote set-url origin https://github.com/MajdArow123/InternTrackAI.git)",
+      "Bash(git -C /Users/majdarow/Desktop/InternTrackAI/InternTrackAI push -u origin main)",
+      "Bash(git *)",
+      "Bash(python3 -c \"import PIL\")",
+      "Read(//Applications/**)",
+      "Bash(dotnet tool *)",
+      "Bash(dotnet aspnet-codegenerator identity *)",
+      "Bash(dotnet ef *)",
+      "Bash(xargs kill -9)",
+      "Bash(dotnet run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5240/Profile)",
+      "Bash(curl -s -I http://localhost:5240/Profile)"
+    ]
+  }
+}

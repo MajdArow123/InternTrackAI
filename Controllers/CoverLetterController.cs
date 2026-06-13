@@ -147,7 +147,7 @@ public class CoverLetterController : Controller
         _db.GeneratedCoverLetters.Add(letter);
         await _db.SaveChangesAsync();
 
-        TempData["SavedOk"] = $"Cover letter v{letter.VersionNumber} saved.";
+        TempData["Toast"] = $"success|Cover letter v{letter.VersionNumber} saved.";
         return RedirectToAction(nameof(Generate));
     }
 

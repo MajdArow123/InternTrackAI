@@ -19,6 +19,56 @@
   --duration:      180ms;
 }
 
+/* ── Keyframe Animations ─────────────────────────────── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(22px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes heroGradientShift {
+  0%, 100% { background-position: 0% 60%; }
+  50%       { background-position: 100% 40%; }
+}
+
+@keyframes scoreRingDraw {
+  to { stroke-dashoffset: var(--ring-offset, 339.29); }
+}
+
+@keyframes shimmerSweep {
+  from { background-position: 200% center; }
+  to   { background-position: -200% center; }
+}
+
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(1.5rem); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Fade-up utility — staggered entrance */
+.anim-fade-up {
+  opacity: 0;
+  animation: fadeSlideUp .55s var(--ease) forwards;
+}
+.anim-d1 { animation-delay: .07s; }
+.anim-d2 { animation-delay: .15s; }
+.anim-d3 { animation-delay: .23s; }
+.anim-d4 { animation-delay: .31s; }
+.anim-d5 { animation-delay: .39s; }
+.anim-d6 { animation-delay: .47s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-fade-up { animation: none; opacity: 1; }
+  .score-fill   { animation: none !important; }
+}
+
+/* Shimmer placeholder bars for AI loading states */
+.shimmer-bar {
+  border-radius: 6px;
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: shimmerSweep 1.4s ease infinite;
+}
+
 /* ── Base ────────────────────────────────────────────── */
 html { font-size: 15px; }
 @media (min-width: 768px) { html { font-size: 16px; } }
@@ -142,7 +192,9 @@ a { transition: color var(--duration) var(--ease); }
 
 /* ── Hero ────────────────────────────────────────────── */
 .hero-section {
-  background: linear-gradient(140deg, #0f0c29 0%, #1a1460 40%, #24243e 100%);
+  background: linear-gradient(140deg, #0f0c29 0%, #1a1460 40%, #24243e 80%, #1a1060 100%);
+  background-size: 250% 250%;
+  animation: heroGradientShift 9s ease infinite;
   position: relative;
   overflow: hidden;
   padding: 5rem 0 4.5rem;
@@ -236,9 +288,16 @@ a { transition: color var(--duration) var(--ease); }
   border: none;
   font-weight: 700;
   box-shadow: 0 4px 14px rgba(0,0,0,.25);
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease),
+              transform 200ms var(--ease), box-shadow 200ms var(--ease);
 }
 
-.btn-hero-primary:hover { background: #f0f0ff; color: var(--primary); }
+.btn-hero-primary:hover {
+  background: #f0f0ff;
+  color: var(--primary);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.3);
+}
 
 .btn-hero-secondary {
   background: transparent;
@@ -248,12 +307,15 @@ a { transition: color var(--duration) var(--ease); }
   border-radius: var(--radius-sm);
   border: 1.5px solid rgba(255,255,255,.3);
   font-weight: 600;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease),
+              border-color var(--duration) var(--ease), transform 200ms var(--ease);
 }
 
 .btn-hero-secondary:hover {
   background: rgba(255,255,255,.1);
   color: #fff;
   border-color: rgba(255,255,255,.6);
+  transform: translateY(-2px);
 }
 
 /* ── Feature cards ───────────────────────────────────── */
@@ -264,10 +326,14 @@ a { transition: color var(--duration) var(--ease); }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 2rem 1.75rem;
-  transition: transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+  transition: transform 200ms var(--ease), box-shadow 200ms var(--ease), border-color 200ms var(--ease);
 }
 
-.feature-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); }
+.feature-card:hover {
+  transform: translateY(-5px) scale(1.02);
+  box-shadow: var(--shadow-lg);
+  border-color: #c7d2fe;
+}
 
 .feature-icon {
   width: 44px; height: 44px;
@@ -298,12 +364,12 @@ a { transition: color var(--duration) var(--ease); }
   padding: 1.25rem 1rem;
   text-align: center;
   box-shadow: var(--shadow-xs);
-  transition: transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+  transition: transform 200ms var(--ease), box-shadow 200ms var(--ease);
   position: relative;
   overflow: hidden;
 }
 
-.stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-sm); }
+.stat-card:hover { transform: translateY(-4px) scale(1.02); box-shadow: var(--shadow); }
 
 .stat-card::before {
   content: '';
@@ -448,6 +514,12 @@ a { transition: color var(--duration) var(--ease); }
   border-radius: var(--radius);
   box-shadow: var(--shadow-sm);
   padding: 2rem 2.25rem;
+  transition: box-shadow 200ms var(--ease), border-color 200ms var(--ease);
+}
+
+.form-card:hover {
+  box-shadow: var(--shadow);
+  border-color: #dde3f0;
 }
 
 .form-section-title {
@@ -1372,6 +1444,9 @@ textarea.form-control { min-height: 100px; resize: vertical; }
   fill: none;
   stroke-width: 10;
   stroke-linecap: round;
+  stroke-dashoffset: 339.29;
+  animation: scoreRingDraw 1.2s cubic-bezier(.4, 0, .2, 1) forwards;
+  animation-delay: .3s;
 }
 
 .score-fill--apply   { stroke: #10b981; }
@@ -1589,14 +1664,14 @@ textarea.form-control { min-height: 100px; resize: vertical; }
   font-weight: 500;
   max-width: 380px;
   opacity: 0;
-  transform: translateY(-.6rem);
-  transition: opacity .25s var(--ease), transform .25s var(--ease);
+  transform: translateX(1.75rem);
+  transition: opacity .3s var(--ease), transform .3s var(--ease);
   pointer-events: none;
 }
 
 .app-toast.app-toast-show {
   opacity: 1;
-  transform: translateY(0);
+  transform: translateX(0);
   pointer-events: auto;
 }
 
@@ -1774,10 +1849,7 @@ textarea.form-control { min-height: 100px; resize: vertical; }
   border-radius: var(--radius-sm);
   padding: 1rem 1.25rem;
   margin-bottom: .6rem;
-  transition: border-color var(--duration) var(--ease);
 }
-
-.prep-question-card:hover { border-color: #c7d2fe; }
 
 .prep-question-text {
   font-size: .9rem;
@@ -1813,4 +1885,73 @@ textarea.form-control { min-height: 100px; resize: vertical; }
   height: 1px;
   background: var(--border);
   margin: 2rem 0;
+}
+
+/* ── Button hover polish ─────────────────────────────── */
+.btn-dark {
+  transition: background-color var(--duration) var(--ease), color var(--duration) var(--ease),
+              transform 200ms var(--ease), box-shadow 200ms var(--ease);
+}
+.btn-dark:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.2);
+}
+.btn-outline-primary,
+.btn-outline-secondary {
+  transition: background-color var(--duration) var(--ease), color var(--duration) var(--ease),
+              border-color var(--duration) var(--ease),
+              transform 200ms var(--ease), box-shadow 200ms var(--ease);
+}
+.btn-outline-primary:hover:not(:disabled),
+.btn-outline-secondary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0,0,0,.1);
+}
+
+/* ── AI shimmer loading ──────────────────────────────── */
+.ai-shimmer-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: .6rem;
+  padding: .5rem 0;
+}
+.shimmer-bar    { height: 13px; }
+.shimmer-bar.w-full  { width: 100%; }
+.shimmer-bar.w-three { width: 75%; }
+.shimmer-bar.w-half  { width: 50%; }
+
+/* ── Auth form entrance ──────────────────────────────── */
+.auth-form-wrapper {
+  animation: fadeSlideUp .45s var(--ease) .1s both;
+}
+.auth-panel-content {
+  animation: fadeSlideUp .55s var(--ease) .25s both;
+}
+.auth-submit-btn {
+  transition: background-color var(--duration) var(--ease),
+              transform 200ms var(--ease), box-shadow 200ms var(--ease);
+}
+.auth-submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(79,70,229,.35);
+}
+
+/* ── Mini-stat hover ─────────────────────────────────── */
+.mini-stat {
+  transition: transform 200ms var(--ease), box-shadow 200ms var(--ease);
+}
+.mini-stat:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ── Interview prep question card hover ──────────────── */
+.prep-question-card {
+  transition: border-color var(--duration) var(--ease),
+              transform 200ms var(--ease), box-shadow 200ms var(--ease);
+}
+.prep-question-card:hover {
+  border-color: #c7d2fe;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-xs);
 }

@@ -38,22 +38,24 @@
 
     <!-- Stat cards -->
     <div class="stats-grid mb-4">
-        <div class="stat-card stat-card-total">
-            <div class="stat-number">@Model.TotalApplications</div>
+        <div class="stat-card stat-card-total anim-fade-up anim-d1">
+            <div class="stat-number" data-count="@Model.TotalApplications">@Model.TotalApplications</div>
             <div class="stat-label">Total</div>
         </div>
+        @{int delay = 2;}
         @foreach (var status in Enum.GetValues<ApplicationStatus>())
         {
             var count = Model.StatusCounts.GetValueOrDefault(status, 0);
-            <div class="stat-card stat-card-@status.ToString().ToLower()">
-                <div class="stat-number">@count</div>
+            <div class="stat-card stat-card-@status.ToString().ToLower() anim-fade-up anim-d@(delay)">
+                <div class="stat-number" data-count="@count">@count</div>
                 <div class="stat-label">@status</div>
             </div>
+            delay = Math.Min(delay + 1, 6);
         }
     </div>
 
     <!-- Recent applications -->
-    <div class="app-table-wrapper">
+    <div class="app-table-wrapper anim-fade-up anim-d4">
         <div class="card-header-clean">
             <h5>Recent Applications</h5>
             <a asp-controller="JobApplications" asp-action="Index"
@@ -111,3 +113,25 @@
     </div>
 
 </div>
+
+@section Scripts {
+<script>
+(function () {
+    function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
+
+    document.querySelectorAll('.stat-number[data-count]').forEach(function (el) {
+        var target = parseInt(el.dataset.count, 10);
+        if (isNaN(target) || target === 0) return;
+        var start = null;
+        var duration = 850;
+        function step(ts) {
+            if (!start) start = ts;
+            var p = Math.min((ts - start) / duration, 1);
+            el.textContent = Math.round(easeOutQuart(p) * target);
+            if (p < 1) requestAnimationFrame(step);
+        }
+        requestAnimationFrame(step);
+    });
+})();
+</script>
+}

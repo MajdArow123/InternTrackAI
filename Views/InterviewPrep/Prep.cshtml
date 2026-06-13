@@ -204,6 +204,18 @@
         generateBtn.innerHTML = on
             ? '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Generating...'
             : (questionsSection.hidden ? 'Generate Interview Prep' : 'Regenerate');
+        if (on) {
+            questionsContainer.innerHTML =
+                '<div class="ai-shimmer-wrap" style="margin-top:.5rem">' +
+                '<div class="shimmer-bar w-half"></div>' +
+                '<div class="shimmer-bar w-full"></div>' +
+                '<div class="shimmer-bar w-three"></div>' +
+                '<div class="shimmer-bar w-full" style="margin-top:.4rem"></div>' +
+                '<div class="shimmer-bar w-half"></div>' +
+                '<div class="shimmer-bar w-full"></div>' +
+                '</div>';
+            questionsSection.hidden = false;
+        }
     }
 })();
 </script>

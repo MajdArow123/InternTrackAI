@@ -43,7 +43,7 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 - URLs are auto-detected — the page is fetched and parsed server-side before analysis
 - GPT-4o-mini extracts company name, role title, location, salary, and up to 8 required skills
 - Extracted data auto-fills the form with an animated highlight effect
-- After analysis, automatically runs a resume match against the user's active resume (if uploaded) and shows an inline match score, recommendation, and skill breakdown
+- After analysis, automatically runs a resume match against the user's active resume (if uploaded) and shows a score, 5-tier recommendation, and matching/missing skill breakdown
 
 **Phase 3 — Career Portfolio (`/Profile`)**
 - Personal info: full name, age, country, phone, profile photo
@@ -76,6 +76,15 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 - Each question includes a tip on how to approach answering it
 - Results are saved per application and can be regenerated at any time
 - "Interview Prep" button on every row of the Applications list for one-click access
+
+**Phase 7 — Security, Error Handling, and Resume Match Redesign**
+- OpenAI API key stored in .NET User Secrets — never committed to source control
+- PDF uploads validated by magic bytes (`%PDF` signature) in addition to file extension, preventing disguised file uploads
+- Uploaded filenames sanitized before being stored in the database
+- All AI features (Job Analyzer, Resume Score, Cover Letter, Interview Prep) return clear, actionable error messages for invalid keys, rate limits, and network failures
+- Custom 404 and 500 error pages matching the site design instead of the default ASP.NET pages
+- Resume Match redesigned with a 5-tier score system: **APPLY** (80–100%, green), **APPLY** (60–79%, blue), **MAYBE** (40–59%, amber), **CONSIDER SKIPPING** (20–39%, orange), **SKIP** (0–19%, red)
+- Match card shows the score prominently, a color-coded recommendation badge, tier description, AI summary, and matching/missing skills with counts
 
 **Quality of Life**
 - Duplicate detection on the Add Application form — warns before saving if the same company and role already exists, with an option to save anyway

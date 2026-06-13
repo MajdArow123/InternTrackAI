@@ -16,9 +16,13 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 |---|---|
 | ![Cover Letter](docs/screenshots/cover_letter.png) | ![Interview Prep](docs/screenshots/interview_prep.png) |
 
-| Profile | Sign In |
+| Resume Match | Profile |
 |---|---|
-| ![Profile](docs/screenshots/profile.png) | ![Sign In](docs/screenshots/login.png) |
+| ![Resume Match](docs/screenshots/resume_match.png) | ![Profile](docs/screenshots/profile.png) |
+
+| Sign In | |
+|---|---|
+| ![Sign In](docs/screenshots/login.png) | |
 
 | Register | |
 |---|---|

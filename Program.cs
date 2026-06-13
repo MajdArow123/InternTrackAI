@@ -36,6 +36,8 @@ else
     app.UseHsts();
 }
 
+app.UseStatusCodePagesWithReExecute("/Home/NotFound");
+
 app.UseHttpsRedirection();
 app.UseRouting();
 

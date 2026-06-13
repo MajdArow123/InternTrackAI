@@ -91,7 +91,7 @@ public class InterviewPrepService
                 _logger.LogError("OpenAI error {Status}: {Body}", (int)response.StatusCode, raw);
                 var msg = (int)response.StatusCode switch
                 {
-                    401 => "Invalid API key. Check appsettings.json.",
+                    401 => "Invalid API key. Set it via dotnet user-secrets.",
                     429 => "OpenAI quota exceeded. Add credits at platform.openai.com.",
                     _   => $"OpenAI returned {(int)response.StatusCode}."
                 };

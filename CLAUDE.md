@@ -16,6 +16,16 @@ dotnet ef database update         # apply pending migrations to app.db
 
 There are no tests at this time.
 
+## Secrets / API Keys
+
+The OpenAI API key is stored in .NET User Secrets, not in `appsettings.json`. The key in `appsettings.json` is a placeholder. To run the AI features locally:
+
+```bash
+dotnet user-secrets set "OpenAI:ApiKey" "sk-..."
+```
+
+The `UserSecretsId` is already set in the `.csproj`. User Secrets override `appsettings.json` automatically in Development. Never commit real keys — `appsettings.json` is gitignored.
+
 ## Architecture
 
 ASP.NET Core 9 MVC app with SQLite via EF Core and ASP.NET Identity scaffolded in.

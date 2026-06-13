@@ -29,7 +29,7 @@ public class JobAnalyzerService
     public async Task<JobAnalysisResult> AnalyzeAsync(string input)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
-            return Fail("OpenAI API key is not configured. Add it to appsettings.json under OpenAI:ApiKey.");
+            return Fail("OpenAI API key is not configured. Run: dotnet user-secrets set \"OpenAI:ApiKey\" \"sk-...\"");
 
         string jobDescription = input;
 
@@ -86,7 +86,7 @@ public class JobAnalyzerService
 
                 var userMessage = (int)response.StatusCode switch
                 {
-                    401 => "Invalid API key. Check the value in appsettings.json.",
+                    401 => "Invalid API key. Set it via dotnet user-secrets.",
                     429 => "OpenAI rate limit or quota exceeded. Add credits at platform.openai.com/settings/billing.",
                     _   => $"OpenAI returned {(int)response.StatusCode}. Check your API key and account."
                 };

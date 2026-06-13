@@ -407,6 +407,18 @@ public class ProfileController : Controller
             return RedirectToAction(nameof(Index));
         }
 
+        // Validate PDF magic bytes (%PDF = 0x25 0x50 0x44 0x46)
+        var magic = new byte[4];
+        await using (var checkStream = file.OpenReadStream())
+        {
+            var read = await checkStream.ReadAsync(magic.AsMemory(0, 4));
+            if (read < 4 || magic[0] != 0x25 || magic[1] != 0x50 || magic[2] != 0x44 || magic[3] != 0x46)
+            {
+                TempData["Error"] = $"{label} is not a valid PDF file.";
+                return RedirectToAction(nameof(Index));
+            }
+        }
+
         var userId = UserId();
         var subDir = isResume ? "resumes" : "coverletters";
         var dir = Path.Combine(_env.ContentRootPath, "uploads", subDir, userId);
@@ -419,6 +431,8 @@ public class ProfileController : Controller
 
         var relativePath = Path.Combine("uploads", subDir, userId, stored);
 
+        var safeOriginalName = SanitizeFileName(file.FileName);
+
         if (isResume)
         {
             int nextVersion = (await _db.ResumeVersions.Where(r => r.UserId == userId).MaxAsync(r => (int?)r.VersionNumber) ?? 0) + 1;
@@ -427,7 +441,7 @@ public class ProfileController : Controller
             {
                 UserId           = userId,
                 VersionNumber    = nextVersion,
-                OriginalFileName = file.FileName,
+                OriginalFileName = safeOriginalName,
                 StoredPath       = relativePath,
                 FileSize         = file.Length,
                 IsActive         = firstOne
@@ -441,7 +455,7 @@ public class ProfileController : Controller
             {
                 UserId           = userId,
                 VersionNumber    = nextVersion,
-                OriginalFileName = file.FileName,
+                OriginalFileName = safeOriginalName,
                 StoredPath       = relativePath,
                 FileSize         = file.Length,
                 IsActive         = firstOne
@@ -498,6 +512,14 @@ public class ProfileController : Controller
             return JsonSerializer.Serialize(list.Select(s => s.Trim()).Where(s => s.Length > 0).Distinct().ToList());
         }
         catch { return null; }
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        var sanitized = Path.GetFileName(name);
+        var invalid = Path.GetInvalidFileNameChars();
+        sanitized = new string(sanitized.Where(c => !invalid.Contains(c)).ToArray());
+        return string.IsNullOrWhiteSpace(sanitized) ? "upload.pdf" : sanitized;
     }
 }
 

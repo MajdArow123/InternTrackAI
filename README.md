@@ -99,24 +99,10 @@ git clone https://github.com/MajdArow123/InternTrackAI.git
 cd InternTrackAI
 ```
 
-Add your OpenAI key to `appsettings.json` (this file is gitignored and must be created locally):
+Set your OpenAI API key using .NET User Secrets (the key is never stored in source files):
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Data Source=app.db"
-  },
-  "OpenAI": {
-    "ApiKey": "sk-..."
-  },
-  "Logging": {
-    "LogLevel": {
-      "Default": "Information",
-      "Microsoft.AspNetCore": "Warning"
-    }
-  },
-  "AllowedHosts": "*"
-}
+```bash
+dotnet user-secrets set "OpenAI:ApiKey" "sk-..."
 ```
 
 Run the app:

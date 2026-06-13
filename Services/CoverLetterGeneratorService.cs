@@ -29,7 +29,7 @@ public class CoverLetterGeneratorService
         string targetRoles, string extraNotes)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
-            return (false, "", "OpenAI API key is not configured. Add it to appsettings.json under OpenAI:ApiKey.");
+            return (false, "", "OpenAI API key is not configured. Run: dotnet user-secrets set \"OpenAI:ApiKey\" \"sk-...\"");
 
         if (resumeText.Length   > 5000) resumeText    = resumeText[..5000];
         if (jobDescription.Length > 4000) jobDescription = jobDescription[..4000];
@@ -100,7 +100,7 @@ public class CoverLetterGeneratorService
                 _logger.LogError("OpenAI error {Status}: {Body}", (int)response.StatusCode, raw);
                 var msg = (int)response.StatusCode switch
                 {
-                    401 => "Invalid API key. Check the value in appsettings.json.",
+                    401 => "Invalid API key. Set it via dotnet user-secrets.",
                     429 => "OpenAI quota exceeded. Add credits at platform.openai.com/settings/billing.",
                     _   => $"OpenAI returned {(int)response.StatusCode}."
                 };

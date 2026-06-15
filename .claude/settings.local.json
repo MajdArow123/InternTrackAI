@@ -17,7 +17,8 @@
       "Bash(xargs kill -9)",
       "Bash(dotnet run *)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5240/Profile)",
-      "Bash(curl -s -I http://localhost:5240/Profile)"
+      "Bash(curl -s -I http://localhost:5240/Profile)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5240/)"
     ]
   }
 }

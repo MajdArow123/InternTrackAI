@@ -1965,7 +1965,7 @@ textarea.form-control { min-height: 100px; resize: vertical; }
 }
 .match-dot--green  { background: #16a34a; box-shadow: 0 0 0 2px rgba(22,163,74,.2); }
 .match-dot--blue   { background: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,.2); }
-.match-dot--amber  { background: #d97706; box-shadow: 0 0 0 2px rgba(217,119,6,.2); }
+.match-dot--amber  { background: #f59e0b; box-shadow: 0 0 0 2px rgba(245,158,11,.25); }
 .match-dot--orange { background: #ea580c; box-shadow: 0 0 0 2px rgba(234,88,12,.2); }
 .match-dot--red    { background: #dc2626; box-shadow: 0 0 0 2px rgba(220,38,38,.2); }
 
@@ -2082,6 +2082,12 @@ html[data-theme="dark"] .badge-applied   { background: rgba(37,99,235,.12); colo
 html[data-theme="dark"] .badge-interview { background: rgba(217,119,6,.12); color: #fbbf24; border-color: #d97706; }
 html[data-theme="dark"] .badge-offer     { background: rgba(22,163,74,.12); color: #4ade80; border-color: #16a34a; }
 html[data-theme="dark"] .badge-rejected  { background: rgba(220,38,38,.12); color: #f87171; border-color: #dc2626; }
+
+/* Match dot dark mode boost */
+html[data-theme="dark"] .match-dot--amber  { background: #fbbf24; box-shadow: 0 0 0 2px rgba(251,191,36,.35); }
+
+/* Match tier badge dark mode */
+html[data-theme="dark"] .match-tier-3 { color: #fbbf24; background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.3); }
 
 /* Skill tags */
 html[data-theme="dark"] .skill-tag--match   { background: rgba(22,163,74,.12); color: #4ade80; border-color: rgba(22,163,74,.3); }

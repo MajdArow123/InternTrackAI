@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
@@ -53,6 +54,10 @@ builder.Services.AddHttpClient<InterviewPrepService>();
 builder.Services.AddHttpClient("UrlFetcher")
     .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddControllersWithViews();
+
+// Persist Data Protection keys to DB so antiforgery tokens survive container restarts.
+builder.Services.AddDataProtection()
+    .PersistKeysToDbContext<ApplicationDbContext>();
 
 // ── Port (Railway injects PORT) ──────────────────────────────────────────────
 var port = Environment.GetEnvironmentVariable("PORT");

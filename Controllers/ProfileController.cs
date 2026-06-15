@@ -47,12 +47,13 @@ public class ProfileController : Controller
     // ── POST /Profile/SaveInfo ───────────────────────────
 
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> SaveInfo(string? fullName, int? age, string? country, string? phoneNumber)
+    public async Task<IActionResult> SaveInfo(string? fullName, string? displayName, int? age, string? country, string? phoneNumber)
     {
         var userId = UserId();
         var profile = await GetOrCreateProfileAsync(userId);
 
         profile.FullName    = fullName?.Trim();
+        profile.DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
         profile.Age         = age;
         profile.Country     = country?.Trim();
         profile.PhoneNumber = phoneNumber?.Trim();

@@ -10,6 +10,7 @@ public class UserProfile
     public string? PhoneNumber { get; set; }
     public string? PhotoFileName { get; set; }
     public int PhotoVersion { get; set; }
+    public string? DisplayName { get; set; }
     public string? SkillsJson { get; set; }
     public string? TargetRolesJson { get; set; }
 }

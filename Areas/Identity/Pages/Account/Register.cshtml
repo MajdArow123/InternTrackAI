@@ -27,6 +27,13 @@
     </div>
 
     <div class="auth-field">
+        <label asp-for="Input.DisplayName" class="form-label">Display name <span class="text-muted fw-normal" style="font-size:.85em">(optional — shown in navbar)</span></label>
+        <input asp-for="Input.DisplayName" class="form-control auth-input"
+               type="text" placeholder="e.g. Alex" autocomplete="nickname" />
+        <span asp-validation-for="Input.DisplayName" class="auth-error"></span>
+    </div>
+
+    <div class="auth-field">
         <label asp-for="Input.Password" class="form-label">Password</label>
         <input asp-for="Input.Password" class="form-control auth-input"
                type="password" placeholder="At least 6 characters" autocomplete="new-password" />

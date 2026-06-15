@@ -15,11 +15,13 @@ if (!string.IsNullOrEmpty(databaseUrl))
     // Parse postgres://user:pass@host:port/dbname
     var uri      = new Uri(databaseUrl);
     var userInfo = uri.UserInfo.Split(':', 2);
+    // Railway internal hosts don't use SSL; public hosts do.
+    var sslMode  = uri.Host.EndsWith(".railway.internal") ? "Disable" : "Require;Trust Server Certificate=true";
     var npgsql   = $"Host={uri.Host};Port={uri.Port};" +
                    $"Database={uri.AbsolutePath.TrimStart('/')};" +
                    $"Username={Uri.UnescapeDataString(userInfo[0])};" +
                    $"Password={Uri.UnescapeDataString(userInfo[1])};" +
-                   "SSL Mode=Require;Trust Server Certificate=true";
+                   $"SSL Mode={sslMode}";
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseNpgsql(npgsql));
 }

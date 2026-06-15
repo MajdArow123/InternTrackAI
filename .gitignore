@@ -6,7 +6,7 @@ obj/
 .vs/
 
 ## ASP.NET
-wwwroot/lib/
+# wwwroot/lib/ — vendor files committed so Railway Docker build has them
 
 ## SQLite database and WAL files
 app.db

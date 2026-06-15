@@ -39,4 +39,9 @@ public class JobApplication
 
     [DataType(DataType.MultilineText)]
     public string? JobDescription { get; set; }
+
+    public int? MatchScore { get; set; }
+
+    [StringLength(50)]
+    public string? MatchRecommendation { get; set; }
 }

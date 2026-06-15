@@ -8,9 +8,13 @@ obj/
 ## ASP.NET
 wwwroot/lib/
 
-## SQLite WAL files (keep app.db, ignore temp files)
+## SQLite database and WAL files
+app.db
 *.db-shm
 *.db-wal
+
+## User uploads (ephemeral on Railway — use object storage for persistence)
+uploads/
 
 ## macOS
 .DS_Store

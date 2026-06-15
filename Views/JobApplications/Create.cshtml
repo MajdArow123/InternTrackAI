@@ -6,6 +6,15 @@
 
 <div class="container py-4" style="max-width: 760px;">
 
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb-nav" aria-label="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li><a asp-controller="JobApplications" asp-action="Index">Applications</a></li>
+            <li>New Application</li>
+        </ol>
+    </nav>
+
     <div class="page-header">
         <div>
             <h2>Add Application</h2>
@@ -68,6 +77,8 @@
     <!-- Application form -->
     <form asp-action="Create" method="post" id="appForm">
         <input type="hidden" name="forceCreate" id="forceCreate" value="false" />
+        <input type="hidden" name="MatchScore" id="hiddenMatchScore" />
+        <input type="hidden" name="MatchRecommendation" id="hiddenMatchRecommendation" />
 
         <!-- Core info -->
         <div class="form-card mb-3">
@@ -354,11 +365,13 @@
                 }
 
                 if (!d.success) {
-                    card.innerHTML = `<p style="font-size:.82rem;color:#be123c;margin:0">${esc(d.error || 'Resume match failed.')}</p>`;
+                    card.innerHTML = `<p class="js-error-text">${esc(d.error || 'Resume match failed.')}</p>`;
                     return;
                 }
 
                 card.innerHTML = buildMatchCard(d);
+                document.getElementById('hiddenMatchScore').value = d.score;
+                document.getElementById('hiddenMatchRecommendation').value = d.recommendation;
             } catch (_) {
                 wrap.hidden = true; // network error — silently ignore
             }

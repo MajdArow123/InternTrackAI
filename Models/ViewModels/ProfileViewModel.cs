@@ -17,5 +17,10 @@ public class ProfileViewModel
     public Dictionary<ApplicationStatus, int> StatusCounts { get; set; } = new();
     public double SuccessRate { get; set; }
 
+    // Quick stats
+    public int ApplicationsThisMonth { get; set; }
+    public List<JobApplication> UpcomingDeadlines7Days { get; set; } = new();
+    public List<JobApplication> RecentMatchedApps { get; set; } = new();
+
     public ResumeScoreResult? ScoreResult { get; set; }
 }

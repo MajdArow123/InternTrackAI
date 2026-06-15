@@ -29,6 +29,14 @@
 
 <div class="container py-4" style="max-width:900px;">
 
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb-nav" aria-label="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li>Profile</li>
+        </ol>
+    </nav>
+
     <div class="page-header">
         <div>
             <h2>Profile</h2>
@@ -36,10 +44,69 @@
         </div>
     </div>
 
+    <!-- Quick Stats -->
+    @if (Model.TotalApplications > 0)
+    {
+        <div class="quick-stats-row">
+            <div class="quick-stat-card">
+                <div class="quick-stat-label">This Month</div>
+                <div class="quick-stat-value">@Model.ApplicationsThisMonth</div>
+                <div class="quick-stat-sub">application@(Model.ApplicationsThisMonth == 1 ? "" : "s") applied</div>
+            </div>
+
+            <div class="quick-stat-card">
+                <div class="quick-stat-label">Upcoming Deadlines</div>
+                @if (Model.UpcomingDeadlines7Days.Any())
+                {
+                    <div class="quick-stat-value">@Model.UpcomingDeadlines7Days.Count</div>
+                    <div class="quick-deadline-list">
+                        @foreach (var app in Model.UpcomingDeadlines7Days.Take(3))
+                        {
+                            var daysLeft = (app.Deadline!.Value.Date - DateTime.UtcNow.Date).Days;
+                            var urgent   = daysLeft <= 2;
+                            <div class="quick-deadline-item">
+                                <span class="@(urgent ? "quick-deadline-urgent" : "")">@app.CompanyName</span>
+                                <span class="quick-deadline-date">@(daysLeft == 0 ? "Today" : daysLeft == 1 ? "Tomorrow" : $"{daysLeft}d")</span>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="quick-stat-value">0</div>
+                    <div class="quick-stat-sub">in the next 7 days</div>
+                }
+            </div>
+
+            <div class="quick-stat-card">
+                <div class="quick-stat-label">Recent Matches</div>
+                @if (Model.RecentMatchedApps.Any())
+                {
+                    <div class="quick-stat-value">@Model.RecentMatchedApps.Count</div>
+                    <div class="quick-match-list">
+                        @foreach (var app in Model.RecentMatchedApps)
+                        {
+                            var sc       = app.MatchScore!.Value;
+                            var tierCls  = sc >= 80 ? "match-tier-5" : sc >= 60 ? "match-tier-4" : sc >= 40 ? "match-tier-3" : sc >= 20 ? "match-tier-2" : "match-tier-1";
+                            <div class="quick-match-item">
+                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@app.CompanyName</span>
+                                <span class="match-rec-badge @tierCls" style="font-size:.68rem;padding:.12em .55em">@sc%</span>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="quick-stat-value">—</div>
+                    <div class="quick-stat-sub">no resume analyses yet</div>
+                }
+            </div>
+        </div>
+    }
+
     @if (TempData["Success"] != null)
     {
-        <div class="alert alert-success alert-dismissible fade show py-2 mb-3" role="alert"
-             style="font-size:.875rem;background:#f0fdf4;color:#15803d;border-color:#bbf7d0;">
+        <div class="alert alert-dismissible fade show py-2 mb-3 profile-success-alert" role="alert">
             @TempData["Success"]
             <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
         </div>
@@ -124,25 +191,25 @@
             </div>
             @foreach (var entry in Model.StatusCounts)
             {
-                var col = entry.Key switch
+                var colorClass = entry.Key switch
                 {
-                    InternTrackAI.Models.Enums.ApplicationStatus.Saved      => "#475569",
-                    InternTrackAI.Models.Enums.ApplicationStatus.Applied    => "#2563eb",
-                    InternTrackAI.Models.Enums.ApplicationStatus.Interview  => "#d97706",
-                    InternTrackAI.Models.Enums.ApplicationStatus.Offer      => "#059669",
-                    InternTrackAI.Models.Enums.ApplicationStatus.Rejected   => "#dc2626",
-                    _ => "var(--muted)"
+                    InternTrackAI.Models.Enums.ApplicationStatus.Saved      => "mini-stat-saved",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Applied    => "mini-stat-applied",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Interview  => "mini-stat-interview",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Offer      => "mini-stat-offer",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Rejected   => "mini-stat-rejected",
+                    _ => ""
                 };
                 <div class="col-6 col-sm-4 col-md-2">
                     <div class="mini-stat">
-                        <div class="mini-stat-num" style="color:@col">@entry.Value</div>
+                        <div class="mini-stat-num @colorClass">@entry.Value</div>
                         <div class="mini-stat-label">@entry.Key</div>
                     </div>
                 </div>
             }
             <div class="col-6 col-sm-4 col-md-2">
                 <div class="mini-stat">
-                    <div class="mini-stat-num" style="color:#059669">@Model.SuccessRate<span style="font-size:1rem;font-weight:600">%</span></div>
+                    <div class="mini-stat-num mini-stat-offer">@Model.SuccessRate<span style="font-size:1rem;font-weight:600">%</span></div>
                     <div class="mini-stat-label">Success Rate</div>
                 </div>
             </div>
@@ -363,7 +430,7 @@
                         {
                             <div class="col-md-6">
                                 <div class="form-card">
-                                    <p class="form-section-title" style="color:#15803d;border-color:#bbf7d0;">Strengths</p>
+                                    <p class="form-section-title section-title--strengths">Strengths</p>
                                     <ul class="match-strengths-list">
                                         @foreach (var s in Model.ScoreResult.Strengths)
                                         { <li>@s</li> }
@@ -375,7 +442,7 @@
                         {
                             <div class="col-md-6">
                                 <div class="form-card">
-                                    <p class="form-section-title" style="color:#b45309;border-color:#fde68a;">Improvements</p>
+                                    <p class="form-section-title section-title--improvements">Improvements</p>
                                     <ul class="match-strengths-list">
                                         @foreach (var imp in Model.ScoreResult.Improvements)
                                         { <li>@imp</li> }

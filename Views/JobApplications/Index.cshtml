@@ -14,6 +14,25 @@
         _                           => ""
     };
 
+    string StatusIcon(ApplicationStatus s) => s switch
+    {
+        ApplicationStatus.Saved     => "<svg class=\"status-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z\"/></svg>",
+        ApplicationStatus.Applied   => "<svg class=\"status-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><line x1=\"22\" y1=\"2\" x2=\"11\" y2=\"13\"/><polygon points=\"22 2 15 22 11 13 2 9 22 2\"/></svg>",
+        ApplicationStatus.Interview => "<svg class=\"status-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><line x1=\"16\" y1=\"2\" x2=\"16\" y2=\"6\"/><line x1=\"8\" y1=\"2\" x2=\"8\" y2=\"6\"/><line x1=\"3\" y1=\"10\" x2=\"21\" y2=\"10\"/></svg>",
+        ApplicationStatus.Offer     => "<svg class=\"status-icon\" viewBox=\"0 0 24 24\" fill=\"currentColor\" stroke=\"none\"><polygon points=\"12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2\"/></svg>",
+        ApplicationStatus.Rejected  => "<svg class=\"status-icon\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><line x1=\"15\" y1=\"9\" x2=\"9\" y2=\"15\"/><line x1=\"9\" y1=\"9\" x2=\"15\" y2=\"15\"/></svg>",
+        _                           => ""
+    };
+
+    string MatchDotClass(int score) => score switch
+    {
+        >= 80 => "match-dot--green",
+        >= 60 => "match-dot--blue",
+        >= 40 => "match-dot--amber",
+        >= 20 => "match-dot--orange",
+        _     => "match-dot--red"
+    };
+
     string Initials(string name)
     {
         var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -28,6 +47,14 @@
 }
 
 <div class="container py-4">
+
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb-nav" aria-label="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li>Applications</li>
+        </ol>
+    </nav>
 
     <div class="page-header">
         <div>
@@ -134,17 +161,24 @@
     @if (!Model.Any())
     {
         <div class="app-table-wrapper">
-            <div class="empty-state">
+            <div class="empty-state-illustrated">
+                <svg class="empty-illustration" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="25" y="22" width="70" height="68" rx="6" class="empty-illu-bg" fill="#eef2ff"/>
+                    <rect x="35" y="14" width="50" height="10" rx="5" class="empty-illu-top" fill="#c7d2fe"/>
+                    <line x1="40" y1="48" x2="80" y2="48" class="empty-illu-line" stroke="#c7d2fe" stroke-width="3.5" stroke-linecap="round"/>
+                    <line x1="40" y1="60" x2="72" y2="60" class="empty-illu-line" stroke="#c7d2fe" stroke-width="3.5" stroke-linecap="round"/>
+                    <line x1="40" y1="72" x2="62" y2="72" class="empty-illu-line" stroke="#e0e7ff" stroke-width="3.5" stroke-linecap="round"/>
+                </svg>
                 @if (isFiltered)
                 {
-                    <p class="fw-semibold mb-1" style="color:var(--text)">No applications match your filters.</p>
-                    <p class="mb-3">Try adjusting the search or status filter, or clear all filters.</p>
+                    <p class="empty-state-title">No matching applications</p>
+                    <p class="empty-state-desc">Try adjusting the search or status filter, or clear all filters.</p>
                     <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear Filters</a>
                 }
                 else
                 {
-                    <p class="fw-semibold mb-1" style="color:var(--text)">No applications yet.</p>
-                    <p class="mb-3">Start tracking your internship search by adding your first application.</p>
+                    <p class="empty-state-title">No applications yet</p>
+                    <p class="empty-state-desc">Start tracking your internship search by logging your first application.</p>
                     <a asp-action="Create" class="btn btn-dark btn-sm">Add Your First Application</a>
                 }
             </div>
@@ -166,6 +200,7 @@
                             <th class="d-none d-md-table-cell">Location</th>
                             <th class="d-none d-md-table-cell">Mode</th>
                             <th>Status</th>
+                            <th class="text-center d-none d-sm-table-cell" style="width:3.5rem">Match</th>
                             <th class="d-none d-sm-table-cell">Deadline</th>
                             <th></th>
                         </tr>
@@ -173,7 +208,15 @@
                     <tbody>
                         @foreach (var item in Model)
                         {
-                            <tr>
+                            <tr data-company="@item.CompanyName"
+                                data-role="@item.RoleTitle"
+                                data-location="@(item.Location ?? "")"
+                                data-salary="@(item.Salary ?? "")"
+                                data-match-score="@(item.MatchScore?.ToString() ?? "")"
+                                data-match-rec="@(item.MatchRecommendation ?? "")"
+                                data-status="@item.Status"
+                                data-deadline="@(item.Deadline.HasValue ? item.Deadline.Value.ToString("MMM d, yyyy") : "")"
+                                data-mode="@item.WorkMode">
                                 <td class="ps-3" style="width:2.5rem">
                                     <input type="checkbox" class="form-check-input row-check"
                                            value="@item.Id" style="margin:0;cursor:pointer" />
@@ -188,7 +231,20 @@
                                 <td class="text-muted d-none d-md-table-cell">@(item.Location ?? "—")</td>
                                 <td class="text-muted d-none d-md-table-cell">@item.WorkMode</td>
                                 <td>
-                                    <span class="status-badge @BadgeClass(item.Status)">@item.Status</span>
+                                    <span class="status-badge @BadgeClass(item.Status)">
+                                        @Html.Raw(StatusIcon(item.Status)) @item.Status
+                                    </span>
+                                </td>
+                                <td class="text-center d-none d-sm-table-cell">
+                                    @if (item.MatchScore.HasValue)
+                                    {
+                                        var rec = item.MatchRecommendation ?? "—";
+                                        <span class="match-dot @MatchDotClass(item.MatchScore.Value)"
+                                              data-bs-toggle="tooltip"
+                                              data-bs-placement="top"
+                                              data-bs-title="@item.MatchScore% Match · @rec"
+                                              aria-label="Resume match @item.MatchScore% · @rec"></span>
+                                    }
                                 </td>
                                 <td class="text-muted d-none d-sm-table-cell">
                                     @(item.Deadline.HasValue ? item.Deadline.Value.ToString("MMM d, yyyy") : "—")
@@ -219,6 +275,9 @@
     <div class="bulk-bar-inner container">
         <span id="bulk-count" class="bulk-count">0 selected</span>
         <div class="bulk-actions">
+            <button type="button" class="btn btn-sm btn-outline-light" id="compare-btn" style="display:none">
+                Compare
+            </button>
             <div class="d-flex align-items-center gap-2">
                 <select id="bulk-status-select" class="form-select form-select-sm bulk-status-select">
                     <option value="">Change status to...</option>
@@ -235,7 +294,25 @@
     </div>
 </div>
 
+<!-- ── Job Comparison Modal ── -->
+<div id="compare-overlay" class="compare-modal-overlay" aria-hidden="true" role="dialog" aria-label="Compare applications">
+    <div class="compare-modal">
+        <div class="compare-modal-header">
+            <span class="compare-modal-title">Side-by-Side Comparison</span>
+            <button class="compare-modal-close" id="compare-close" aria-label="Close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div id="compare-content"></div>
+    </div>
+</div>
+
 @section Scripts {
+<script>
+document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(function (el) {
+    new bootstrap.Tooltip(el);
+});
+</script>
 <script>
 (function () {
     const checkboxes   = Array.from(document.querySelectorAll('.row-check'));
@@ -246,22 +323,25 @@
     const statusBtn    = document.getElementById('bulk-status-btn');
     const deselectBtn  = document.getElementById('bulk-deselect-btn');
     const statusSelect = document.getElementById('bulk-status-select');
+    const compareBtn   = document.getElementById('compare-btn');
+    const compareOverlay = document.getElementById('compare-overlay');
 
+    function selectedRows() {
+        return checkboxes.filter(cb => cb.checked).map(cb => cb.closest('tr'));
+    }
     function selectedIds() {
         return checkboxes.filter(cb => cb.checked).map(cb => cb.value);
     }
 
     function updateBar() {
         const ids = selectedIds();
-        if (ids.length > 0) {
-            bulkBar.classList.add('show');
-            bulkCount.textContent = ids.length + ' selected';
-        } else {
-            bulkBar.classList.remove('show');
-        }
+        const n   = ids.length;
+        bulkCount.textContent = n + ' selected';
+        bulkBar.classList.toggle('show', n > 0);
+        if (compareBtn) compareBtn.style.display = (n >= 2 && n <= 3) ? 'inline-flex' : 'none';
         if (selectAll) {
-            selectAll.indeterminate = ids.length > 0 && ids.length < checkboxes.length;
-            selectAll.checked = ids.length === checkboxes.length && checkboxes.length > 0;
+            selectAll.indeterminate = n > 0 && n < checkboxes.length;
+            selectAll.checked       = n === checkboxes.length && checkboxes.length > 0;
         }
     }
 
@@ -309,6 +389,78 @@
         });
         form.submit();
     }
+
+    // ── Comparison ───────────────────────────────────────
+    function getAppData(row) {
+        return {
+            company:    row.dataset.company    || '—',
+            role:       row.dataset.role       || '—',
+            location:   row.dataset.location   || '—',
+            salary:     row.dataset.salary     || '—',
+            matchScore: row.dataset.matchScore || null,
+            matchRec:   row.dataset.matchRec   || '—',
+            status:     row.dataset.status     || '—',
+            deadline:   row.dataset.deadline   || '—',
+            mode:       row.dataset.mode       || '—'
+        };
+    }
+
+    function escHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function renderComparison(apps) {
+        const cols = apps.length;
+        const fields = [
+            { label: 'Company',      key: 'company' },
+            { label: 'Role',         key: 'role' },
+            { label: 'Location',     key: 'location' },
+            { label: 'Salary',       key: 'salary' },
+            { label: 'Work Mode',    key: 'mode' },
+            { label: 'Status',       key: 'status' },
+            { label: 'Match Score',  key: 'matchScore', render: v => v ? v + '%' : '—' },
+            { label: 'Rec.',         key: 'matchRec' },
+            { label: 'Deadline',     key: 'deadline' }
+        ];
+
+        let html = '<div class="compare-grid" data-cols="' + cols + '" style="grid-template-columns:repeat(' + cols + ',1fr)">';
+        apps.forEach(function(app) {
+            html += '<div class="compare-col">';
+            html += '<div class="compare-col-header">';
+            html += '<div class="compare-company">' + escHtml(app.company) + '</div>';
+            html += '<div class="compare-role">' + escHtml(app.role) + '</div>';
+            html += '</div>';
+            fields.slice(2).forEach(function(f) {
+                var val = app[f.key];
+                var display = f.render ? f.render(val) : (val || '—');
+                html += '<div class="compare-field">';
+                html += '<span class="compare-field-label">' + escHtml(f.label) + '</span>';
+                html += '<span class="compare-field-value">' + escHtml(display) + '</span>';
+                html += '</div>';
+            });
+            html += '</div>';
+        });
+        html += '</div>';
+
+        document.getElementById('compare-content').innerHTML = html;
+    }
+
+    function openCompare() {
+        var rows = selectedRows();
+        if (rows.length < 2 || rows.length > 3) return;
+        renderComparison(rows.map(getAppData));
+        compareOverlay.classList.add('active');
+        compareOverlay.setAttribute('aria-hidden', 'false');
+    }
+    function closeCompare() {
+        compareOverlay.classList.remove('active');
+        compareOverlay.setAttribute('aria-hidden', 'true');
+    }
+
+    compareBtn?.addEventListener('click', openCompare);
+    document.getElementById('compare-close')?.addEventListener('click', closeCompare);
+    compareOverlay?.addEventListener('click', function(e) { if (e.target === compareOverlay) closeCompare(); });
+    document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeCompare(); });
 })();
 </script>
 }

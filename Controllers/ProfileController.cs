@@ -371,6 +371,26 @@ public class ProfileController : Controller
         int offers = statusCounts.GetValueOrDefault(ApplicationStatus.Offer);
         double successRate = apps.Count > 0 ? Math.Round(offers * 100.0 / apps.Count, 1) : 0;
 
+        var today = DateTime.UtcNow.Date;
+        var appsThisMonth = apps.Count(a =>
+            a.DateApplied.HasValue &&
+            a.DateApplied.Value.Year  == today.Year &&
+            a.DateApplied.Value.Month == today.Month);
+
+        var upcomingDeadlines7 = apps
+            .Where(a => a.Deadline.HasValue
+                     && a.Deadline.Value.Date >= today
+                     && a.Deadline.Value.Date <= today.AddDays(7)
+                     && a.Status != ApplicationStatus.Rejected)
+            .OrderBy(a => a.Deadline)
+            .ToList();
+
+        var recentMatched = apps
+            .Where(a => a.MatchScore.HasValue)
+            .OrderByDescending(a => a.Id)
+            .Take(5)
+            .ToList();
+
         return new ProfileViewModel
         {
             Profile       = profile,
@@ -381,7 +401,10 @@ public class ProfileController : Controller
             TargetRoles   = ParseTagJson(profile.TargetRolesJson),
             TotalApplications = apps.Count,
             StatusCounts  = statusCounts,
-            SuccessRate   = successRate
+            SuccessRate   = successRate,
+            ApplicationsThisMonth  = appsThisMonth,
+            UpcomingDeadlines7Days = upcomingDeadlines7,
+            RecentMatchedApps      = recentMatched
         };
     }
 

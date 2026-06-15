@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using InternTrackAI.Data;
 using InternTrackAI.Services;
 
@@ -23,7 +24,11 @@ if (!string.IsNullOrEmpty(databaseUrl))
                    $"Password={Uri.UnescapeDataString(userInfo[1])};" +
                    $"SSL Mode={sslMode}";
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
-        options.UseNpgsql(npgsql));
+    {
+        options.UseNpgsql(npgsql);
+        // Suppress false-positive caused by SQLite-generated snapshot vs Npgsql provider.
+        options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+    });
 }
 else
 {

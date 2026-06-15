@@ -1,0 +1,99 @@
+@page
+@model InternTrackAI.Areas.Identity.Pages.Account.Manage.IndexModel
+@{
+    ViewData["Title"] = "Account Settings";
+}
+
+<div class="container py-4" style="max-width:700px;">
+
+    <nav class="breadcrumb-nav" aria-label="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li>Account Settings</li>
+        </ol>
+    </nav>
+
+    <div class="page-header">
+        <div>
+            <h2>Account Settings</h2>
+            <p class="sub">Manage your login credentials and display preferences</p>
+        </div>
+    </div>
+
+    @if (Model.StatusMessage != null)
+    {
+        <div class="alert alert-dismissible fade show py-2 mb-3 profile-success-alert" role="alert">
+            @Model.StatusMessage
+            <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Email -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">Email Address</p>
+        <div class="d-flex align-items-center gap-3">
+            <div class="flex-grow-1">
+                <p class="mb-0 fw-medium">@Model.Email</p>
+                <p class="mb-0" style="font-size:.8rem;color:var(--muted);">
+                    @if (Model.IsEmailConfirmed)
+                    {
+                        <span style="color:#22c55e;">Verified</span>
+                    }
+                    else
+                    {
+                        <span style="color:#f59e0b;">Not verified</span>
+                    }
+                </p>
+            </div>
+        </div>
+        <p class="mb-0 mt-2" style="font-size:.8rem;color:var(--muted);">
+            Email changes require re-registration. Contact support if needed.
+        </p>
+    </div>
+
+    <!-- Display Name -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">Display Name</p>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem;">
+            Shown in the navbar instead of your email address.
+        </p>
+        <form method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-2" style="font-size:.85rem;"></div>
+            <div class="row g-3 align-items-end">
+                <div class="col-sm-8">
+                    <label asp-for="Input.DisplayName" class="form-label">Display name</label>
+                    <input asp-for="Input.DisplayName" class="form-control"
+                           placeholder="e.g. Alex" maxlength="50" />
+                    <span asp-validation-for="Input.DisplayName" class="text-danger" style="font-size:.8rem;"></span>
+                </div>
+                <div class="col-sm-4">
+                    <button type="submit" class="btn btn-dark w-100">Save</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- Password -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">Password</p>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem;">
+            Keep your account secure with a strong password.
+        </p>
+        <a asp-page="./ChangePassword" class="btn btn-outline-secondary btn-sm">Change Password</a>
+    </div>
+
+    <!-- Danger Zone -->
+    <div class="form-card mb-3" style="border-color: rgba(239,68,68,.25);">
+        <p class="form-section-title" style="color:#ef4444;">Danger Zone</p>
+        <p style="font-size:.85rem;color:var(--muted);margin-bottom:1rem;">
+            Permanently delete your account and all associated data.
+        </p>
+        <a asp-page="./DeletePersonalData" class="btn btn-sm" style="background:#ef4444;color:#fff;border:none;">Delete Account</a>
+    </div>
+
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

@@ -96,7 +96,14 @@ public class JobApplicationsController : Controller
         }
 
         _context.Add(jobApplication);
-        await _context.SaveChangesAsync();
+        try
+        {
+            await _context.SaveChangesAsync();
+        }
+        catch (Exception ex)
+        {
+            return Content($"DEBUG-TEMP: {ex}", "text/plain");
+        }
         TempData["Toast"] = "success|Application saved successfully.";
         return RedirectToAction(nameof(Index));
     }

@@ -1,6 +1,25 @@
 # InternTrackAI
 
+[![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
+[![ASP.NET Core MVC](https://img.shields.io/badge/ASP.NET%20Core-MVC-512BD4?logo=dotnet)](https://learn.microsoft.com/aspnet/core)
+[![OpenAI](https://img.shields.io/badge/AI-GPT--4o--mini-412991?logo=openai)](https://platform.openai.com/)
+[![Deployed on Railway](https://img.shields.io/badge/Deployed%20on-Railway-0B0D0E?logo=railway)](https://interntrackai-production.up.railway.app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track every application through the entire pipeline — from saved to offer — with AI-powered job analysis, resume matching, cover letter generation, interview prep, and a full career portfolio system.
+
+## 🚀 Try It Live
+
+**[interntrackai-production.up.railway.app](https://interntrackai-production.up.railway.app)**
+
+A permanent demo account is seeded with a sample profile, a resume, and 5 job applications spanning every resume-match tier (APPLY → SKIP), so you can explore the dashboard, analytics, and AI features immediately without signing up:
+
+| | |
+|---|---|
+| **Email** | `demo@interntrackai.com` |
+| **Password** | `CvjOukfKXS8YaAR7!` |
+
+> The demo account is shared and public — please don't change its password or delete its data. Feel free to add, edit, or delete job applications to explore the AI features; the seeded sample data demonstrates all 5 match-score tiers across the Dashboard and Applications views.
 
 ## Screenshots
 
@@ -20,9 +39,9 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 |---|---|
 | ![Resume Match](docs/screenshots/resume_match.png) | ![Profile](docs/screenshots/profile.png) |
 
-| Sign In | |
+| Dark Mode | Sign In |
 |---|---|
-| ![Sign In](docs/screenshots/login.png) | |
+| ![Dark Mode](docs/screenshots/dark_mode.png) | ![Sign In](docs/screenshots/login.png) |
 
 | Register | |
 |---|---|
@@ -86,6 +105,21 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 - Resume Match redesigned with a 5-tier score system: **APPLY** (80–100%, green), **APPLY** (60–79%, blue), **MAYBE** (40–59%, amber), **CONSIDER SKIPPING** (20–39%, orange), **SKIP** (0–19%, red)
 - Match card shows the score prominently, a color-coded recommendation badge, tier description, AI summary, and matching/missing skills with counts
 
+**Phase 8 — Animation & Visual Polish**
+- Fade-in transitions on cards, hover scale effects, and an animated SVG score ring on the match card
+- Dashboard stat counters animate on load; toast notifications slide in; auth pages have entrance animations
+- Shimmer loading effect and a gradient hero on the homepage
+
+**UX Polish Pass**
+- **Dark Mode** — toggle in the navbar, persisted via `localStorage`, theme applied before first paint to avoid a flash of the wrong theme
+- **Dashboard Analytics** — success rate, top companies, upcoming-deadline alerts (next 3 days), and follow-up suggestions for applications sitting 7+ days without movement
+- **Profile Quick Stats** — applications this month, upcoming deadlines, and recent resume match scores at a glance
+- **Keyboard Shortcuts** — `?` opens a shortcut guide, `N` new application, `D` dashboard, `C` cover letter, `P` profile, `S` focus search, `Esc` close
+- **Status Icons** — inline SVG icons inside every status badge across the Dashboard and Applications views
+- **Job Comparison Tool** — select 2–3 applications and compare them side by side in a modal
+- **Empty State Illustrations** — custom inline SVG illustrations instead of blank tables when there's no data yet
+- **Breadcrumb Navigation** — on every interior page for quick orientation and back-navigation
+
 **Quality of Life**
 - Duplicate detection on the Add Application form — warns before saving if the same company and role already exists, with an option to save anyway
 - Toast notifications on all mutating actions (save, update, delete, bulk operations, cover letter save)
@@ -96,14 +130,15 @@ A full-stack internship application tracker built with ASP.NET Core 9 MVC. Track
 | Layer | Technology |
 |---|---|
 | Framework | ASP.NET Core 9 MVC |
-| Database | SQLite via Entity Framework Core 9 |
+| Database | PostgreSQL in production (Railway, via Npgsql) · SQLite in local development — both via Entity Framework Core 9 |
 | Auth | ASP.NET Core Identity |
 | AI | OpenAI API — GPT-4o-mini |
 | PDF | PdfPig (server-side text extraction), jsPDF (client-side generation) |
-| Frontend | Bootstrap 5, Vanilla JS (fetch) |
+| Frontend | Bootstrap 5, Vanilla JS (fetch) — Razor views, no SPA framework |
 | Fonts | Inter (Google Fonts) |
+| Hosting | Railway (Docker build, managed Postgres, persistent volume for uploads) |
 
-## Getting Started
+## Installation & Setup
 
 **Prerequisites:** .NET 9 SDK, an OpenAI API key
 
@@ -126,7 +161,21 @@ dotnet run
 
 Open [http://localhost:5240](http://localhost:5240). Register an account to get started.
 
+Locally, the app uses a SQLite file (`app.db`) created automatically via EF Core migrations — no extra database setup needed.
+
 > The AI features require billing credits on your OpenAI account. Add them at [platform.openai.com/settings/billing](https://platform.openai.com/settings/billing). GPT-4o-mini costs roughly $0.00015 per analysis.
+
+## Deployment
+
+The live instance runs on [Railway](https://railway.app), built directly from the `Dockerfile` in this repo:
+
+- **Database** — Railway-managed PostgreSQL. `Program.cs` detects the `DATABASE_URL` environment variable Railway injects and switches the EF Core provider from SQLite to Npgsql automatically; no code changes needed between environments.
+- **Persistent storage** — uploaded resumes, cover letters, and profile photos are written to disk (`/app/uploads`), which is backed by a mounted Railway volume so files survive redeploys and restarts.
+- **Data Protection keys** — persisted to the database (`PersistKeysToDbContext`) so antiforgery tokens and cookies stay valid across container restarts.
+- **Migrations** — applied automatically on startup (`db.Database.Migrate()`), so deploying a new migration is just a `git push`.
+- **TLS / proxying** — Railway terminates TLS at its edge proxy; the app trusts forwarded headers (`X-Forwarded-For`/`X-Forwarded-Proto`) and skips its own HTTPS redirect in production.
+
+To deploy your own copy: create a Railway project, add a PostgreSQL service, attach a volume mounted at `/app/uploads`, set the `OpenAI:ApiKey` config variable, and point Railway at this repo — `railway.toml` already configures the Dockerfile build and health check.
 
 ## Project Structure
 
@@ -172,13 +221,24 @@ Views/
 
 Data/
   ApplicationDbContext.cs       # EF Core + Identity DbContext
-  Migrations/                   # SQLite migrations
+  Migrations/                   # EF Core migrations (SQLite-generated, Npgsql-compatible)
 
-uploads/                        # Server-side file storage (gitignored)
+uploads/                        # Server-side file storage (gitignored; Railway volume in production)
   resumes/{userId}/             # Resume PDFs — served via controller, not public
   coverletters/{userId}/        # Cover letter PDFs — served via controller
 wwwroot/uploads/photos/         # Profile photos — served as static files
+
+Dockerfile                      # Multi-stage build used for the Railway deployment
+railway.toml                    # Railway build/deploy configuration
 ```
+
+## Contributing
+
+This is a personal portfolio project, but issues and pull requests are welcome — feel free to open one if you spot a bug or have a suggestion.
+
+## License
+
+Released under the [MIT License](LICENSE).
 
 ## Author
 

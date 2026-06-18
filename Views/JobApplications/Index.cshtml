@@ -35,11 +35,11 @@
 
     string MatchTooltip(int score) => score switch
     {
-        >= 90 => "Excellent match",
-        >= 75 => "Good match",
-        >= 60 => "Fair match",
-        >= 45 => "Weak match",
-        _     => "Poor match"
+        >= 90 => "Apply",
+        >= 75 => "Apply",
+        >= 60 => "Review",
+        >= 45 => "Consider",
+        _     => "Skip"
     };
 
     string Initials(string name)
@@ -247,7 +247,8 @@
                                 <td class="text-center d-none d-sm-table-cell">
                                     @if (item.MatchScore.HasValue)
                                     {
-                                        var tooltip = MatchTooltip(item.MatchScore.Value);
+                                        var action = MatchTooltip(item.MatchScore.Value);
+                                        var tooltip = $"{item.MatchScore}% Match · {action}";
                                         <span class="match-dot @MatchDotClass(item.MatchScore.Value)"
                                               data-bs-toggle="tooltip"
                                               data-bs-placement="top"

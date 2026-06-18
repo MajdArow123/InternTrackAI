@@ -46,3 +46,9 @@ ASP.NET Core 9 MVC app with SQLite via EF Core and ASP.NET Identity scaffolded i
 - `Models/ViewModels/DashboardViewModel.cs` — the only view model; everything else passes the EF entity directly.
 
 **Static assets:** Bootstrap 5 and jQuery are vendored in `wwwroot/lib/`. Custom styles are in `wwwroot/css/site.css` (CSS custom properties, no preprocessor).
+
+## Database Rules
+
+- **Never modify `app.db` directly** — always use EF Core migrations or the application UI for data changes.
+- **Never change user passwords or `EmailConfirmed` in the database** — these must only be modified through the proper Identity UI flows (password reset, email confirmation pages).
+- **Never create new user accounts for testing purposes** — use the application's registration flow or Identity scaffolded pages to create test accounts.

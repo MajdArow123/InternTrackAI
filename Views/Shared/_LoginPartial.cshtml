@@ -13,12 +13,26 @@
         ? profile.DisplayName
         : User.Identity?.Name;
 
+    string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "?";
+        var parts = name.Split(new[] { ' ', '@', '.' }, StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2
+            ? $"{parts[0][0]}{parts[1][0]}".ToUpper()
+            : name.Length >= 2 ? name[..2].ToUpper() : name.ToUpper();
+    }
+
     <li class="nav-item">
-        <a class="nav-link" asp-area="" asp-controller="Profile" asp-action="Index">@navLabel</a>
+        <a class="navbar-account-link" asp-area="" asp-controller="Profile" asp-action="Index">
+            <span class="navbar-account-avatar">@Initials(navLabel)</span>
+            <span class="navbar-account-name">@navLabel</span>
+        </a>
     </li>
     <li class="nav-item">
         <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
-            <button type="submit" class="nav-link btn btn-link">Logout</button>
+            <button type="submit" class="navbar-logout-btn" aria-label="Logout" title="Logout">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            </button>
         </form>
     </li>
 }

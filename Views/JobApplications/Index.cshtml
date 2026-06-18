@@ -217,7 +217,8 @@
                     <tbody>
                         @foreach (var item in Model)
                         {
-                            <tr data-company="@item.CompanyName"
+                            <tr data-app-id="@item.Id"
+                                data-company="@item.CompanyName"
                                 data-role="@item.RoleTitle"
                                 data-location="@(item.Location ?? "")"
                                 data-salary="@(item.Salary ?? "")"
@@ -225,7 +226,11 @@
                                 data-match-rec="@(item.MatchRecommendation ?? "")"
                                 data-status="@item.Status"
                                 data-deadline="@(item.Deadline.HasValue ? item.Deadline.Value.ToString("MMM d, yyyy") : "")"
-                                data-mode="@item.WorkMode">
+                                data-mode="@item.WorkMode"
+                                data-job-description="@(System.Net.WebUtility.HtmlEncode(item.JobDescription ?? ""))"
+                                class="app-row"
+                                role="button"
+                                tabindex="0">
                                 <td class="ps-3" style="width:2.5rem">
                                     <input type="checkbox" class="form-check-input row-check"
                                            value="@item.Id" style="margin:0;cursor:pointer" />
@@ -314,6 +319,121 @@
             </button>
         </div>
         <div id="compare-content"></div>
+    </div>
+</div>
+
+<!-- ── Application Detail Drawer ── -->
+<div id="app-drawer-backdrop" class="app-drawer-backdrop" aria-hidden="true"></div>
+<div id="app-drawer" class="app-drawer" aria-hidden="true" role="dialog" aria-label="Application details">
+    <div class="app-drawer-content">
+        <!-- Header -->
+        <div class="app-drawer-header">
+            <div class="app-drawer-header-main">
+                <div>
+                    <h2 id="drawer-role" class="app-drawer-title">Role Title</h2>
+                    <p id="drawer-company" class="app-drawer-company">Company Name</p>
+                </div>
+                <span id="drawer-status-badge" class="status-badge"></span>
+            </div>
+            <button class="app-drawer-close" id="drawer-close" aria-label="Close">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="app-drawer-body">
+            <!-- Job Description Section -->
+            <section class="drawer-section">
+                <h3 class="drawer-section-title">Job Description</h3>
+                <p id="drawer-description" class="drawer-text">Loading...</p>
+            </section>
+
+            <!-- AI Analysis Section -->
+            <section class="drawer-section">
+                <h3 class="drawer-section-title">AI Analysis</h3>
+
+                <!-- Match Score -->
+                <div class="match-score-container">
+                    <div id="drawer-match-score" class="match-score-display">95%</div>
+                    <div class="match-score-label" id="drawer-match-label">Excellent match</div>
+                </div>
+
+                <!-- Strong Points -->
+                <div class="analysis-subsection">
+                    <h4 class="analysis-subtitle">
+                        <svg class="analysis-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Strong Points
+                    </h4>
+                    <ul id="drawer-strong-points" class="analysis-list">
+                        <li>Strong Python background</li>
+                        <li>Experience with cloud platforms</li>
+                        <li>Excellent communication skills</li>
+                    </ul>
+                </div>
+
+                <!-- Weak Points -->
+                <div class="analysis-subsection">
+                    <h4 class="analysis-subtitle">
+                        <svg class="analysis-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                        Areas to Improve
+                    </h4>
+                    <ul id="drawer-weak-points" class="analysis-list">
+                        <li>Limited Kubernetes experience</li>
+                        <li>No Docker background yet</li>
+                    </ul>
+                </div>
+
+                <!-- Suggestions -->
+                <div class="analysis-subsection">
+                    <h4 class="analysis-subtitle">
+                        <svg class="analysis-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M12 16v-4M12 8h.01"></path>
+                        </svg>
+                        Suggestions
+                    </h4>
+                    <ul id="drawer-suggestions" class="analysis-list">
+                        <li>Consider taking a Kubernetes course before applying</li>
+                        <li>Build a Docker project to showcase practical experience</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Additional Info -->
+            <section class="drawer-section">
+                <div class="drawer-info-grid">
+                    <div class="drawer-info-item">
+                        <span class="drawer-info-label">Location</span>
+                        <span id="drawer-location" class="drawer-info-value">Toronto, ON</span>
+                    </div>
+                    <div class="drawer-info-item">
+                        <span class="drawer-info-label">Work Mode</span>
+                        <span id="drawer-mode" class="drawer-info-value">Remote</span>
+                    </div>
+                    <div class="drawer-info-item">
+                        <span class="drawer-info-label">Salary</span>
+                        <span id="drawer-salary" class="drawer-info-value">$22-26/hour</span>
+                    </div>
+                    <div class="drawer-info-item">
+                        <span class="drawer-info-label">Deadline</span>
+                        <span id="drawer-deadline" class="drawer-info-value">Jul 30, 2026</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="app-drawer-footer">
+            <button id="drawer-edit-btn" class="btn btn-outline-secondary btn-sm" data-app-id="">Edit</button>
+            <button id="drawer-cover-letter-btn" class="btn btn-outline-primary btn-sm" data-app-id="">Cover Letter</button>
+            <button id="drawer-interview-btn" class="btn btn-outline-primary btn-sm" data-app-id="">Interview Prep</button>
+            <button id="drawer-close-btn" class="btn btn-secondary btn-sm">Close</button>
+        </div>
     </div>
 </div>
 
@@ -471,6 +591,176 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
     document.getElementById('compare-close')?.addEventListener('click', closeCompare);
     compareOverlay?.addEventListener('click', function(e) { if (e.target === compareOverlay) closeCompare(); });
     document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeCompare(); });
+})();
+</script>
+
+<!-- ── Application Detail Drawer Script ── -->
+<script>
+(function () {
+    const drawer = document.getElementById('app-drawer');
+    const backdrop = document.getElementById('app-drawer-backdrop');
+    const closeBtn = document.getElementById('drawer-close');
+    const closeFooterBtn = document.getElementById('drawer-close-btn');
+    const appRows = document.querySelectorAll('.app-row');
+
+    const statusNames = ['Saved', 'Applied', 'Interview', 'Rejected', 'Offer'];
+    const statusBadgeClasses = {
+        0: 'badge-saved',
+        1: 'badge-applied',
+        2: 'badge-interview',
+        3: 'badge-rejected',
+        4: 'badge-offer'
+    };
+
+    const statusIcons = {
+        0: '<svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>',
+        1: '<svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+        2: '<svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+        4: '<svg class="status-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+        3: '<svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+    };
+
+    function getMatchLabel(score) {
+        if (score >= 90) return 'Excellent match';
+        if (score >= 75) return 'Good match';
+        if (score >= 60) return 'Fair match';
+        if (score >= 45) return 'Weak match';
+        return 'Poor match';
+    }
+
+    function getMatchScoreClass(score) {
+        if (score >= 90) return 'score-90';
+        if (score >= 75) return 'score-75';
+        if (score >= 60) return 'score-60';
+        if (score >= 45) return 'score-45';
+        return 'score-low';
+    }
+
+    function generateAnalysisPoints(score) {
+        const highScorePoints = {
+            strong: ['Perfect technical fit', 'Strong relevant experience', 'Excellent soft skills match'],
+            weak: [],
+            suggestions: ['Highlight your best projects', 'Emphasize team experience']
+        };
+
+        const midScorePoints = {
+            strong: ['Good technical foundation', 'Relevant coursework'],
+            weak: ['Limited production experience', 'Some skill gaps'],
+            suggestions: ['Highlight transferable skills', 'Show willingness to learn']
+        };
+
+        const lowScorePoints = {
+            strong: ['Basic technical competency', 'Enthusiasm for learning'],
+            weak: ['Significant skill gaps', 'Limited relevant experience'],
+            suggestions: ['Consider upskilling first', 'Look for more beginner-friendly roles']
+        };
+
+        if (score >= 75) return highScorePoints;
+        if (score >= 50) return midScorePoints;
+        return lowScorePoints;
+    }
+
+    function openDrawer(appRow) {
+        const data = {
+            id: appRow.dataset.appId,
+            company: appRow.dataset.company,
+            role: appRow.dataset.role,
+            location: appRow.dataset.location,
+            salary: appRow.dataset.salary,
+            mode: appRow.dataset.mode,
+            status: parseInt(appRow.dataset.status),
+            deadline: appRow.dataset.deadline,
+            matchScore: appRow.dataset.matchScore ? parseInt(appRow.dataset.matchScore) : null,
+            matchRec: appRow.dataset.matchRec,
+            description: appRow.dataset.jobDescription
+        };
+
+        // Header
+        document.getElementById('drawer-role').textContent = data.role;
+        document.getElementById('drawer-company').textContent = data.company;
+
+        // Status badge
+        const statusBadge = document.getElementById('drawer-status-badge');
+        const statusNum = data.status;
+        statusBadge.className = 'status-badge ' + (statusBadgeClasses[statusNum] || '');
+        statusBadge.innerHTML = statusIcons[statusNum] + ' ' + statusNames[statusNum];
+
+        // Description
+        document.getElementById('drawer-description').textContent = data.description || 'No description available';
+
+        // Match score
+        if (data.matchScore) {
+            const scoreEl = document.getElementById('drawer-match-score');
+            scoreEl.textContent = data.matchScore + '%';
+            scoreEl.className = 'match-score-display ' + getMatchScoreClass(data.matchScore);
+            document.getElementById('drawer-match-label').textContent = getMatchLabel(data.matchScore);
+
+            // Generate analysis based on score
+            const analysis = generateAnalysisPoints(data.matchScore);
+            document.getElementById('drawer-strong-points').innerHTML = analysis.strong.map(p => '<li>' + p + '</li>').join('');
+            document.getElementById('drawer-weak-points').innerHTML = analysis.weak.map(p => '<li>' + p + '</li>').join('');
+            document.getElementById('drawer-suggestions').innerHTML = analysis.suggestions.map(p => '<li>' + p + '</li>').join('');
+        }
+
+        // Additional info
+        document.getElementById('drawer-location').textContent = data.location || '—';
+        document.getElementById('drawer-mode').textContent = data.mode || '—';
+        document.getElementById('drawer-salary').textContent = data.salary || '—';
+        document.getElementById('drawer-deadline').textContent = data.deadline || '—';
+
+        // Action buttons
+        const editBtn = document.getElementById('drawer-edit-btn');
+        const clBtn = document.getElementById('drawer-cover-letter-btn');
+        const intBtn = document.getElementById('drawer-interview-btn');
+
+        editBtn.dataset.appId = data.id;
+        editBtn.onclick = function() { window.location.href = '/JobApplications/Edit/' + data.id; };
+
+        clBtn.dataset.appId = data.id;
+        clBtn.onclick = function() { window.location.href = '/CoverLetter/Generate?appId=' + data.id; };
+
+        intBtn.dataset.appId = data.id;
+        intBtn.onclick = function() { window.location.href = '/InterviewPrep/Prep?appId=' + data.id; };
+
+        // Show drawer
+        drawer.classList.add('active');
+        backdrop.classList.add('active');
+        drawer.setAttribute('aria-hidden', 'false');
+        backdrop.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeDrawer() {
+        drawer.classList.remove('active');
+        backdrop.classList.remove('active');
+        drawer.setAttribute('aria-hidden', 'true');
+        backdrop.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    }
+
+    // Event listeners
+    appRows.forEach(row => {
+        row.addEventListener('click', function(e) {
+            // Don't open drawer if clicking on checkboxes or buttons
+            if (e.target.closest('.row-check, .row-action-btn')) return;
+            openDrawer(this);
+        });
+        row.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openDrawer(this);
+            }
+        });
+    });
+
+    closeBtn.addEventListener('click', closeDrawer);
+    closeFooterBtn.addEventListener('click', closeDrawer);
+    backdrop.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && drawer.classList.contains('active')) {
+            closeDrawer();
+        }
+    });
 })();
 </script>
 }

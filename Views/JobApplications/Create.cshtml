@@ -360,7 +360,13 @@
                 const d = await resp.json();
 
                 if (!d.HasResume) {
-                    wrap.hidden = true; // no active resume — silently skip
+                    card.innerHTML = `
+                        <div style="padding: 16px; background: var(--bg); border-radius: 8px; border-left: 4px solid var(--primary)">
+                            <p style="margin: 0; font-size: 0.9rem; color: var(--text); font-weight: 500">📄 Upload your resume to see match score</p>
+                            <p style="margin: 8px 0 0 0; font-size: 0.82rem; color: var(--muted)">
+                                Go to your <a href="/Profile" style="color: var(--primary); text-decoration: underline">Profile</a> and upload your resume to get AI-powered job match analysis.
+                            </p>
+                        </div>`;
                     return;
                 }
 
@@ -372,8 +378,8 @@
                 card.innerHTML = buildMatchCard(d);
                 document.getElementById('hiddenMatchScore').value = d.Score;
                 document.getElementById('hiddenMatchRecommendation').value = d.Recommendation;
-            } catch (_) {
-                wrap.hidden = true; // network error — silently ignore
+            } catch (err) {
+                card.innerHTML = '<p class="js-error-text">Resume match request failed. Please try again.</p>';
             }
         }
     })();

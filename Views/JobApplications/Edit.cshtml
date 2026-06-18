@@ -17,6 +17,16 @@
     <form asp-action="Edit" method="post">
         <input type="hidden" asp-for="Id" />
 
+        <!-- AI match data isn't editable on this page (only the analyzer on Create sets it),
+             but model binding still requires these fields to round-trip the existing values —
+             without them, posting the form would bind them to null and Update() would overwrite
+             the stored match score/skills with empty data. -->
+        <input type="hidden" asp-for="MatchScore" />
+        <input type="hidden" asp-for="MatchRecommendation" />
+        <input type="hidden" asp-for="MatchSummary" />
+        <input type="hidden" asp-for="MatchingSkillsJson" />
+        <input type="hidden" asp-for="MissingSkillsJson" />
+
         <!-- Core info -->
         <div class="form-card mb-3">
             <p class="form-section-title">Core Info</p>

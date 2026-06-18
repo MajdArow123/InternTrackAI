@@ -33,6 +33,15 @@
         _     => "match-dot--red"
     };
 
+    string MatchTooltip(int score) => score switch
+    {
+        >= 90 => "Excellent match",
+        >= 75 => "Good match",
+        >= 60 => "Fair match",
+        >= 45 => "Weak match",
+        _     => "Poor match"
+    };
+
     string Initials(string name)
     {
         var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -238,12 +247,12 @@
                                 <td class="text-center d-none d-sm-table-cell">
                                     @if (item.MatchScore.HasValue)
                                     {
-                                        var rec = item.MatchRecommendation ?? "—";
+                                        var tooltip = MatchTooltip(item.MatchScore.Value);
                                         <span class="match-dot @MatchDotClass(item.MatchScore.Value)"
                                               data-bs-toggle="tooltip"
                                               data-bs-placement="top"
-                                              data-bs-title="@item.MatchScore% Match · @rec"
-                                              aria-label="Resume match @item.MatchScore% · @rec"></span>
+                                              data-bs-title="@tooltip"
+                                              aria-label="@tooltip"></span>
                                     }
                                 </td>
                                 <td class="text-muted d-none d-sm-table-cell">

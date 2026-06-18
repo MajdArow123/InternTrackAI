@@ -44,4 +44,10 @@ public class JobApplication
 
     [StringLength(50)]
     public string? MatchRecommendation { get; set; }
+
+    public string? MatchSummary { get; set; }
+
+    public string? MatchingSkillsJson { get; set; }
+
+    public string? MissingSkillsJson { get; set; }
 }

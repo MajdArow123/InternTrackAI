@@ -2946,10 +2946,21 @@ html[data-theme="dark"] .form-control-sm {
 
 .app-drawer-header-main {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
+  gap: 14px;
   margin-bottom: 0;
+}
+
+.app-drawer-avatar {
+  width: 44px;
+  height: 44px;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.app-drawer-header-text {
+  flex: 1;
+  min-width: 0;
 }
 
 .app-drawer-title {
@@ -3025,94 +3036,21 @@ html[data-theme="dark"] .form-control-sm {
   word-wrap: break-word;
 }
 
-/* Match Score Display */
-.match-score-container {
-  margin: 20px 0;
-  padding: 20px;
+.drawer-description-box {
   background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  text-align: center;
+  padding: 16px;
+  max-height: 260px;
+  overflow-y: auto;
 }
 
-.match-score-display {
-  font-size: 48px;
-  font-weight: 700;
-  margin-bottom: 8px;
-  color: var(--text);
-}
-
-.match-score-display.score-90 { color: #10b981; }
-.match-score-display.score-75 { color: #3b82f6; }
-.match-score-display.score-60 { color: #f59e0b; }
-.match-score-display.score-45 { color: #ef8d5c; }
-.match-score-display.score-low { color: #ef4444; }
-
-.match-score-label {
-  font-size: 14px;
-  color: var(--muted);
-}
-
-/* Analysis Subsections */
-.analysis-subsection {
-  margin-bottom: 20px;
-}
-
-.analysis-subtitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  margin: 0 0 12px 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.analysis-icon {
-  flex-shrink: 0;
-}
-
-.analysis-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.analysis-list li {
-  font-size: 14px;
-  color: var(--text);
-  padding-left: 24px;
-  position: relative;
-  line-height: 1.5;
-}
-
-.analysis-subsection:nth-child(2) .analysis-list li::before {
-  content: '✓';
-  position: absolute;
-  left: 0;
-  color: #10b981;
-  font-weight: bold;
-  font-size: 16px;
-}
-
-.analysis-subsection:nth-child(3) .analysis-list li::before {
-  content: '✕';
-  position: absolute;
-  left: 0;
-  color: #ef4444;
-  font-weight: bold;
-  font-size: 16px;
-}
-
-.analysis-subsection:nth-child(4) .analysis-list li::before {
-  content: '→';
-  position: absolute;
-  left: 0;
-  color: #f59e0b;
-  font-weight: bold;
-  font-size: 16px;
+/* AI Analysis match card (mirrors Create page resume match card) */
+.match-result-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 18px;
 }
 
 /* Additional Info Grid */
@@ -3172,20 +3110,17 @@ html[data-theme="dark"] .app-drawer-footer {
   background: #0f172a;
 }
 
-html[data-theme="dark"] .match-score-container {
+html[data-theme="dark"] .match-result-card,
+html[data-theme="dark"] .drawer-description-box {
   background: #0f172a;
+  border-color: #334155;
 }
 
 html[data-theme="dark"] .drawer-section-title {
   color: #94a3b8;
 }
 
-html[data-theme="dark"] .drawer-text,
-html[data-theme="dark"] .analysis-subtitle {
-  color: #e2e8f0;
-}
-
-html[data-theme="dark"] .analysis-list li {
+html[data-theme="dark"] .drawer-text {
   color: #e2e8f0;
 }
 

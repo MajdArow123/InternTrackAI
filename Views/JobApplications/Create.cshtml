@@ -79,6 +79,9 @@
         <input type="hidden" name="forceCreate" id="forceCreate" value="false" />
         <input type="hidden" name="MatchScore" id="hiddenMatchScore" />
         <input type="hidden" name="MatchRecommendation" id="hiddenMatchRecommendation" />
+        <input type="hidden" name="MatchSummary" id="hiddenMatchSummary" />
+        <input type="hidden" name="MatchingSkillsJson" id="hiddenMatchingSkillsJson" />
+        <input type="hidden" name="MissingSkillsJson" id="hiddenMissingSkillsJson" />
 
         <!-- Core info -->
         <div class="form-card mb-3">
@@ -379,6 +382,9 @@
                 card.innerHTML = buildMatchCard(d);
                 document.getElementById('hiddenMatchScore').value = d.score;
                 document.getElementById('hiddenMatchRecommendation').value = d.recommendation;
+                document.getElementById('hiddenMatchSummary').value = d.summary || '';
+                document.getElementById('hiddenMatchingSkillsJson').value = JSON.stringify(d.matchingSkills || []);
+                document.getElementById('hiddenMissingSkillsJson').value = JSON.stringify(d.missingSkills || []);
             } catch (err) {
                 card.innerHTML = '<p class="js-error-text">Resume match request failed. Please try again.</p>';
             }

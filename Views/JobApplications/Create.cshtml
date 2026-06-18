@@ -217,11 +217,18 @@
                     autofill('Salary',        data.salary);
 
                     // If input was a URL, auto-fill the Job Link field with it
-                    if (isUrl) autofill('JobLink', text);
-
-                    if (data.skills && data.skills.length) {
-                        autofill('JobDescription',
-                            'Key Skills:\n' + data.skills.map(s => '• ' + s).join('\n'));
+                    if (isUrl) {
+                        autofill('JobLink', text);
+                        // We don't have the full posting text for a URL — fall back to
+                        // the extracted skills so the field isn't left blank.
+                        if (data.skills && data.skills.length) {
+                            autofill('JobDescription',
+                                'Key Skills:\n' + data.skills.map(s => '• ' + s).join('\n'));
+                        }
+                    } else {
+                        // User pasted the full job description — keep it verbatim,
+                        // don't overwrite it with the extracted skills list.
+                        autofill('JobDescription', text);
                     }
 
                     showResult(data);

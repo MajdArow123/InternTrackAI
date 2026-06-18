@@ -309,10 +309,10 @@
         }
 
         function buildMatchCard(d) {
-            const sc   = d.Score;
+            const sc   = d.score;
             const tier = getTier(sc);
-            const matchingSkills = d.MatchingSkills || [];
-            const missingSkills  = d.MissingSkills  || [];
+            const matchingSkills = d.matchingSkills || [];
+            const missingSkills  = d.missingSkills  || [];
 
             const matchTags = matchingSkills.map(s => `<span class="skill-tag skill-tag--match">${esc(s)}</span>`).join('');
             const missTags  = missingSkills.map(s  => `<span class="skill-tag skill-tag--missing">${esc(s)}</span>`).join('');
@@ -336,7 +336,7 @@
                     <span class="match-rec-badge match-tier-${tier.num}">${tier.label}</span>
                     <span class="match-verdict-desc">${tier.desc}</span>
                 </div>
-                ${d.Summary ? `<p class="match-summary-text">${esc(d.Summary)}</p>` : ''}
+                ${d.summary ? `<p class="match-summary-text">${esc(d.summary)}</p>` : ''}
                 ${skillsHtml}`;
         }
 
@@ -358,8 +358,9 @@
                     body: JSON.stringify({ jobDescription })
                 });
                 const d = await resp.json();
+                console.log('AutoMatch response:', JSON.stringify(d));
 
-                if (!d.HasResume) {
+                if (!d.hasResume) {
                     card.innerHTML = `
                         <div style="padding: 16px; background: var(--bg); border-radius: 8px; border-left: 4px solid var(--primary)">
                             <p style="margin: 0; font-size: 0.9rem; color: var(--text); font-weight: 500">📄 Upload your resume to see match score</p>
@@ -370,14 +371,14 @@
                     return;
                 }
 
-                if (!d.Success) {
-                    card.innerHTML = `<p class="js-error-text">${esc(d.Error || 'Resume match failed.')}</p>`;
+                if (!d.success) {
+                    card.innerHTML = `<p class="js-error-text">${esc(d.error || 'Resume match failed.')}</p>`;
                     return;
                 }
 
                 card.innerHTML = buildMatchCard(d);
-                document.getElementById('hiddenMatchScore').value = d.Score;
-                document.getElementById('hiddenMatchRecommendation').value = d.Recommendation;
+                document.getElementById('hiddenMatchScore').value = d.score;
+                document.getElementById('hiddenMatchRecommendation').value = d.recommendation;
             } catch (err) {
                 card.innerHTML = '<p class="js-error-text">Resume match request failed. Please try again.</p>';
             }

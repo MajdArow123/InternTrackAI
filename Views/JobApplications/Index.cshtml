@@ -217,6 +217,10 @@
                     <tbody>
                         @foreach (var item in Model)
                         {
+                            <!-- Long/free-text fields (summary, skills JSON, job description) are passed through
+                                 Uri.EscapeDataString so quotes, newlines, and HTML-like characters in AI-generated
+                                 or user-pasted text can't break out of the data-* attribute. The drawer JS reverses
+                                 this with decodeURIComponent before rendering, then HTML-escapes again on display. -->
                             <tr data-app-id="@item.Id"
                                 data-company="@item.CompanyName"
                                 data-role="@item.RoleTitle"
@@ -400,6 +404,8 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
 });
 </script>
 <script>
+// Row selection, bulk delete/status-change, and the side-by-side comparison
+// modal for the Applications table.
 (function () {
     const checkboxes   = Array.from(document.querySelectorAll('.row-check'));
     const selectAll    = document.getElementById('select-all-check');
@@ -552,6 +558,10 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
 
 <!-- ── Application Detail Drawer Script ── -->
 <script>
+// Slide-out panel showing the full job description and real AI match data
+// (score, recommendation, matching/missing skills) for a clicked row, without
+// a page navigation. All data is read from data-* attributes already rendered
+// on each <tr> server-side (see the table markup above) — no extra fetch.
 (function () {
     const drawer = document.getElementById('app-drawer');
     const backdrop = document.getElementById('app-drawer-backdrop');
@@ -559,6 +569,9 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
     const closeFooterBtn = document.getElementById('drawer-close-btn');
     const appRows = document.querySelectorAll('.app-row');
 
+    // Mirrors Models/Enums/ApplicationStatus.cs — numeric values are read out of
+    // each row's data-status attribute and looked up against these maps to
+    // render the status badge without a round trip to the server.
     const STATUS = {
         SAVED: 0,
         APPLIED: 1,
@@ -591,6 +604,10 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
         4: '<svg class="status-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>'
     };
 
+    // Same 5-tier resume match scoring table as Create.cshtml's inline match
+    // card. Intentionally duplicated rather than shared — this is a Razor view
+    // with no JS module bundler, so each <script> block is self-contained.
+    // Keep both copies in sync if the tier thresholds or labels ever change.
     const TIERS = [
         { min: 80, num: 5, label: 'APPLY',             desc: 'Strong fit — most required skills are present.' },
         { min: 60, num: 4, label: 'APPLY',             desc: 'Good fit — you have the core fundamentals for this role.' },
@@ -599,14 +616,18 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
         { min: 0,  num: 1, label: 'SKIP',              desc: 'Poor fit — the role requirements don\'t match your current profile.' },
     ];
 
+    // Picks the first (highest) tier whose `min` the score meets or exceeds.
     function getTier(sc) {
         return TIERS.find(t => sc >= t.min) || TIERS[TIERS.length - 1];
     }
 
+    // Minimal HTML-escaping for values interpolated into innerHTML below.
     function escHtml2(s) {
         return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    // Derives a 1-2 letter avatar initial from the company name, e.g.
+    // "Shopify Inc" -> "SI", "Shopify" -> "SH". Falls back to "?" if blank.
     function initials(name) {
         const parts = (name || '').trim().split(/\s+/).filter(Boolean);
         if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -614,6 +635,10 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
         return (name || '?').toUpperCase();
     }
 
+    // Builds the drawer's "AI Analysis" card — score, tier badge/description,
+    // AI-generated summary, and matching/missing skill tag columns. This
+    // renders the same real AI output (not fabricated text) that the Create
+    // page's resume match card shows, just laid out for the drawer.
     function buildDrawerMatchCard(score, summary, matchingSkills, missingSkills) {
         const tier = getTier(score);
         const matchTags = matchingSkills.map(s => '<span class="skill-tag skill-tag--match">' + escHtml2(s) + '</span>').join('');

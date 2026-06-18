@@ -6,6 +6,12 @@ using InternTrackAI.Models.ViewModels;
 
 namespace InternTrackAI.Services;
 
+/// <summary>
+/// Parses a pasted job description or job-posting URL into structured fields (company, role,
+/// location, salary, key skills) using the OpenAI API. Used by <c>AnalyzerController.Analyze</c>
+/// to power the "AI Job Analyzer" panel on the Create Application page, which auto-fills the form
+/// from free-text input.
+/// </summary>
 public class JobAnalyzerService
 {
     private readonly HttpClient _http;
@@ -26,6 +32,20 @@ public class JobAnalyzerService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Analyzes a job posting and extracts structured data via OpenAI (GPT-4o-mini).
+    /// </summary>
+    /// <param name="input">
+    /// Either the full job description text, or a job posting URL — URLs are detected and the
+    /// page is fetched and stripped of HTML server-side before being sent to the model.
+    /// </param>
+    /// <returns>
+    /// A <see cref="JobAnalysisResult"/> with <c>Success = true</c> and the extracted fields on
+    /// success, or <c>Success = false</c> with a user-facing <c>Error</c> message if the API key
+    /// is missing, the URL can't be fetched, the OpenAI call fails, or the response can't be parsed.
+    /// A result object (rather than a thrown exception) is used so the controller can render a
+    /// friendly inline error without a try/catch at the call site.
+    /// </returns>
     public async Task<JobAnalysisResult> AnalyzeAsync(string input)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
@@ -119,10 +139,17 @@ public class JobAnalyzerService
         }
     }
 
+    /// <summary>Returns true if the input looks like an http(s) URL rather than free-text job description.</summary>
     private static bool IsUrl(string input) =>
         input.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
         input.StartsWith("https://", StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// Downloads a job posting page and returns its visible text, truncated to 8000 characters to
+    /// keep the OpenAI prompt small. Spoofs a desktop browser User-Agent because many job boards
+    /// block requests from default HttpClient/bot user agents. Returns null on any failure
+    /// (non-success status, network error) so the caller can show a friendly fallback message.
+    /// </summary>
     private async Task<string?> FetchPageTextAsync(string url)
     {
         try
@@ -153,6 +180,11 @@ public class JobAnalyzerService
         }
     }
 
+    /// <summary>
+    /// Reduces raw HTML to plain text suitable for an LLM prompt: drops script/style/nav/header/
+    /// footer blocks entirely (noise, not job content), strips remaining tags, decodes common
+    /// HTML entities, and collapses excess whitespace.
+    /// </summary>
     private static string StripHtml(string html)
     {
         // Drop entire script, style, head, nav, footer blocks
@@ -176,6 +208,7 @@ public class JobAnalyzerService
         return html.Trim();
     }
 
+    /// <summary>Deserializes the model's JSON response into a successful <see cref="JobAnalysisResult"/>.</summary>
     private static JobAnalysisResult Parse(string json)
     {
         try
@@ -204,11 +237,13 @@ public class JobAnalyzerService
         }
     }
 
+    /// <summary>Reads a string property, returning null if it's missing or not a string (rather than throwing).</summary>
     private static string? Str(JsonElement root, string key) =>
         root.TryGetProperty(key, out var el) && el.ValueKind == JsonValueKind.String
             ? el.GetString()
             : null;
 
+    /// <summary>Builds a failed result carrying a user-facing error message.</summary>
     private static JobAnalysisResult Fail(string error) =>
         new() { Success = false, Error = error };
 }

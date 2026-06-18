@@ -4,12 +4,19 @@ using System.Text.Json;
 
 namespace InternTrackAI.Services;
 
+/// <summary>
+/// Generates a personalized cover letter via the OpenAI Chat Completions API, combining the
+/// target job's company/role/description with the applicant's resume text, skills, target roles,
+/// and optional notes. Called by <c>CoverLetterController</c> for both the page flow and the AJAX flow.
+/// </summary>
 public class CoverLetterGeneratorService
 {
     private readonly HttpClient _http;
     private readonly string _apiKey;
     private readonly ILogger<CoverLetterGeneratorService> _logger;
 
+    // OpenAI's request body uses camelCase fields (e.g. max_tokens is snake_case but the .NET
+    // property names here are camelCase already); kept for serializer consistency if more fields are added.
     private static readonly JsonSerializerOptions _camel = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -23,6 +30,16 @@ public class CoverLetterGeneratorService
         _logger  = logger;
     }
 
+    /// <summary>
+    /// Builds a prompt from the supplied job and applicant context and asks GPT-4o-mini to write
+    /// a 3-4 paragraph cover letter following a fixed format (date, salutation, body, sign-off).
+    /// Resume text and job description are truncated to keep the prompt within a reasonable token budget.
+    /// </summary>
+    /// <returns>
+    /// A tuple: <c>Success</c> indicates whether generation succeeded, <c>Content</c> is the
+    /// generated letter text (empty on failure), and <c>Error</c> is a user-facing message for
+    /// missing API keys, rate limits, or network failures.
+    /// </returns>
     public async Task<(bool Success, string Content, string? Error)> GenerateAsync(
         string company, string role, string jobDescription,
         string resumeText, string fullName, string skills,

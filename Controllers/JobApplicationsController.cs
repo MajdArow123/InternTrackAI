@@ -9,6 +9,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternTrackAI.Controllers;
 
+/// <summary>
+/// Core CRUD controller for the user's tracked internship applications: listing with
+/// search/filter/sort, create, edit, delete (single and bulk), bulk status changes, and CSV export.
+/// Every action scopes its query to the signed-in user's <see cref="JobApplication.UserId"/>.
+/// </summary>
 [Authorize]
 public class JobApplicationsController : Controller
 {
@@ -19,10 +24,21 @@ public class JobApplicationsController : Controller
         _context = context;
     }
 
+    /// <summary>Resolves the current signed-in user's id from the auth claims (ASP.NET Identity's "sub" claim).</summary>
     private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     // ── Index (search / filter / sort) ────────────────────
 
+    /// <summary>
+    /// Lists the current user's applications, optionally filtered by company/role text search,
+    /// status, and work mode, and sorted by deadline, date applied, status, or company name
+    /// (defaults to newest-first by id).
+    /// </summary>
+    /// <param name="search">Case-sensitive substring match against company name or role title.</param>
+    /// <param name="status">String name of an <see cref="ApplicationStatus"/> value; ignored if it doesn't parse.</param>
+    /// <param name="workMode">String name of a <see cref="WorkMode"/> value; ignored if it doesn't parse.</param>
+    /// <param name="sortBy">One of "deadline", "dateApplied", "status", "company"; any other value falls back to id descending.</param>
+    /// <returns>The Index view with the filtered/sorted list, plus filter state and total count in ViewBag.</returns>
     public async Task<IActionResult> Index(
         string? search, string? status, string? workMode, string? sortBy)
     {
@@ -65,11 +81,22 @@ public class JobApplicationsController : Controller
 
     // ── Create ────────────────────────────────────────────
 
+    /// <summary>Renders the empty Add Application form, including the AI Job Analyzer panel.</summary>
     public IActionResult Create()
     {
         return View();
     }
 
+    /// <summary>
+    /// Saves a new application for the current user. The posted <c>UserId</c> is ignored and
+    /// overwritten with the authenticated user's id (so a client can't submit on another user's
+    /// behalf), then removed from <see cref="ModelState"/> so it doesn't fail required-field validation.
+    /// Unless <paramref name="forceCreate"/> is set, a matching company+role pair for this user
+    /// re-renders the form with a duplicate warning instead of saving.
+    /// </summary>
+    /// <param name="jobApplication">Form-bound application fields, including any AI-analyzer hidden inputs (match score/skills/summary).</param>
+    /// <param name="forceCreate">When true, bypasses the duplicate-application check (set by the "Save Anyway" button).</param>
+    /// <returns>Redirect to Index on success; otherwise re-renders Create with validation or duplicate-warning state.</returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Create(JobApplication jobApplication, bool forceCreate = false)
@@ -103,6 +130,7 @@ public class JobApplicationsController : Controller
 
     // ── Edit ──────────────────────────────────────────────
 
+    /// <summary>Loads an application by id for editing. Returns 404 if it doesn't exist.</summary>
     public async Task<IActionResult> Edit(int id)
     {
         var app = await _context.JobApplications.FindAsync(id);
@@ -110,6 +138,13 @@ public class JobApplicationsController : Controller
         return View(app);
     }
 
+    /// <summary>
+    /// Persists edits to an existing application. Re-stamps <c>UserId</c> from the authenticated
+    /// user (same rationale as Create) and handles the case where the row was deleted concurrently.
+    /// </summary>
+    /// <param name="id">Route id; must match <paramref name="jobApplication"/>'s id or the request is rejected.</param>
+    /// <param name="jobApplication">Form-bound updated fields.</param>
+    /// <returns>Redirect to Index on success; 400 on id mismatch; 404 if the row no longer exists; otherwise re-renders Edit.</returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Edit(int id, JobApplication jobApplication)
@@ -140,6 +175,7 @@ public class JobApplicationsController : Controller
 
     // ── Delete ────────────────────────────────────────────
 
+    /// <summary>Loads an application by id for the delete confirmation page. Returns 404 if it doesn't exist.</summary>
     public async Task<IActionResult> Delete(int id)
     {
         var app = await _context.JobApplications.FindAsync(id);
@@ -147,6 +183,14 @@ public class JobApplicationsController : Controller
         return View(app);
     }
 
+    /// <summary>
+    /// Deletes an application along with any cover letters and interview prep sessions linked to
+    /// it, so no orphaned child rows are left behind (there's no DB-level cascade configured for
+    /// these relations). Named "Delete" via <see cref="ActionNameAttribute"/> so the POST shares
+    /// the GET confirmation page's route.
+    /// </summary>
+    /// <param name="id">The application id to delete.</param>
+    /// <returns>Redirect to Index, with a toast confirming the deletion (silently no-ops if the id doesn't exist).</returns>
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
@@ -173,6 +217,13 @@ public class JobApplicationsController : Controller
 
     // ── Bulk Delete ───────────────────────────────────────
 
+    /// <summary>
+    /// Deletes multiple applications at once (the Applications list's checkbox + bulk-action bar),
+    /// scoped to the current user, cleaning up linked cover letters and interview prep sessions
+    /// the same way single delete does.
+    /// </summary>
+    /// <param name="ids">Application ids to delete; ids not owned by the current user are silently ignored.</param>
+    /// <returns>Redirect to Index with a toast reporting how many were deleted.</returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> BulkDelete(int[] ids)
@@ -211,6 +262,10 @@ public class JobApplicationsController : Controller
 
     // ── Bulk Status Update ────────────────────────────────
 
+    /// <summary>Sets the same status on multiple applications at once, scoped to the current user.</summary>
+    /// <param name="ids">Application ids to update; ids not owned by the current user are silently ignored.</param>
+    /// <param name="newStatus">The status to apply to all selected applications.</param>
+    /// <returns>Redirect to Index with a toast reporting how many were updated.</returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> BulkStatus(int[] ids, ApplicationStatus newStatus)
@@ -233,6 +288,8 @@ public class JobApplicationsController : Controller
 
     // ── Export CSV ────────────────────────────────────────
 
+    /// <summary>Exports all of the current user's applications as a downloadable CSV file.</summary>
+    /// <returns>A "text/csv" file response named "applications.csv".</returns>
     public async Task<IActionResult> Export()
     {
         var uid  = UserId();
@@ -262,6 +319,7 @@ public class JobApplicationsController : Controller
         return File(bytes, "text/csv", "applications.csv");
     }
 
+    /// <summary>Quotes and escapes a CSV field if it contains a comma, quote, or newline.</summary>
     private static string Csv(string v) =>
         v.Contains(',') || v.Contains('"') || v.Contains('\n')
             ? $"\"{v.Replace("\"", "\"\"")}\"" : v;

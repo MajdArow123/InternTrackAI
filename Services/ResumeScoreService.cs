@@ -5,6 +5,11 @@ using InternTrackAI.Models.ViewModels;
 
 namespace InternTrackAI.Services;
 
+/// <summary>
+/// Evaluates the overall quality of a candidate's resume (independent of any specific job) using
+/// the OpenAI API, returning a score, strengths, and actionable improvement suggestions. Used by
+/// the Profile page's "AI Resume Score" feature.
+/// </summary>
 public class ResumeScoreService
 {
     private readonly HttpClient _http;
@@ -23,6 +28,17 @@ public class ResumeScoreService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Scores the overall quality of a resume via OpenAI (GPT-4o-mini), optionally taking the
+    /// candidate's target roles into account when judging positioning.
+    /// </summary>
+    /// <param name="resumeText">Plain text extracted from the candidate's resume.</param>
+    /// <param name="targetRoles">Optional role titles the candidate is pursuing, used as extra context for the prompt.</param>
+    /// <returns>
+    /// A <see cref="ResumeScoreResult"/> with <c>Success = true</c> and a score, summary,
+    /// strengths, and improvement suggestions; or <c>Success = false</c> with a user-facing
+    /// <c>Error</c> on failure.
+    /// </returns>
     public async Task<ResumeScoreResult> ScoreAsync(string resumeText, IEnumerable<string>? targetRoles = null)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
@@ -108,6 +124,7 @@ public class ResumeScoreService
         }
     }
 
+    /// <summary>Deserializes the model's JSON response into a successful <see cref="ResumeScoreResult"/>.</summary>
     private static ResumeScoreResult Parse(string json)
     {
         try
@@ -131,11 +148,13 @@ public class ResumeScoreService
         }
     }
 
+    /// <summary>Reads a string property, returning null if it's missing or not a string (rather than throwing).</summary>
     private static string? Str(JsonElement root, string key) =>
         root.TryGetProperty(key, out var el) && el.ValueKind == JsonValueKind.String
             ? el.GetString()
             : null;
 
+    /// <summary>Reads a string-array property into a List, skipping any null/empty entries.</summary>
     private static List<string> StrArray(JsonElement root, string key)
     {
         if (!root.TryGetProperty(key, out var arr) || arr.ValueKind != JsonValueKind.Array)

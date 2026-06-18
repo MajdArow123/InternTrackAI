@@ -10,6 +10,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternTrackAI.Controllers;
 
+/// <summary>
+/// Generates and stores AI interview-prep question sets for a specific job application —
+/// one session per application, regenerable on demand from the job description, the user's
+/// active resume, and their profile skills.
+/// </summary>
 [Authorize]
 public class InterviewPrepController : Controller
 {
@@ -22,14 +27,22 @@ public class InterviewPrepController : Controller
         _service = service;
     }
 
+    /// <summary>Resolves the current signed-in user's id from the auth claims.</summary>
     private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
+    // Tolerates property-name casing mismatches when re-reading previously stored question JSON.
     private static readonly JsonSerializerOptions _readOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    // GET /InterviewPrep/Prep/{appId}
+    /// <summary>
+    /// Renders the interview prep page for a job application, loading any previously generated
+    /// question session if one exists (the page's "Generate" button calls <see cref="Generate"/>
+    /// via AJAX to create or refresh it).
+    /// </summary>
+    /// <param name="appId">The job application id; ownership is checked against the current user.</param>
+    /// <returns>The Prep view, or 404 if the application doesn't exist or isn't owned by the user.</returns>
     [HttpGet]
     public async Task<IActionResult> Prep(int appId)
     {
@@ -58,7 +71,16 @@ public class InterviewPrepController : Controller
         return View(vm);
     }
 
-    // POST /InterviewPrep/Generate  (AJAX)
+    /// <summary>
+    /// Generates a fresh set of AI interview questions for an application — pulling job context
+    /// from the stored job description, the user's active resume (PDF text extracted on the fly),
+    /// and their profile skills — and upserts the result as the application's prep session.
+    /// </summary>
+    /// <param name="req">The application id to generate questions for.</param>
+    /// <returns>
+    /// JSON <c>{ success, questions }</c> on success, or <c>{ success: false, error }</c> if the
+    /// application can't be found or the AI call fails.
+    /// </returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Generate([FromBody] GeneratePrepRequest req)

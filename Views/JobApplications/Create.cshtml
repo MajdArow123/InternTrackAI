@@ -165,6 +165,9 @@
     });
     </script>
     <script>
+    // AI Job Analyzer panel: lets the user paste a job posting (URL or full text),
+    // sends it to the backend for extraction, auto-fills the form, and then
+    // kicks off a resume match against the user's active resume.
     (function () {
         const card       = document.getElementById('analyzerCard');
         const body       = document.getElementById('analyzerBody');
@@ -175,27 +178,40 @@
         const errorEl    = document.getElementById('analyzerError');
 
         // ── Toggle open/close ────────────────────────────────
+        // Expands/collapses the analyzer body and flips the toggle button label.
         function setOpen(open) {
             card.classList.toggle('analyzer-open', open);
             toggleBtn.textContent = open ? 'Close' : 'Open Analyzer';
         }
 
+        // Clicking anywhere on the header toggles the panel, except the Analyze
+        // button itself (which has its own click handler below).
         document.getElementById('analyzerToggle').addEventListener('click', function (e) {
             if (e.target === analyzeBtn) return;
             setOpen(!card.classList.contains('analyzer-open'));
         });
 
         // ── Analyze ──────────────────────────────────────────
+        // Sends the pasted text/URL to the AI analyzer endpoint, auto-fills the
+        // form from the extracted fields, then triggers a resume match.
         analyzeBtn.addEventListener('click', async function (e) {
             e.stopPropagation();
             const text = textarea.value.trim();
             if (!text) { textarea.focus(); return; }
 
+            // A URL means we only have the link, not the full posting text — the
+            // backend will fetch and parse the page server-side. Pasted text is
+            // analyzed directly. This distinction also drives how JobDescription
+            // gets filled below.
             const isUrl = /^https?:\/\//i.test(text);
             setLoading(true, isUrl);
             resultEl.hidden = true;
             errorEl.hidden  = true;
 
+            // CSRF is normally validated via this token; this AJAX endpoint is
+            // marked [IgnoreAntiforgeryToken] server-side (it's a read-only,
+            // authenticated-page-only analysis call), so the header is sent but
+            // not strictly required — kept for defense in depth / consistency.
             const token = document.querySelector('[name="__RequestVerificationToken"]').value;
 
             try {
@@ -250,6 +266,8 @@
         });
 
         // ── Helpers ──────────────────────────────────────────
+        // Sets a form field's value and re-triggers the highlight animation
+        // (removing then re-adding the class forces the CSS animation to restart).
         function autofill(id, value) {
             if (!value) return;
             const el = document.getElementById(id);
@@ -260,6 +278,8 @@
             el.classList.add('ai-autofilled');
         }
 
+        // Toggles the Analyze button's disabled/spinner state and shows a
+        // shimmer placeholder in the result area while the request is in flight.
         function setLoading(on, isUrl) {
             analyzeBtn.disabled = on;
             if (on) {
@@ -279,6 +299,7 @@
             }
         }
 
+        // Renders the "form auto-filled" success banner plus the extracted skill tags.
         function showResult(data) {
             const filled = [data.companyName, data.roleTitle, data.location]
                 .filter(Boolean).join(' · ');
@@ -302,6 +323,11 @@
         }
 
         // ── Auto-match against saved resume ──────────────
+        // 5-tier resume match scoring system, ordered highest score first.
+        // getTier() picks the first tier whose `min` the score meets or exceeds.
+        // This same table is duplicated in Index.cshtml for the detail drawer —
+        // kept in sync manually since these are separate Razor views with no
+        // shared JS module to import from.
         const TIERS = [
             { min: 80, num: 5, label: 'APPLY',            desc: 'Strong fit — most required skills are present.' },
             { min: 60, num: 4, label: 'APPLY',            desc: 'Good fit — you have the core fundamentals for this role.' },
@@ -314,10 +340,13 @@
             return TIERS.find(t => sc >= t.min) || TIERS[TIERS.length - 1];
         }
 
+        // Minimal HTML-escaping for values interpolated into innerHTML below.
         function esc(s) {
             return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
+        // Renders the resume match card markup (score, tier badge, summary,
+        // matching/missing skill tags) from the AutoMatch response object `d`.
         function buildMatchCard(d) {
             const sc   = d.score;
             const tier = getTier(sc);
@@ -350,6 +379,16 @@
                 ${skillsHtml}`;
         }
 
+        // Calls /Profile/AutoMatch to score the just-analyzed job description
+        // against the user's active resume, then populates both the visible
+        // match card and the hidden form fields that carry the AI's results
+        // (score, recommendation, summary, skill lists) through to Create POST.
+        //
+        // NOTE: the response is serialized by ASP.NET Core's default JSON
+        // policy, which camelCases C# property names (HasResume -> hasResume,
+        // MatchingSkills -> matchingSkills, etc). All property access below
+        // must stay camelCase to match the actual wire format — a prior bug
+        // here used PascalCase and silently read `undefined` for every field.
         async function runAutoMatch(jobDescription, token) {
             const wrap = document.getElementById('inlineMatchWrap');
             const card = document.getElementById('inlineMatchCard');
@@ -370,6 +409,8 @@
                 const d = await resp.json();
                 console.log('AutoMatch response:', JSON.stringify(d));
 
+                // No active resume on file — point the user to the Profile page
+                // instead of silently hiding the match card.
                 if (!d.hasResume) {
                     card.innerHTML = `
                         <div style="padding: 16px; background: var(--bg); border-radius: 8px; border-left: 4px solid var(--primary)">
@@ -381,11 +422,15 @@
                     return;
                 }
 
+                // AI call failed (rate limit, network, invalid key, etc).
                 if (!d.success) {
                     card.innerHTML = `<p class="js-error-text">${esc(d.error || 'Resume match failed.')}</p>`;
                     return;
                 }
 
+                // Success: render the match card and stash the computed values
+                // in hidden inputs so they get submitted along with the form
+                // and persisted on the JobApplication record.
                 card.innerHTML = buildMatchCard(d);
                 document.getElementById('hiddenMatchScore').value = d.score;
                 document.getElementById('hiddenMatchRecommendation').value = d.recommendation;

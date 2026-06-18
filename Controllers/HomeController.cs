@@ -10,6 +10,10 @@ using InternTrackAI.Models.ViewModels;
 
 namespace InternTrackAI.Controllers;
 
+/// <summary>
+/// Serves the public marketing homepage, the authenticated dashboard with aggregated
+/// application analytics, and the app's custom error/not-found pages.
+/// </summary>
 public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
@@ -21,11 +25,18 @@ public class HomeController : Controller
         _context = context;
     }
 
+    /// <summary>Renders the marketing/hero landing page. No model, no auth required.</summary>
     public IActionResult Index()
     {
         return View();
     }
 
+    /// <summary>
+    /// Builds the signed-in user's dashboard: total/per-status application counts, success rate,
+    /// top companies by application count, deadlines in the next 3 days, and applications that
+    /// have sat in "Applied" for 7+ days without movement (follow-up nudges).
+    /// </summary>
+    /// <returns>The Dashboard view bound to a <see cref="DashboardViewModel"/>.</returns>
     [Authorize]
     public async Task<IActionResult> Dashboard()
     {
@@ -79,11 +90,17 @@ public class HomeController : Controller
         return View(vm);
     }
 
+    /// <summary>Renders the static privacy policy page.</summary>
     public IActionResult Privacy()
     {
         return View();
     }
 
+    /// <summary>
+    /// Custom 404 page, wired up as the status-code-pages re-execute target for unmatched routes
+    /// (and for actions that return a 404, e.g. antiforgery failures). Replaces the default ASP.NET
+    /// error page with one matching the site's design.
+    /// </summary>
     [Route("Home/NotFound")]
     public IActionResult PageNotFound()
     {
@@ -91,6 +108,10 @@ public class HomeController : Controller
         return View("NotFound");
     }
 
+    /// <summary>
+    /// Custom 500 page shown for unhandled exceptions. Caching is explicitly disabled so a stale
+    /// error page is never served from a browser/proxy cache after the underlying issue is fixed.
+    /// </summary>
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {

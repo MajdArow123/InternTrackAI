@@ -12,6 +12,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace InternTrackAI.Controllers;
 
+/// <summary>
+/// Manages the user's career portfolio: personal info, profile photo, skills/target-role tags,
+/// resume and cover letter version history (upload, activate, delete, download), AI resume
+/// scoring, and the AI resume-match endpoint used by the Job Application create page.
+/// </summary>
 [Authorize]
 public class ProfileController : Controller
 {
@@ -40,6 +45,7 @@ public class ProfileController : Controller
 
     // ── GET /Profile ────────────────────────────────────
 
+    /// <summary>Renders the full profile page: personal info, documents, skills, and application stats.</summary>
     [HttpGet]
     public async Task<IActionResult> Index()
     {
@@ -49,6 +55,7 @@ public class ProfileController : Controller
 
     // ── POST /Profile/SaveInfo ───────────────────────────
 
+    /// <summary>Saves the personal-info section of the profile (creates the profile row if it doesn't exist yet).</summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveInfo(string? fullName, string? displayName, int? age, string? country, string? phoneNumber)
     {
@@ -68,6 +75,11 @@ public class ProfileController : Controller
 
     // ── POST /Profile/UploadPhoto ────────────────────────
 
+    /// <summary>
+    /// Replaces the user's profile photo. Validates extension and size, deletes the previous
+    /// photo file, and bumps <c>PhotoVersion</c> so the new image cache-busts in the UI (the
+    /// stored filename is the user id, so the version number is the only thing that changes).
+    /// </summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> UploadPhoto(IFormFile? photo)
     {
@@ -116,6 +128,8 @@ public class ProfileController : Controller
 
     // ── POST /Profile/SaveSkills ─────────────────────────
 
+    /// <summary>Saves the tag-based skills list, deduplicated and JSON-encoded into <c>UserProfile.SkillsJson</c>.</summary>
+    /// <param name="skillsJson">A JSON array of skill strings from the tag input widget.</param>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveSkills(string? skillsJson)
     {
@@ -129,6 +143,8 @@ public class ProfileController : Controller
 
     // ── POST /Profile/SaveTargetRoles ────────────────────
 
+    /// <summary>Saves the tag-based target-roles list, deduplicated and JSON-encoded into <c>UserProfile.TargetRolesJson</c>.</summary>
+    /// <param name="targetRolesJson">A JSON array of role-name strings from the tag input widget.</param>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveTargetRoles(string? targetRolesJson)
     {
@@ -142,18 +158,21 @@ public class ProfileController : Controller
 
     // ── POST /Profile/UploadResume ───────────────────────
 
+    /// <summary>Uploads a new resume PDF as the next version (see <see cref="UploadDocumentAsync"/> for validation rules).</summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> UploadResume(IFormFile? resume)
         => await UploadDocumentAsync(resume, isResume: true);
 
     // ── POST /Profile/UploadCoverLetter ──────────────────
 
+    /// <summary>Uploads a new cover letter PDF as the next version (see <see cref="UploadDocumentAsync"/> for validation rules).</summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> UploadCoverLetter(IFormFile? coverLetter)
         => await UploadDocumentAsync(coverLetter, isResume: false);
 
     // ── POST /Profile/SetActiveResume ────────────────────
 
+    /// <summary>Marks one resume version as active (used by AI matching/scoring) and unmarks all others for this user.</summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SetActiveResume(int id)
     {
@@ -167,6 +186,7 @@ public class ProfileController : Controller
 
     // ── POST /Profile/SetActiveCoverLetter ───────────────
 
+    /// <summary>Marks one cover letter version as active and unmarks all others for this user.</summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SetActiveCoverLetter(int id)
     {
@@ -180,6 +200,7 @@ public class ProfileController : Controller
 
     // ── POST /Profile/DeleteResume ───────────────────────
 
+    /// <summary>Deletes a resume version (file + DB row) and renumbers the remaining versions so they stay contiguous.</summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteResume(int id)
     {
@@ -199,6 +220,7 @@ public class ProfileController : Controller
 
     // ── POST /Profile/DeleteCoverLetter ──────────────────
 
+    /// <summary>Deletes a cover letter version (file + DB row) and renumbers the remaining versions so they stay contiguous.</summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteCoverLetter(int id)
     {
@@ -217,6 +239,8 @@ public class ProfileController : Controller
 
     // ── GET /Profile/DownloadResume/{id} ─────────────────
 
+    /// <summary>Streams a resume PDF version back to the browser under its original filename.</summary>
+    /// <returns>The PDF file, or 404 if it doesn't exist or isn't owned by the current user.</returns>
     [HttpGet]
     public async Task<IActionResult> DownloadResume(int id)
     {
@@ -228,6 +252,8 @@ public class ProfileController : Controller
 
     // ── GET /Profile/DownloadCoverLetter/{id} ────────────
 
+    /// <summary>Streams a cover letter PDF version back to the browser under its original filename.</summary>
+    /// <returns>The PDF file, or 404 if it doesn't exist or isn't owned by the current user.</returns>
     [HttpGet]
     public async Task<IActionResult> DownloadCoverLetter(int id)
     {
@@ -239,6 +265,11 @@ public class ProfileController : Controller
 
     // ── POST /Profile/ScoreResume ────────────────────────
 
+    /// <summary>
+    /// Extracts text from the user's active resume PDF and sends it to <see cref="ResumeScoreService"/>
+    /// for an AI quality score and improvement suggestions. Re-renders the Index view with the result
+    /// attached rather than redirecting, so the page doesn't need a second round-trip to show it.
+    /// </summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> ScoreResume()
     {
@@ -287,6 +318,18 @@ public class ProfileController : Controller
 
     // ── POST /Profile/AutoMatch (AJAX) ───────────────────
 
+    /// <summary>
+    /// Scores the user's active resume against a job description, called via fetch from the Job
+    /// Application create page right after the AI job analyzer fills out the form. Antiforgery
+    /// validation is skipped because this is a same-origin AJAX call from an already-authenticated
+    /// page with no cookie-based state to protect beyond the auth cookie itself.
+    /// </summary>
+    /// <param name="request">The job description text to match the resume against.</param>
+    /// <returns>
+    /// JSON shaped as <c>{ hasResume, success, score, recommendation, matchingSkills, missingSkills,
+    /// summary, error }</c>. Note that ASP.NET Core's default JSON policy lowercases these from their
+    /// PascalCase C# names — the calling JavaScript must read them as camelCase.
+    /// </returns>
     [HttpPost, IgnoreAntiforgeryToken] // API endpoint called via AJAX from authenticated Create page
     public async Task<IActionResult> AutoMatch([FromBody] AutoMatchRequest? request)
     {
@@ -348,8 +391,10 @@ public class ProfileController : Controller
 
     // ── Helpers ──────────────────────────────────────────
 
+    /// <summary>Resolves the current signed-in user's id from the auth claims.</summary>
     private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
+    /// <summary>Fetches the user's profile row, creating (but not yet saving) an empty one if none exists.</summary>
     private async Task<UserProfile> GetOrCreateProfileAsync(string userId)
     {
         var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId);
@@ -361,6 +406,11 @@ public class ProfileController : Controller
         return profile;
     }
 
+    /// <summary>
+    /// Assembles everything the profile page needs in one pass: personal info, documents, parsed
+    /// skill/role tags, and derived application stats (success rate, this-month count, upcoming
+    /// deadlines within 7 days, and the 5 most recently AI-matched applications).
+    /// </summary>
     private async Task<ProfileViewModel> BuildViewModelAsync()
     {
         var userId = UserId();
@@ -425,6 +475,12 @@ public class ProfileController : Controller
         };
     }
 
+    /// <summary>
+    /// Shared upload pipeline for both resumes and cover letters: validates extension, size, and
+    /// PDF magic bytes (rejects files merely renamed to .pdf), stores the file under a per-user
+    /// directory with a random filename (avoids collisions and leaking the original name on disk),
+    /// and records it as the next version number. The first version uploaded is auto-activated.
+    /// </summary>
     private async Task<IActionResult> UploadDocumentAsync(IFormFile? file, bool isResume)
     {
         var label = isResume ? "Resume" : "Cover letter";
@@ -507,6 +563,7 @@ public class ProfileController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    /// <summary>Re-sequences version numbers to 1..N after a deletion so they stay contiguous (no gaps).</summary>
     private async Task RenumberVersionsAsync(string userId, bool isResume)
     {
         if (isResume)
@@ -522,6 +579,11 @@ public class ProfileController : Controller
         await _db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Serves a stored PDF as a physical file response. Files live outside wwwroot
+    /// (under uploads/) so they aren't reachable as static files — this method is the
+    /// only path that exposes them, and it's only called after an ownership check.
+    /// </summary>
     private IActionResult ServeFile(string storedPath, string originalName)
     {
         var fullPath = Path.Combine(_env.ContentRootPath, storedPath);
@@ -529,12 +591,14 @@ public class ProfileController : Controller
         return PhysicalFile(fullPath, "application/pdf", originalName);
     }
 
+    /// <summary>Deletes a stored file from disk if it exists; no-ops otherwise.</summary>
     private void DeleteFile(string storedPath)
     {
         var fullPath = Path.Combine(_env.ContentRootPath, storedPath);
         if (System.IO.File.Exists(fullPath)) System.IO.File.Delete(fullPath);
     }
 
+    /// <summary>Deserializes a JSON string array (skills or target roles), tolerating null/malformed input.</summary>
     private static List<string> ParseTagJson(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return new();
@@ -542,6 +606,7 @@ public class ProfileController : Controller
         catch { return new(); }
     }
 
+    /// <summary>Trims, dedupes, and drops empty entries from a tag list before re-serializing it to JSON for storage.</summary>
     private static string? NormalizeTagJson(string? json)
     {
         if (string.IsNullOrWhiteSpace(json)) return null;
@@ -554,6 +619,7 @@ public class ProfileController : Controller
         catch { return null; }
     }
 
+    /// <summary>Strips path components and characters invalid in filenames, so an uploaded name can't be used for path traversal.</summary>
     private static string SanitizeFileName(string name)
     {
         var sanitized = Path.GetFileName(name);

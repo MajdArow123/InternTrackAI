@@ -5,6 +5,11 @@ using InternTrackAI.Models;
 
 namespace InternTrackAI.Services;
 
+/// <summary>
+/// Generates a set of tailored interview questions (Technical/Behavioral/Company-Specific) via
+/// the OpenAI Chat Completions API, using the target job's company/role/description plus the
+/// candidate's resume text and skills. Called by <c>InterviewPrepController.Generate</c>.
+/// </summary>
 public class InterviewPrepService
 {
     private readonly HttpClient _http;
@@ -16,6 +21,7 @@ public class InterviewPrepService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
+    // Tolerates casing differences when parsing the model's JSON response into InterviewQuestion objects.
     private static readonly JsonSerializerOptions _read = new()
     {
         PropertyNameCaseInsensitive = true
@@ -29,6 +35,17 @@ public class InterviewPrepService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Asks GPT-4o-mini for 8-10 interview questions (3-4 Technical, 3-4 Behavioral, 2 Company-Specific)
+    /// tailored to the given role/company/job description/resume, each with a short answering tip.
+    /// The prompt instructs the model to return raw JSON; any markdown code-fence wrapping the model
+    /// sometimes adds is stripped before parsing, since the model doesn't always follow the no-markdown instruction exactly.
+    /// </summary>
+    /// <returns>
+    /// A tuple: <c>Success</c> indicates whether generation succeeded, <c>Questions</c> is the parsed
+    /// list (empty on failure), and <c>Error</c> is a user-facing message for missing keys, rate
+    /// limits, or network failures.
+    /// </returns>
     public async Task<(bool Success, List<InterviewQuestion> Questions, string? Error)> GenerateAsync(
         string company, string role, string jobDescription, string resumeText, string skills)
     {

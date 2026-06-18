@@ -10,6 +10,11 @@ using InternTrackAI.Services;
 
 namespace InternTrackAI.Controllers;
 
+/// <summary>
+/// Drives the AI cover letter feature: generating a letter from a tracked application + the
+/// user's resume/profile context, and managing the saved-letter version history (save, delete,
+/// set active, download).
+/// </summary>
 [Authorize]
 public class CoverLetterController : Controller
 {
@@ -22,10 +27,16 @@ public class CoverLetterController : Controller
         _generator = generator;
     }
 
+    /// <summary>Resolves the current signed-in user's id from the auth claims.</summary>
     private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     // ── GET /CoverLetter/Generate[?appId=N] ──────────────────────────────────
 
+    /// <summary>
+    /// Renders the cover letter generator page: the user's applications (to pick one as context),
+    /// their saved letter history, and whether they have an active resume on file.
+    /// </summary>
+    /// <param name="appId">Optional application id to preselect (e.g. linked from the Applications list "Cover Letter" button).</param>
     [HttpGet]
     public async Task<IActionResult> Generate(int? appId)
     {
@@ -55,6 +66,15 @@ public class CoverLetterController : Controller
 
     // ── POST /CoverLetter/GenerateAjax  (AJAX, JSON body) ───────────────────
 
+    /// <summary>
+    /// Builds the AI prompt context (selected application's job description, extracted resume
+    /// text, profile name/skills/target roles, optional user notes) and calls
+    /// <see cref="CoverLetterGeneratorService"/> to produce a draft letter. Called via fetch() from
+    /// the Generate page, so it keeps <c>[ValidateAntiForgeryToken]</c> (the token is sent
+    /// explicitly by the page's JS) since this endpoint triggers a billed OpenAI call.
+    /// </summary>
+    /// <param name="req">JSON body with the selected application id and optional extra notes to guide tone/content.</param>
+    /// <returns>JSON with the generated content on success, or an error message on failure.</returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> GenerateAjax([FromBody] GenerateRequest req)
@@ -119,6 +139,15 @@ public class CoverLetterController : Controller
 
     // ── POST /CoverLetter/Save ───────────────────────────────────────────────
 
+    /// <summary>
+    /// Saves an edited/generated letter to the user's version history. The new version number is
+    /// always max+1 (never reused), and the very first saved letter is automatically marked active.
+    /// </summary>
+    /// <param name="applicationId">Optional id of the application this letter was generated for (for snapshotting company/role).</param>
+    /// <param name="content">The (possibly user-edited) letter text.</param>
+    /// <param name="company">Snapshot of the company name at save time, shown in the history list.</param>
+    /// <param name="role">Snapshot of the role title at save time, shown in the history list.</param>
+    /// <returns>Redirect back to Generate; no-ops (no redirect change, just skips saving) if content is blank.</returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Save(int? applicationId, string content,
@@ -153,6 +182,12 @@ public class CoverLetterController : Controller
 
     // ── POST /CoverLetter/Delete/{id} ────────────────────────────────────────
 
+    /// <summary>
+    /// Deletes a saved letter, then renumbers the remaining letters sequentially (1..N) so version
+    /// numbers stay contiguous, and promotes the oldest remaining letter to active if the deleted
+    /// one was active.
+    /// </summary>
+    /// <param name="id">The letter id to delete; ownership is checked against the current user.</param>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id)
@@ -187,6 +222,8 @@ public class CoverLetterController : Controller
 
     // ── POST /CoverLetter/SetActive/{id} ─────────────────────────────────────
 
+    /// <summary>Marks one saved letter as the active version and unmarks all others for this user.</summary>
+    /// <param name="id">The letter id to activate; ownership is checked against the current user.</param>
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SetActive(int id)
@@ -205,6 +242,9 @@ public class CoverLetterController : Controller
 
     // ── GET /CoverLetter/Download/{id} ───────────────────────────────────────
 
+    /// <summary>Streams a saved letter back as a plain-text file download.</summary>
+    /// <param name="id">The letter id to download; ownership is checked against the current user.</param>
+    /// <returns>A <c>.txt</c> file response, or 404 if the letter doesn't exist or isn't owned by the user.</returns>
     [HttpGet]
     public async Task<IActionResult> Download(int id)
     {

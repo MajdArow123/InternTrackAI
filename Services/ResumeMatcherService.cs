@@ -6,6 +6,12 @@ using UglyToad.PdfPig;
 
 namespace InternTrackAI.Services;
 
+/// <summary>
+/// Compares a candidate's resume text against a job description using the OpenAI API and
+/// produces a fit score, recommendation tier, and matching/missing skill breakdown. Used by
+/// <c>ProfileController.AutoMatch</c> after the AI Job Analyzer extracts a job description, and
+/// also extracts text from uploaded resume PDFs via PdfPig.
+/// </summary>
 public class ResumeMatcherService
 {
     private readonly HttpClient _http;
@@ -24,6 +30,14 @@ public class ResumeMatcherService
         _logger = logger;
     }
 
+    /// <summary>
+    /// Extracts plain text from a PDF resume using PdfPig (a managed, dependency-free PDF text
+    /// extractor — no external binaries or native libraries required, which keeps the app easy
+    /// to deploy on Railway). Words are space-joined per line; layout/formatting is discarded
+    /// since only the raw text is needed for the OpenAI prompt.
+    /// </summary>
+    /// <param name="stream">An open, readable stream positioned at the start of the PDF file.</param>
+    /// <returns>The extracted text, trimmed of leading/trailing whitespace.</returns>
     public static string ExtractPdfText(Stream stream)
     {
         var sb = new StringBuilder();
@@ -37,11 +51,23 @@ public class ResumeMatcherService
         return sb.ToString().Trim();
     }
 
+    /// <summary>
+    /// Scores how well a resume matches a job description via OpenAI (GPT-4o-mini).
+    /// </summary>
+    /// <param name="resumeText">Plain text extracted from the candidate's active resume.</param>
+    /// <param name="jobDescription">The job description to match against.</param>
+    /// <returns>
+    /// A <see cref="ResumeMatchResult"/> with <c>Success = true</c> and a score (0-100),
+    /// recommendation tier, matching/missing skills, strengths, and a plain-English summary; or
+    /// <c>Success = false</c> with a user-facing <c>Error</c> on failure (missing API key, HTTP
+    /// failure, or unparseable response).
+    /// </returns>
     public async Task<ResumeMatchResult> MatchAsync(string resumeText, string jobDescription)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
             return Fail("OpenAI API key is not configured. Run: dotnet user-secrets set \"OpenAI:ApiKey\" \"sk-...\"");
 
+        // Truncate both inputs to keep the prompt within a reasonable token budget for gpt-4o-mini.
         if (resumeText.Length > 6000)    resumeText     = resumeText[..6000];
         if (jobDescription.Length > 4000) jobDescription = jobDescription[..4000];
 
@@ -123,6 +149,12 @@ public class ResumeMatcherService
         }
     }
 
+    /// <summary>
+    /// Deserializes the model's JSON response into a successful <see cref="ResumeMatchResult"/>
+    /// and derives the recommendation tier from the score band. The same 5-tier thresholds (80/
+    /// 60/40/20) are mirrored in the front-end JS (Create.cshtml/Index.cshtml TIERS array) so the
+    /// color-coded badge always matches this recommendation.
+    /// </summary>
     private static ResumeMatchResult Parse(string json)
     {
         try
@@ -156,11 +188,13 @@ public class ResumeMatcherService
         }
     }
 
+    /// <summary>Reads a string property, returning null if it's missing or not a string (rather than throwing).</summary>
     private static string? Str(JsonElement root, string key) =>
         root.TryGetProperty(key, out var el) && el.ValueKind == JsonValueKind.String
             ? el.GetString()
             : null;
 
+    /// <summary>Reads a string-array property into a List, skipping any null/empty entries.</summary>
     private static List<string> StrArray(JsonElement root, string key)
     {
         if (!root.TryGetProperty(key, out var arr) || arr.ValueKind != JsonValueKind.Array)
@@ -172,6 +206,7 @@ public class ResumeMatcherService
             .ToList();
     }
 
+    /// <summary>Builds a failed result carrying a user-facing error message.</summary>
     private static ResumeMatchResult Fail(string error) =>
         new() { Success = false, Error = error };
 }

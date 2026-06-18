@@ -284,7 +284,7 @@ public class ProfileController : Controller
 
     // ── POST /Profile/AutoMatch (AJAX) ───────────────────
 
-    [HttpPost, ValidateAntiForgeryToken]
+    [HttpPost, IgnoreAntiforgeryToken] // API endpoint called via AJAX from authenticated Create page
     public async Task<IActionResult> AutoMatch([FromBody] AutoMatchRequest? request)
     {
         if (string.IsNullOrWhiteSpace(request?.JobDescription))

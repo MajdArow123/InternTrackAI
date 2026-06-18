@@ -13,7 +13,7 @@ public class AnalyzerController : Controller
     }
 
     [HttpPost]
-    [ValidateAntiForgeryToken]
+    [IgnoreAntiforgeryToken] // API endpoint called via AJAX from authenticated page; no state-changing operations
     public async Task<IActionResult> Analyze([FromBody] AnalyzeRequest request)
     {
         if (string.IsNullOrWhiteSpace(request?.JobDescription))

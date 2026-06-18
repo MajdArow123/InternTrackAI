@@ -24,7 +24,10 @@
       "Bash(pkill -f \"dotnet run\")",
       "Bash(curl -s http://localhost:5240/debug/hash-password/Password123!)",
       "Bash(curl *)",
-      "Bash(sqlite3 *)"
+      "Bash(sqlite3 *)",
+      "Bash(grep -E \"\\\\.\\(cs|cshtml\\)$\")",
+      "Bash(grep -E \"\\\\.cs$|\\\\.cshtml$\")",
+      "Bash(dotnet add *)"
     ]
   }
 }

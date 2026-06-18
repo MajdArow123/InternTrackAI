@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -44,6 +45,9 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 // ── Identity ────────────────────────────────────────────────────────────────
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = false)
     .AddEntityFrameworkStores<ApplicationDbContext>();
+
+// Email service for password reset tokens
+builder.Services.AddScoped<IEmailSender, ConsoleEmailSender>();
 
 // ── Application services ────────────────────────────────────────────────────
 builder.Services.AddHttpClient<JobAnalyzerService>();

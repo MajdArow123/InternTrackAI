@@ -15,7 +15,11 @@ namespace InternTrackAI.Data.Migrations
             // require a native boolean column.
             if (migrationBuilder.ActiveProvider == "Npgsql.EntityFrameworkCore.PostgreSQL")
             {
+                // The column's existing integer DEFAULT can't be auto-cast to boolean, so it
+                // has to be dropped before the type change and re-added afterward.
+                migrationBuilder.Sql("""ALTER TABLE "UserProfiles" ALTER COLUMN "IsPublic" DROP DEFAULT;""");
                 migrationBuilder.Sql("""ALTER TABLE "UserProfiles" ALTER COLUMN "IsPublic" TYPE boolean USING "IsPublic"::boolean;""");
+                migrationBuilder.Sql("""ALTER TABLE "UserProfiles" ALTER COLUMN "IsPublic" SET DEFAULT false;""");
             }
         }
 
@@ -24,7 +28,9 @@ namespace InternTrackAI.Data.Migrations
         {
             if (migrationBuilder.ActiveProvider == "Npgsql.EntityFrameworkCore.PostgreSQL")
             {
+                migrationBuilder.Sql("""ALTER TABLE "UserProfiles" ALTER COLUMN "IsPublic" DROP DEFAULT;""");
                 migrationBuilder.Sql("""ALTER TABLE "UserProfiles" ALTER COLUMN "IsPublic" TYPE integer USING "IsPublic"::integer;""");
+                migrationBuilder.Sql("""ALTER TABLE "UserProfiles" ALTER COLUMN "IsPublic" SET DEFAULT 0;""");
             }
         }
     }

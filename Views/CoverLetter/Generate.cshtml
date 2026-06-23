@@ -110,6 +110,20 @@
                 </form>
             </div>
             <div id="copyConfirm" class="text-muted mt-2" style="font-size:.78rem" hidden>Copied to clipboard.</div>
+
+            <!-- ── Improve with AI ── -->
+            <div class="cl-improve-box mt-3">
+                <p class="form-section-title mb-2" style="font-size:.82rem">Improve with AI</p>
+                <div class="d-flex gap-2 flex-wrap">
+                    <input type="text" class="form-control" id="improveInstructions"
+                           placeholder="e.g. Make it more concise and confident"
+                           style="flex:1;min-width:220px">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="improveBtn">
+                        Improve Letter
+                    </button>
+                </div>
+                <div class="match-error-banner mt-2" id="improveError" hidden></div>
+            </div>
         </div>
     </div>
 
@@ -293,6 +307,66 @@
                 setLoading(false);
             }
         });
+
+        // ── Improve with AI ───────────────────────────────────
+        const improveBtn   = document.getElementById('improveBtn');
+        const improveInput = document.getElementById('improveInstructions');
+        const improveError = document.getElementById('improveError');
+
+        improveBtn.addEventListener('click', async function () {
+            improveError.hidden = true;
+
+            const content = outputTA.value.trim();
+            if (!content) {
+                improveError.textContent = 'Nothing to improve yet — generate or load a letter first.';
+                improveError.hidden = false;
+                return;
+            }
+
+            setImproveLoading(true);
+
+            try {
+                const resp = await fetch('/CoverLetter/ImproveAjax', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': token
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        applicationId: currentAppId,
+                        company: currentCompany,
+                        role: currentRole,
+                        instructions: improveInput.value.trim()
+                    })
+                });
+
+                const data = await resp.json();
+
+                if (!data.success) {
+                    improveError.textContent = data.error || 'Improvement failed. Please try again.';
+                    improveError.hidden = false;
+                    return;
+                }
+
+                outputTA.value = data.content;
+                updateWordCount();
+                improveInput.value = '';
+
+            } catch (_) {
+                improveError.textContent = 'Request failed. Check your connection and try again.';
+                improveError.hidden = false;
+            } finally {
+                setImproveLoading(false);
+            }
+        });
+
+        function setImproveLoading(on) {
+            improveBtn.disabled = on;
+            improveBtn.innerHTML = on
+                ? '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Improving...'
+                : 'Improve Letter';
+        }
 
         // ── Sync save content before submit ───────────────────
         saveForm.addEventListener('submit', function () {

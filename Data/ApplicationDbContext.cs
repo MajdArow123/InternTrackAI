@@ -19,6 +19,7 @@ public class ApplicationDbContext : IdentityDbContext, IDataProtectionKeyContext
     public DbSet<CoverLetterVersion> CoverLetterVersions { get; set; }
     public DbSet<GeneratedCoverLetter> GeneratedCoverLetters { get; set; }
     public DbSet<InterviewPrepSession> InterviewPrepSessions { get; set; }
+    public DbSet<ApplicationNote> ApplicationNotes { get; set; }
 
     // Persists Data Protection keys to DB so they survive container restarts and redeployments.
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;

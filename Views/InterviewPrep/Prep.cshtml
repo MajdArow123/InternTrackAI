@@ -102,7 +102,7 @@
                         <div class="prep-questions-list">
                             @foreach (var q in qs)
                             {
-                                <div class="prep-question-card">
+                                <div class="prep-question-card" data-question="@q.Question">
                                     <div class="prep-question-text">@q.Question</div>
                                     @if (!string.IsNullOrWhiteSpace(q.Tip))
                                     {
@@ -110,6 +110,15 @@
                                             <span class="prep-tip-label">Tip</span>@q.Tip
                                         </div>
                                     }
+                                    <button type="button" class="btn btn-outline-primary btn-sm prep-practice-toggle mt-2">Practice This Answer</button>
+                                    <div class="prep-practice-box" hidden>
+                                        <textarea class="prep-answer-input" rows="4" placeholder="Type your answer..."></textarea>
+                                        <div class="d-flex justify-content-end mt-2">
+                                            <button type="button" class="btn btn-dark btn-sm prep-feedback-btn">Get Feedback</button>
+                                        </div>
+                                        <div class="prep-feedback-result" hidden></div>
+                                        <div class="match-error-banner prep-feedback-error mt-2" hidden></div>
+                                    </div>
                                 </div>
                             }
                         </div>
@@ -193,9 +202,18 @@
                 </div>
                 <div class="prep-questions-list">`;
             qs.forEach(q => {
-                html += `<div class="prep-question-card">
+                html += `<div class="prep-question-card" data-question="${esc(q.question)}">
                     <div class="prep-question-text">${esc(q.question)}</div>
                     ${q.tip ? `<div class="prep-tip"><span class="prep-tip-label">Tip</span>${esc(q.tip)}</div>` : ''}
+                    <button type="button" class="btn btn-outline-primary btn-sm prep-practice-toggle mt-2">Practice This Answer</button>
+                    <div class="prep-practice-box" hidden>
+                        <textarea class="prep-answer-input" rows="4" placeholder="Type your answer..."></textarea>
+                        <div class="d-flex justify-content-end mt-2">
+                            <button type="button" class="btn btn-dark btn-sm prep-feedback-btn">Get Feedback</button>
+                        </div>
+                        <div class="prep-feedback-result" hidden></div>
+                        <div class="match-error-banner prep-feedback-error mt-2" hidden></div>
+                    </div>
                 </div>`;
             });
             html += `</div></div>`;
@@ -225,6 +243,65 @@
             questionsSection.hidden = false;
         }
     }
+
+    // ── Practice answer / AI coach ─────────────────────────
+    questionsContainer.addEventListener('click', function (e) {
+        const toggleBtn = e.target.closest('.prep-practice-toggle');
+        if (toggleBtn) {
+            const box = toggleBtn.nextElementSibling;
+            box.hidden = !box.hidden;
+            toggleBtn.textContent = box.hidden ? 'Practice This Answer' : 'Hide Practice Box';
+            return;
+        }
+
+        const feedbackBtn = e.target.closest('.prep-feedback-btn');
+        if (feedbackBtn) {
+            const card     = feedbackBtn.closest('.prep-question-card');
+            const question = card.dataset.question;
+            const input    = card.querySelector('.prep-answer-input');
+            const result   = card.querySelector('.prep-feedback-result');
+            const error    = card.querySelector('.prep-feedback-error');
+            const answer   = input.value.trim();
+
+            error.hidden = true;
+            if (!answer) {
+                error.textContent = 'Type an answer first.';
+                error.hidden = false;
+                return;
+            }
+
+            const originalText = feedbackBtn.textContent;
+            feedbackBtn.disabled = true;
+            feedbackBtn.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Getting feedback...';
+
+            fetch('/InterviewPrep/CritiqueAnswer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'RequestVerificationToken': token
+                },
+                body: JSON.stringify({ appId, question, answer })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (!data.success) {
+                    error.textContent = data.error || 'Feedback failed. Please try again.';
+                    error.hidden = false;
+                    return;
+                }
+                result.textContent = data.feedback;
+                result.hidden = false;
+            })
+            .catch(() => {
+                error.textContent = 'Request failed. Check your connection and try again.';
+                error.hidden = false;
+            })
+            .finally(() => {
+                feedbackBtn.disabled = false;
+                feedbackBtn.textContent = originalText;
+            });
+        }
+    });
 })();
 </script>
 }

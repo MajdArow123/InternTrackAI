@@ -151,6 +151,37 @@ public class InterviewPrepController : Controller
 
         return Json(new { success = true, questions });
     }
+
+    /// <summary>
+    /// Critiques the candidate's typed practice answer to a single interview question, acting as
+    /// an AI coach. Stateless — feedback is not persisted, since this is meant for in-the-moment
+    /// practice rather than a saved history.
+    /// </summary>
+    /// <param name="req">The application id (for company/role context), the question being
+    /// answered, and the candidate's answer text.</param>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> CritiqueAnswer([FromBody] CritiqueAnswerRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Answer))
+            return Json(new { success = false, error = "Type an answer first." });
+
+        var uid = UserId();
+        var app = await _db.JobApplications
+            .FirstOrDefaultAsync(a => a.Id == req.AppId && a.UserId == uid);
+        if (app is null)
+            return Json(new { success = false, error = "Application not found." });
+
+        var (success, feedback, error) = await _service.CritiqueAnswerAsync(
+            req.Question, req.Answer, app.RoleTitle, app.CompanyName);
+
+        if (!success)
+            return Json(new { success = false, error });
+
+        return Json(new { success = true, feedback });
+    }
 }
 
 public record GeneratePrepRequest(int AppId);
+
+public record CritiqueAnswerRequest(int AppId, string Question, string Answer);

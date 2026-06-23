@@ -51,6 +51,81 @@
         </a>
     </div>
 
+    <!-- ── Resumes (moved to top: upload + AI auto-fill is the natural starting point) ── -->
+    <div class="form-card mb-3 resume-hero-card @(Model.Resumes.Any() ? "has-resume" : "")" id="resumeHeroCard">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+            <p class="form-section-title mb-0">Resume</p>
+            <span class="text-muted" style="font-size:.75rem">@Model.Resumes.Count version(s)</span>
+        </div>
+
+        @if (Model.Resumes.Any())
+        {
+            <div class="doc-list mb-3">
+                @foreach (var r in Model.Resumes)
+                {
+                    <div class="doc-row @(r.IsActive ? "doc-active" : "")">
+                        <span class="doc-version-badge">v@(r.VersionNumber)</span>
+                        <div class="doc-info">
+                            <div class="doc-filename">@r.OriginalFileName</div>
+                            <div class="doc-meta">
+                                @r.UploadedAt.ToLocalTime().ToString("MMM d, yyyy") &middot;
+                                @((r.FileSize / 1024.0).ToString("F0")) KB
+                            </div>
+                        </div>
+                        @if (r.IsActive)
+                        {
+                            <span class="active-label">Active</span>
+                        }
+                        else
+                        {
+                            <form asp-action="SetActiveResume" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@r.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:.72rem;padding:.2rem .6rem;">Set Active</button>
+                            </form>
+                        }
+                        <a asp-action="DownloadResume" asp-route-id="@r.Id"
+                           class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:.2rem .6rem;">Download</a>
+                        <form asp-action="DeleteResume" method="post" class="d-inline"
+                              onsubmit="return confirm('Delete Resume v@(r.VersionNumber)? This cannot be undone.')">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@r.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:.2rem .6rem;">Delete</button>
+                        </form>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="text-muted mb-3" style="font-size:.875rem">No resume uploaded yet. Upload one below, then let AI fill in your name, skills, and target roles.</p>
+        }
+
+        <form asp-action="UploadResume" method="post" enctype="multipart/form-data">
+            @Html.AntiForgeryToken()
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <input type="file" name="resume" accept=".pdf"
+                       class="form-control" style="width:auto;font-size:.875rem;" />
+                <button type="submit" class="btn btn-dark">Upload New Resume</button>
+                <span class="text-muted" style="font-size:.75rem">PDF only &middot; Max 5 MB</span>
+            </div>
+        </form>
+
+        @if (Model.Resumes.Any(r => r.IsActive))
+        {
+            <div class="mt-3 pt-3" style="border-top:1px solid var(--border)">
+                <button type="button" class="analyze-btn" id="analyzeBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2l1.8 5.5L19 9l-5.2 1.5L12 16l-1.8-5.5L5 9l5.2-1.5z"/>
+                    </svg>
+                    <span id="analyzeBtnLabel">Analyze with AI</span>
+                </button>
+                <span class="ms-2 text-muted" style="font-size:.78rem">Auto-fills your name, skills, and target roles from your active resume</span>
+                <div id="analyzeError" class="match-error-banner mt-2" style="display:none"></div>
+            </div>
+        }
+    </div>
+
     <!-- Quick Stats -->
     @if (Model.TotalApplications > 0)
     {
@@ -152,13 +227,15 @@
             </div>
         </div>
 
-        <form asp-action="SaveInfo" method="post">
+        <form id="infoForm">
             @Html.AntiForgeryToken()
             <div class="row g-3">
                 <div class="col-sm-6">
                     <label class="form-label">Full Name</label>
-                    <input name="fullName" class="form-control" placeholder="e.g. Alex Johnson"
-                           value="@Model.Profile.FullName" />
+                    <div class="field-skeleton-wrap" id="fullNameWrap">
+                        <input name="fullName" id="fullNameInput" class="form-control" placeholder="e.g. Alex Johnson"
+                               value="@Model.Profile.FullName" />
+                    </div>
                 </div>
                 <div class="col-sm-6">
                     <label class="form-label">Display Name <span class="text-muted fw-normal">(shown in navbar)</span></label>
@@ -184,12 +261,81 @@
                     <input name="phoneNumber" class="form-control" placeholder="e.g. +1 555 123 4567"
                            value="@Model.Profile.PhoneNumber" />
                 </div>
+                <div class="col-sm-6">
+                    <label class="form-label">GitHub Username <span class="text-muted fw-normal">(optional)</span></label>
+                    <input name="githubUsername" class="form-control" placeholder="e.g. octocat"
+                           value="@Model.Profile.GitHubUsername" />
+                </div>
             </div>
-            <div class="mt-3">
-                <button type="submit" class="btn btn-dark px-4">Save Info</button>
+            <div class="mt-3 d-flex align-items-center">
+                <button type="submit" class="btn btn-dark px-4" id="saveInfoBtn">Save Info</button>
+                <span class="save-indicator" id="infoSaveIndicator">Saved &#10003;</span>
             </div>
         </form>
     </div>
+
+    <!-- ── Public Profile Link ── -->
+    <div class="form-card mb-3">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+                <p class="form-section-title mb-1">Public Profile</p>
+                <p class="text-muted mb-0" style="font-size:.82rem">Share a read-only link with name, skills, target roles, and stats. No resumes, cover letters, or email are ever shown.</p>
+            </div>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="publicProfileToggle"
+                       @(Model.Profile.IsPublic ? "checked" : "") style="width:2.5em;height:1.3em;cursor:pointer;">
+            </div>
+        </div>
+        <div id="publicLinkRow" class="d-flex align-items-center gap-2 mt-3 flex-wrap @(Model.Profile.IsPublic ? "" : "d-none")">
+            <input type="text" class="form-control" id="publicLinkInput" readonly
+                   style="font-size:.82rem;max-width:420px;"
+                   value="@(Model.Profile.PublicSlug != null ? Url.Action("Public", "Profile", new { slug = Model.Profile.PublicSlug }, Context.Request.Scheme) : "")" />
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="copyPublicLinkBtn">Copy</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="regenLinkBtn">Regenerate Link</button>
+            <span class="save-indicator" id="publicLinkIndicator">Copied &#10003;</span>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Profile.GitHubUsername))
+    {
+        <!-- ── GitHub Projects ── -->
+        <div class="form-card mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <p class="form-section-title mb-0">Projects</p>
+                <a href="https://github.com/@Model.Profile.GitHubUsername" target="_blank" rel="noopener"
+                   class="text-muted" style="font-size:.78rem">@@@Model.Profile.GitHubUsername on GitHub &rarr;</a>
+            </div>
+            @if (Model.GitHubRepos == null)
+            {
+                <p class="text-muted mb-0" style="font-size:.82rem">Couldn't load repos for this username right now.</p>
+            }
+            else if (!Model.GitHubRepos.Any())
+            {
+                <p class="text-muted mb-0" style="font-size:.82rem">No public repos found for this username.</p>
+            }
+            else
+            {
+                <div class="doc-list">
+                    @foreach (var repo in Model.GitHubRepos)
+                    {
+                        <a class="doc-row" href="@repo.Url" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+                            <div class="doc-info">
+                                <div class="doc-filename">@repo.Name</div>
+                                <div class="doc-meta">
+                                    @(string.IsNullOrWhiteSpace(repo.Description) ? "No description" : repo.Description)
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(repo.Language))
+                            {
+                                <span class="active-label">@repo.Language</span>
+                            }
+                            <span class="text-muted" style="font-size:.78rem">&#9733; @repo.Stars</span>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    }
 
     <!-- ── Application Stats ── -->
     <div class="form-card mb-3">
@@ -231,101 +377,41 @@
 
     <!-- ── Skills ── -->
     <div class="form-card mb-3">
-        <p class="form-section-title">Skills</p>
-        <p class="text-muted mb-3" style="font-size:.82rem">Add your technical and professional skills. These are used as context during AI resume matching.</p>
-        <form asp-action="SaveSkills" method="post">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="skillsJson" id="skillsJsonInput" />
+        <div class="d-flex align-items-center mb-1">
+            <p class="form-section-title mb-0">Skills</p>
+            <span class="save-indicator" id="skillsSaveIndicator">Saved &#10003;</span>
+        </div>
+        <p class="text-muted mb-3" style="font-size:.82rem">Add your technical and professional skills. These are used as context during AI resume matching. Changes save automatically.</p>
+        <div class="field-skeleton-wrap" id="skillsWrap">
+            <input type="hidden" id="skillsJsonInput" />
             <div class="tag-cloud" id="skillsCloud">
                 <div class="tag-input-row">
                     <input type="text" class="tag-text-input" id="skillsText" placeholder="e.g. Python" />
                     <button type="button" class="tag-add-btn" id="skillsAdd">Add</button>
                 </div>
             </div>
-            <div class="mt-3">
-                <button type="submit" class="btn btn-dark px-4">Save Skills</button>
-            </div>
-        </form>
+        </div>
     </div>
 
     <!-- ── Target Roles ── -->
     <div class="form-card mb-3">
-        <p class="form-section-title">Target Roles</p>
-        <p class="text-muted mb-3" style="font-size:.82rem">Add the types of roles you are targeting. These help the AI give more relevant scoring and advice.</p>
-        <form asp-action="SaveTargetRoles" method="post">
-            @Html.AntiForgeryToken()
-            <input type="hidden" name="targetRolesJson" id="rolesJsonInput" />
+        <div class="d-flex align-items-center mb-1">
+            <p class="form-section-title mb-0">Target Roles</p>
+            <span class="save-indicator" id="rolesSaveIndicator">Saved &#10003;</span>
+        </div>
+        <p class="text-muted mb-3" style="font-size:.82rem">Search common internship roles or type your own. These help the AI give more relevant scoring and advice. Changes save automatically.</p>
+        <div class="field-skeleton-wrap" id="rolesWrap">
+            <input type="hidden" id="rolesJsonInput" />
             <div class="tag-cloud" id="rolesCloud">
                 <div class="tag-input-row">
-                    <input type="text" class="tag-text-input" id="rolesText" placeholder="e.g. Software Engineering Intern" />
+                    <div class="role-combobox-wrap">
+                        <input type="text" class="tag-text-input" id="rolesText" placeholder="Search or type a role..." autocomplete="off" style="flex:0 1 260px" />
+                        <ul class="role-combobox-list" id="rolesComboList"></ul>
+                    </div>
                     <button type="button" class="tag-add-btn" id="rolesAdd">Add</button>
                 </div>
             </div>
-            <div class="mt-3">
-                <button type="submit" class="btn btn-dark px-4">Save Roles</button>
-            </div>
-        </form>
-    </div>
-
-    <!-- ── Resumes ── -->
-    <div class="form-card mb-3">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-            <p class="form-section-title mb-0">Resumes</p>
-            <span class="text-muted" style="font-size:.75rem">@Model.Resumes.Count version(s)</span>
         </div>
-
-        @if (Model.Resumes.Any())
-        {
-            <div class="doc-list mb-3">
-                @foreach (var r in Model.Resumes)
-                {
-                    <div class="doc-row @(r.IsActive ? "doc-active" : "")">
-                        <span class="doc-version-badge">v@(r.VersionNumber)</span>
-                        <div class="doc-info">
-                            <div class="doc-filename">@r.OriginalFileName</div>
-                            <div class="doc-meta">
-                                @r.UploadedAt.ToLocalTime().ToString("MMM d, yyyy") &middot;
-                                @((r.FileSize / 1024.0).ToString("F0")) KB
-                            </div>
-                        </div>
-                        @if (r.IsActive)
-                        {
-                            <span class="active-label">Active</span>
-                        }
-                        else
-                        {
-                            <form asp-action="SetActiveResume" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@r.Id" />
-                                <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:.72rem;padding:.2rem .6rem;">Set Active</button>
-                            </form>
-                        }
-                        <a asp-action="DownloadResume" asp-route-id="@r.Id"
-                           class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:.2rem .6rem;">Download</a>
-                        <form asp-action="DeleteResume" method="post" class="d-inline"
-                              onsubmit="return confirm('Delete Resume v@(r.VersionNumber)? This cannot be undone.')">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@r.Id" />
-                            <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:.2rem .6rem;">Delete</button>
-                        </form>
-                    </div>
-                }
-            </div>
-        }
-        else
-        {
-            <p class="text-muted mb-3" style="font-size:.875rem">No resumes uploaded yet.</p>
-        }
-
-        <form asp-action="UploadResume" method="post" enctype="multipart/form-data">
-            @Html.AntiForgeryToken()
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <input type="file" name="resume" accept=".pdf"
-                       class="form-control" style="width:auto;font-size:.875rem;" />
-                <button type="submit" class="btn btn-dark">Upload New Resume</button>
-                <span class="text-muted" style="font-size:.75rem">PDF only &middot; Max 5 MB</span>
-            </div>
-        </form>
     </div>
 
     <!-- ── Cover Letters ── -->
@@ -478,8 +564,32 @@
     <script>
     (function () {
 
+        const ROLE_PRESETS = [
+            "Software Engineering Intern", "Backend Developer Intern", "Frontend Developer Intern",
+            "Full-Stack Developer Intern", "Data Science Intern", "Machine Learning Intern",
+            "DevOps Intern", "Cloud Engineering Intern", "Mobile Developer Intern", "QA Engineer Intern",
+            "Cybersecurity Intern", "Product Manager Intern", "Data Engineer Intern",
+            "iOS Developer Intern", "Android Developer Intern"
+        ];
+
+        const antiForgeryToken = document.querySelector('#infoForm input[name="__RequestVerificationToken"]')?.value || '';
+
+        function postForm(url, fields) {
+            const body = new URLSearchParams({ __RequestVerificationToken: antiForgeryToken, ...fields });
+            return fetch(url, { method: 'POST', body, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(r => r.json());
+        }
+
+        function flashSaveIndicator(el) {
+            if (!el) return;
+            el.classList.add('show');
+            clearTimeout(el.__hideTimer);
+            el.__hideTimer = setTimeout(() => el.classList.remove('show'), 2000);
+        }
+
         // ── Tag input helper ─────────────────────────────
-        function initTagInput(cloudId, hiddenId, textId, addBtnId, initialValues) {
+        function initTagInput(cloudId, hiddenId, textId, addBtnId, initialValues, opts) {
+            opts = opts || {};
             const cloud   = document.getElementById(cloudId);
             const hidden  = document.getElementById(hiddenId);
             const textEl  = document.getElementById(textId);
@@ -498,34 +608,177 @@
                 hidden.value = JSON.stringify(values);
             }
 
-            cloud.addEventListener('click', e => {
-                const btn = e.target.closest('button[data-i]');
-                if (btn) { values.splice(parseInt(btn.dataset.i), 1); render(); }
-            });
-
-            function add() {
-                const v = textEl.value.trim();
-                if (v && !values.includes(v)) { values.push(v); render(); }
-                textEl.value = '';
-                textEl.focus();
+            function persist() {
+                render();
+                if (opts.onChange) opts.onChange(values);
             }
 
-            addBtn.addEventListener('click', add);
+            cloud.addEventListener('click', e => {
+                const btn = e.target.closest('button[data-i]');
+                if (btn) { values.splice(parseInt(btn.dataset.i), 1); persist(); }
+            });
+
+            function add(value) {
+                const v = (value !== undefined ? value : textEl.value).trim();
+                if (v && !values.includes(v)) { values.push(v); persist(); }
+                textEl.value = '';
+                textEl.focus();
+                if (opts.onAfterAdd) opts.onAfterAdd();
+            }
+
+            addBtn.addEventListener('click', () => add());
             textEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
 
             render();
+            return { values: () => values, add, render };
         }
 
         function escHtml(s) {
             return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
-        // Initialise tag inputs with server-side values
-        initTagInput('skillsCloud',  'skillsJsonInput', 'skillsText', 'skillsAdd',
-            @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Skills)));
+        // ── Skills: tag input with AJAX autosave ─────────
+        const skillsApi = initTagInput('skillsCloud', 'skillsJsonInput', 'skillsText', 'skillsAdd',
+            @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Skills)),
+            {
+                onChange: (values) => {
+                    postForm('/Profile/SaveSkills', { skillsJson: JSON.stringify(values) })
+                        .then(res => { if (res.success) flashSaveIndicator(document.getElementById('skillsSaveIndicator')); });
+                }
+            });
 
-        initTagInput('rolesCloud', 'rolesJsonInput', 'rolesText', 'rolesAdd',
-            @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TargetRoles)));
+        // ── Target roles: tag input + searchable combobox with AJAX autosave ──
+        const rolesApi = initTagInput('rolesCloud', 'rolesJsonInput', 'rolesText', 'rolesAdd',
+            @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.TargetRoles)),
+            {
+                onChange: (values) => {
+                    postForm('/Profile/SaveTargetRoles', { targetRolesJson: JSON.stringify(values) })
+                        .then(res => { if (res.success) flashSaveIndicator(document.getElementById('rolesSaveIndicator')); });
+                },
+                onAfterAdd: () => closeComboList()
+            });
+
+        const rolesText = document.getElementById('rolesText');
+        const comboList = document.getElementById('rolesComboList');
+
+        function closeComboList() { comboList.classList.remove('open'); comboList.innerHTML = ''; }
+
+        function renderComboList(filter) {
+            const taken = rolesApi.values();
+            const matches = ROLE_PRESETS.filter(r =>
+                !taken.includes(r) && r.toLowerCase().includes(filter.toLowerCase()));
+
+            comboList.innerHTML = '';
+            if (matches.length === 0) {
+                comboList.innerHTML = '<li class="role-combobox-empty">No presets match — press Enter to add as a custom role</li>';
+            } else {
+                matches.forEach(m => {
+                    const li = document.createElement('li');
+                    li.className = 'role-combobox-option';
+                    li.textContent = m;
+                    li.addEventListener('mousedown', e => { e.preventDefault(); rolesApi.add(m); closeComboList(); });
+                    comboList.appendChild(li);
+                });
+            }
+            comboList.classList.add('open');
+        }
+
+        rolesText.addEventListener('input', () => renderComboList(rolesText.value));
+        rolesText.addEventListener('focus', () => renderComboList(rolesText.value));
+        rolesText.addEventListener('blur', () => setTimeout(closeComboList, 120));
+
+        // ── Personal Info: AJAX save with shake-on-required validation ──
+        const infoForm     = document.getElementById('infoForm');
+        const fullNameInput = document.getElementById('fullNameInput');
+        const saveInfoBtn   = document.getElementById('saveInfoBtn');
+
+        infoForm.addEventListener('submit', e => {
+            e.preventDefault();
+
+            if (!fullNameInput.value.trim()) {
+                shakeField(fullNameInput, 'This field is required');
+                return;
+            }
+            clearFieldError(fullNameInput);
+
+            const fd = new FormData(infoForm);
+            saveInfoBtn.disabled = true;
+            postForm('/Profile/SaveInfo', Object.fromEntries(fd.entries()))
+                .then(res => {
+                    saveInfoBtn.disabled = false;
+                    if (res.success) {
+                        flashSaveIndicator(document.getElementById('infoSaveIndicator'));
+                        showAppToast('success', 'Profile info saved.');
+                    } else {
+                        shakeField(fullNameInput, res.error || 'This field is required');
+                    }
+                })
+                .catch(() => { saveInfoBtn.disabled = false; showAppToast('error', 'Could not save — try again.'); });
+        });
+
+        // ── Resume analyze with AI (Section 1a) ──
+        const analyzeBtn      = document.getElementById('analyzeBtn');
+        const analyzeBtnLabel = document.getElementById('analyzeBtnLabel');
+        const analyzeError    = document.getElementById('analyzeError');
+
+        if (analyzeBtn) {
+            analyzeBtn.addEventListener('click', () => {
+                analyzeBtn.disabled = true;
+                analyzeBtnLabel.innerHTML = '<span class="spinner-border spinner-border-sm analyze-spinner"></span> Analyzing...';
+                analyzeError.style.display = 'none';
+
+                ['fullNameWrap', 'skillsWrap', 'rolesWrap'].forEach(id => {
+                    const wrap = document.getElementById(id);
+                    const skel = document.createElement('div');
+                    skel.className = 'skeleton-line';
+                    wrap.appendChild(skel);
+                    wrap.classList.add('skeleton-active');
+                });
+
+                postForm('/Profile/AnalyzeResume', {})
+                    .then(res => {
+                        ['fullNameWrap', 'skillsWrap', 'rolesWrap'].forEach(id => {
+                            const wrap = document.getElementById(id);
+                            wrap.querySelector('.skeleton-line')?.remove();
+                            wrap.classList.remove('skeleton-active');
+                        });
+                        analyzeBtn.disabled = false;
+                        analyzeBtnLabel.textContent = 'Analyze with AI';
+
+                        if (!res.success) {
+                            analyzeError.textContent = res.error || 'Could not analyze resume.';
+                            analyzeError.style.display = 'block';
+                            return;
+                        }
+
+                        let filledSomething = false;
+
+                        if (res.fullName && !fullNameInput.value.trim()) {
+                            fullNameInput.value = res.fullName;
+                            filledSomething = true;
+                        }
+                        (res.skills || []).forEach(s => { skillsApi.add(s); filledSomething = true; });
+                        (res.targetRoles || []).forEach(r => { rolesApi.add(r); filledSomething = true; });
+
+                        if (filledSomething) {
+                            showAppToast('success', 'Profile auto-filled from your resume. Review and click Save Info to keep the name.');
+                        } else {
+                            showAppToast('info', 'No new details found to fill in.');
+                        }
+                    })
+                    .catch(() => {
+                        ['fullNameWrap', 'skillsWrap', 'rolesWrap'].forEach(id => {
+                            const wrap = document.getElementById(id);
+                            wrap.querySelector('.skeleton-line')?.remove();
+                            wrap.classList.remove('skeleton-active');
+                        });
+                        analyzeBtn.disabled = false;
+                        analyzeBtnLabel.textContent = 'Analyze with AI';
+                        analyzeError.textContent = 'Request failed. Check your connection and try again.';
+                        analyzeError.style.display = 'block';
+                    });
+            });
+        }
 
         // Loading state for score button
         const scoreBtn = document.getElementById('scoreBtn');
@@ -542,6 +795,37 @@
         if (scoreCard) {
             setTimeout(() => scoreCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
         }
+
+        // ── Public Profile Link ──────────────────────────
+        const publicToggle  = document.getElementById('publicProfileToggle');
+        const publicLinkRow = document.getElementById('publicLinkRow');
+        const publicLinkInput = document.getElementById('publicLinkInput');
+        const copyLinkBtn   = document.getElementById('copyPublicLinkBtn');
+        const regenLinkBtn  = document.getElementById('regenLinkBtn');
+        const publicLinkIndicator = document.getElementById('publicLinkIndicator');
+
+        publicToggle?.addEventListener('change', () => {
+            postForm('/Profile/TogglePublic', { isPublic: publicToggle.checked })
+                .then(res => {
+                    if (!res.success) return;
+                    if (res.url) publicLinkInput.value = res.url;
+                    publicLinkRow.classList.toggle('d-none', !res.isPublic);
+                });
+        });
+
+        copyLinkBtn?.addEventListener('click', () => {
+            if (!publicLinkInput.value) return;
+            navigator.clipboard.writeText(publicLinkInput.value).then(() => flashSaveIndicator(publicLinkIndicator));
+        });
+
+        regenLinkBtn?.addEventListener('click', () => {
+            postForm('/Profile/RegenerateLink', {})
+                .then(res => {
+                    if (!res.success) return;
+                    publicLinkInput.value = res.url;
+                    flashSaveIndicator(publicLinkIndicator);
+                });
+        });
 
     })();
     </script>

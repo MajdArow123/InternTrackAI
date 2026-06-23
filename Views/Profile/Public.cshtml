@@ -1,0 +1,101 @@
+@model InternTrackAI.Models.ViewModels.PublicProfileViewModel
+@{
+    ViewData["Title"] = Model.DisplayName;
+    Layout = "_Layout";
+
+    var initials = string.Concat(Model.DisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+        .Take(2).Select(w => char.ToUpperInvariant(w[0])));
+}
+
+<div class="container py-4" style="max-width:700px;">
+
+    <div class="form-card mb-3 text-center">
+        @if (Model.PhotoPath != null)
+        {
+            <img src="@Model.PhotoPath" class="profile-avatar mb-2" alt="@Model.DisplayName" style="width:96px;height:96px;" />
+        }
+        else
+        {
+            <div class="profile-avatar-placeholder mb-2 mx-auto" style="width:96px;height:96px;font-size:2rem;">@initials</div>
+        }
+        <h3 class="mb-0">@Model.DisplayName</h3>
+        <p class="text-muted" style="font-size:.85rem">Career Portfolio &middot; InternTrackAI</p>
+    </div>
+
+    @if (Model.TargetRoles.Any())
+    {
+        <div class="form-card mb-3">
+            <p class="form-section-title">Target Roles</p>
+            <div class="tag-cloud">
+                @foreach (var role in Model.TargetRoles)
+                {
+                    <span class="tag-item">@role</span>
+                }
+            </div>
+        </div>
+    }
+
+    @if (Model.Skills.Any())
+    {
+        <div class="form-card mb-3">
+            <p class="form-section-title">Skills</p>
+            <div class="tag-cloud">
+                @foreach (var skill in Model.Skills)
+                {
+                    <span class="tag-item">@skill</span>
+                }
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Model.GitHubUsername) && Model.GitHubRepos != null && Model.GitHubRepos.Any())
+    {
+        <div class="form-card mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <p class="form-section-title mb-0">Projects</p>
+                <a href="https://github.com/@Model.GitHubUsername" target="_blank" rel="noopener"
+                   class="text-muted" style="font-size:.78rem">@@@Model.GitHubUsername on GitHub &rarr;</a>
+            </div>
+            <div class="doc-list">
+                @foreach (var repo in Model.GitHubRepos)
+                {
+                    <a class="doc-row" href="@repo.Url" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+                        <div class="doc-info">
+                            <div class="doc-filename">@repo.Name</div>
+                            <div class="doc-meta">
+                                @(string.IsNullOrWhiteSpace(repo.Description) ? "No description" : repo.Description)
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(repo.Language))
+                        {
+                            <span class="active-label">@repo.Language</span>
+                        }
+                        <span class="text-muted" style="font-size:.78rem">&#9733; @repo.Stars</span>
+                    </a>
+                }
+            </div>
+        </div>
+    }
+
+    @if (Model.TotalApplications > 0)
+    {
+        <div class="form-card mb-3">
+            <p class="form-section-title">Application Stats</p>
+            <div class="row g-2">
+                <div class="col-6">
+                    <div class="mini-stat">
+                        <div class="mini-stat-num" style="color:var(--primary)">@Model.TotalApplications</div>
+                        <div class="mini-stat-label">Applications</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="mini-stat">
+                        <div class="mini-stat-num mini-stat-offer">@Model.SuccessRate<span style="font-size:1rem;font-weight:600">%</span></div>
+                        <div class="mini-stat-label">Success Rate</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+
+</div>

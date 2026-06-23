@@ -137,6 +137,41 @@ public class CoverLetterController : Controller
         return Json(new { success = true, content, company, role, applicationId = req.ApplicationId });
     }
 
+    // ── POST /CoverLetter/ImproveAjax  (AJAX, JSON body) ────────────────────
+
+    /// <summary>
+    /// Rewrites the letter currently in the editor per the applicant's instructions (tone, length,
+    /// clarity, etc.) without inventing new resume facts. Kept separate from
+    /// <see cref="GenerateAjax"/> since it edits existing text rather than drafting from scratch.
+    /// </summary>
+    /// <param name="req">JSON body with the current draft text, optional application id for company/role
+    /// context, and free-text improvement instructions.</param>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ImproveAjax([FromBody] ImproveRequest req)
+    {
+        if (string.IsNullOrWhiteSpace(req.Content))
+            return Json(new { success = false, error = "Nothing to improve — the editor is empty." });
+
+        var uid = UserId();
+
+        JobApplication? app = null;
+        if (req.ApplicationId.HasValue)
+            app = await _db.JobApplications
+                .FirstOrDefaultAsync(a => a.Id == req.ApplicationId && a.UserId == uid);
+
+        var company = app?.CompanyName ?? req.Company ?? "";
+        var role    = app?.RoleTitle   ?? req.Role    ?? "";
+
+        var (success, content, error) = await _generator.ImproveAsync(
+            req.Content, company, role, req.Instructions ?? "");
+
+        if (!success)
+            return Json(new { success = false, error });
+
+        return Json(new { success = true, content });
+    }
+
     // ── POST /CoverLetter/Save ───────────────────────────────────────────────
 
     /// <summary>
@@ -261,3 +296,5 @@ public class CoverLetterController : Controller
 }
 
 public record GenerateRequest(int? ApplicationId, string? ExtraNotes);
+
+public record ImproveRequest(string Content, int? ApplicationId, string? Company, string? Role, string? Instructions);

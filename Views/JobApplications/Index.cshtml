@@ -80,6 +80,7 @@
             </p>
         </div>
         <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="import-csv-btn">Import CSV</button>
             <a asp-action="Export" class="btn btn-outline-secondary btn-sm">Export CSV</a>
             <a asp-action="Create" class="btn btn-dark">+ Add Application</a>
         </div>
@@ -316,6 +317,30 @@
     </div>
 </div>
 
+<!-- ── Import CSV Modal ── -->
+<div id="import-overlay" class="compare-modal-overlay" aria-hidden="true" role="dialog" aria-label="Import applications from CSV">
+    <div class="compare-modal" style="max-width:480px">
+        <div class="compare-modal-header">
+            <span class="compare-modal-title">Import Applications</span>
+            <button class="compare-modal-close" id="import-close" aria-label="Close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <form asp-action="ImportCsv" method="post" enctype="multipart/form-data" class="p-3 p-sm-4">
+            <p class="text-muted" style="font-size:.83rem">
+                Upload a CSV file with columns: Company, Role, Location, Work Mode, Status, Deadline,
+                Date Applied, Salary, Job Link. Only Company and Role are required &mdash; this matches
+                the format produced by <strong>Export CSV</strong>.
+            </p>
+            <input type="file" name="file" accept=".csv" class="form-control mb-3" required />
+            <div class="d-flex justify-content-end gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="import-cancel">Cancel</button>
+                <button type="submit" class="btn btn-dark btn-sm">Import</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- ── Job Comparison Modal ── -->
 <div id="compare-overlay" class="compare-modal-overlay" aria-hidden="true" role="dialog" aria-label="Compare applications">
     <div class="compare-modal">
@@ -333,6 +358,10 @@
 <div id="app-drawer-backdrop" class="app-drawer-backdrop" aria-hidden="true"></div>
 <div id="app-drawer" class="app-drawer" aria-hidden="true" role="dialog" aria-label="Application details">
     <div class="app-drawer-content">
+        <!-- Drag handle (mobile only) -->
+        <div class="app-drawer-handle" id="drawer-handle">
+            <span class="app-drawer-handle-bar"></span>
+        </div>
         <!-- Header -->
         <div class="app-drawer-header">
             <div class="app-drawer-header-main">
@@ -383,6 +412,25 @@
                         <span class="drawer-info-label">Deadline</span>
                         <span id="drawer-deadline" class="drawer-info-value">Jul 30, 2026</span>
                     </div>
+                </div>
+            </section>
+
+            <!-- Status Progress Timeline -->
+            <section class="drawer-section">
+                <h3 class="drawer-section-title">Status Progress</h3>
+                <div class="status-timeline" id="drawer-status-timeline"></div>
+            </section>
+
+            <!-- Notes / Activity Timeline -->
+            <section class="drawer-section">
+                <h3 class="drawer-section-title">Notes</h3>
+                <form id="drawer-note-form" class="drawer-note-form">
+                    <textarea id="drawer-note-input" class="drawer-note-input" rows="2"
+                              placeholder="Add a note about this application..." maxlength="2000"></textarea>
+                    <button type="submit" class="btn btn-dark btn-sm drawer-note-submit">Add Note</button>
+                </form>
+                <div id="drawer-note-timeline" class="drawer-note-timeline">
+                    <p class="drawer-note-empty">No notes yet.</p>
                 </div>
             </section>
         </div>
@@ -554,6 +602,23 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
     compareOverlay?.addEventListener('click', function(e) { if (e.target === compareOverlay) closeCompare(); });
     document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeCompare(); });
 })();
+
+(function () {
+    const importOverlay = document.getElementById('import-overlay');
+    function openImport() {
+        importOverlay.classList.add('active');
+        importOverlay.setAttribute('aria-hidden', 'false');
+    }
+    function closeImport() {
+        importOverlay.classList.remove('active');
+        importOverlay.setAttribute('aria-hidden', 'true');
+    }
+    document.getElementById('import-csv-btn')?.addEventListener('click', openImport);
+    document.getElementById('import-close')?.addEventListener('click', closeImport);
+    document.getElementById('import-cancel')?.addEventListener('click', closeImport);
+    importOverlay?.addEventListener('click', function (e) { if (e.target === importOverlay) closeImport(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeImport(); });
+})();
 </script>
 
 <!-- ── Application Detail Drawer Script ── -->
@@ -668,6 +733,38 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
         );
     }
 
+    // Renders the 4-stage pipeline (Saved -> Applied -> Interview -> Offer) as a
+    // horizontal stepper. Rejected has no dedicated stage on the happy-path pipeline,
+    // so it's shown by replacing the final stage with a red "Rejected" marker —
+    // the prior stages are marked done since reaching Rejected implies the
+    // application was at least Applied.
+    function buildStatusTimeline(statusNum) {
+        const isRejected = statusNum === STATUS.REJECTED;
+        const stages = [
+            { key: STATUS.SAVED,     label: 'Saved' },
+            { key: STATUS.APPLIED,   label: 'Applied' },
+            { key: STATUS.INTERVIEW, label: 'Interview' },
+            { key: STATUS.OFFER,     label: isRejected ? 'Rejected' : 'Offer' }
+        ];
+        const currentIndex = isRejected ? 3 : stages.findIndex(s => s.key === statusNum);
+
+        return stages.map(function (s, i) {
+            let cls = '';
+            if (isRejected && i === 3) cls = 'is-rejected';
+            else if (i < currentIndex) cls = 'is-done';
+            else if (i === currentIndex) cls = 'is-current';
+
+            const dotContent = (cls === 'is-done') ? '&#10003;' : String(i + 1);
+            return (
+                '<div class="status-timeline-step ' + cls + '">' +
+                    '<div class="status-timeline-line"></div>' +
+                    '<div class="status-timeline-dot">' + dotContent + '</div>' +
+                    '<div class="status-timeline-label">' + s.label + '</div>' +
+                '</div>'
+            );
+        }).join('');
+    }
+
     function parseSkillsJson(raw) {
         try {
             const arr = JSON.parse(raw || '[]');
@@ -711,6 +808,9 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
         statusBadge.className = 'status-badge ' + statusClass;
         statusBadge.innerHTML = statusIcon + ' ' + statusName;
 
+        // Status progress timeline
+        document.getElementById('drawer-status-timeline').innerHTML = buildStatusTimeline(statusNum);
+
         // Description
         document.getElementById('drawer-description').textContent = data.description || 'No description available';
 
@@ -744,6 +844,9 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
         intBtn.dataset.appId = data.id;
         intBtn.onclick = function() { window.location.href = '/InterviewPrep/Prep?appId=' + data.id; };
 
+        // Notes / activity timeline
+        loadNoteTimeline(data.id);
+
         // Show drawer
         drawer.classList.add('active');
         backdrop.classList.add('active');
@@ -751,6 +854,63 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
         backdrop.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
     }
+
+    // ── Notes / activity timeline ──────────────────────
+    const noteForm = document.getElementById('drawer-note-form');
+    const noteInput = document.getElementById('drawer-note-input');
+    const noteTimeline = document.getElementById('drawer-note-timeline');
+    const antiForgeryToken = document.querySelector('#bulk-delete-form input[name="__RequestVerificationToken"]')?.value || '';
+    let currentNoteAppId = null;
+
+    function escHtml(s) {
+        return (s || '').replace(/[&<>"']/g, function (c) {
+            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+    }
+
+    function renderNoteTimeline(notes) {
+        if (!notes.length) {
+            noteTimeline.innerHTML = '<p class="drawer-note-empty">No notes yet.</p>';
+            return;
+        }
+        noteTimeline.innerHTML = notes.map(function (n) {
+            return '<div class="drawer-note-item">' +
+                '<div class="drawer-note-text">' + escHtml(n.text).replace(/\n/g, '<br>') + '</div>' +
+                '<div class="drawer-note-time">' + escHtml(n.createdAt) + '</div>' +
+                '</div>';
+        }).join('');
+    }
+
+    function loadNoteTimeline(appId) {
+        currentNoteAppId = appId;
+        noteTimeline.innerHTML = '<p class="drawer-note-empty">Loading...</p>';
+        fetch('/JobApplications/Notes?appId=' + encodeURIComponent(appId))
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(renderNoteTimeline)
+            .catch(function () { renderNoteTimeline([]); });
+    }
+
+    noteForm?.addEventListener('submit', function (e) {
+        e.preventDefault();
+        const text = noteInput.value.trim();
+        if (!text || !currentNoteAppId) return;
+
+        fetch('/JobApplications/AddNote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                appId: currentNoteAppId,
+                text: text,
+                __RequestVerificationToken: antiForgeryToken
+            })
+        })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (note) {
+            if (!note) return;
+            noteInput.value = '';
+            loadNoteTimeline(currentNoteAppId);
+        });
+    });
 
     function closeDrawer() {
         drawer.classList.remove('active');
@@ -783,6 +943,36 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
             closeDrawer();
         }
     });
+
+    // ── Swipe-down-to-close (mobile full-screen drawer) ──
+    // Only the drag handle initiates a swipe, so normal scrolling inside the
+    // body content isn't hijacked. Below the close threshold the drawer
+    // snaps back via the CSS transition (removed only while dragging).
+    const drawerHandle = document.getElementById('drawer-handle');
+    const CLOSE_THRESHOLD = 100;
+    let dragStartY = null;
+
+    function onTouchStart(e) {
+        dragStartY = e.touches[0].clientY;
+        drawer.classList.add('is-dragging');
+    }
+    function onTouchMove(e) {
+        if (dragStartY == null) return;
+        const delta = Math.max(0, e.touches[0].clientY - dragStartY);
+        drawer.style.transform = 'translateY(' + delta + 'px)';
+    }
+    function onTouchEnd(e) {
+        if (dragStartY == null) return;
+        const delta = Math.max(0, (e.changedTouches[0].clientY - dragStartY));
+        drawer.classList.remove('is-dragging');
+        drawer.style.transform = '';
+        dragStartY = null;
+        if (delta > CLOSE_THRESHOLD) closeDrawer();
+    }
+
+    drawerHandle?.addEventListener('touchstart', onTouchStart, { passive: true });
+    drawerHandle?.addEventListener('touchmove', onTouchMove, { passive: true });
+    drawerHandle?.addEventListener('touchend', onTouchEnd);
 })();
 </script>
 }

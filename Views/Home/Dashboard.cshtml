@@ -33,6 +33,21 @@
     }
 
     int maxCompanyCount = Model.TopCompanies.Any() ? Model.TopCompanies.Max(kv => kv.Value) : 1;
+
+    // Chart geometry for the applications-over-time line chart (SVG, no JS charting lib).
+    const int chartW = 560, chartH = 140, chartPadX = 24, chartPadY = 18;
+    int chartMax = Math.Max(1, Model.ApplicationsOverTime.Any() ? Model.ApplicationsOverTime.Max(kv => kv.Value) : 1);
+    var chartPoints = Model.ApplicationsOverTime.Select((kv, i) =>
+    {
+        double x = Model.ApplicationsOverTime.Count <= 1
+            ? chartW / 2.0
+            : chartPadX + i * (chartW - 2 * chartPadX) / (double)(Model.ApplicationsOverTime.Count - 1);
+        double y = chartH - chartPadY - (kv.Value / (double)chartMax) * (chartH - 2 * chartPadY);
+        return (X: x, Y: y, Label: kv.Key, Count: kv.Value);
+    }).ToList();
+    string chartLinePath = chartPoints.Any()
+        ? "M " + string.Join(" L ", chartPoints.Select(p => $"{p.X:F1},{p.Y:F1}"))
+        : "";
 }
 
 <div class="container py-4">
@@ -55,6 +70,34 @@
             + Add Application
         </a>
     </div>
+
+    <!-- New-user onboarding checklist -->
+    @if (Model.TotalApplications == 0)
+    {
+        <div class="onboarding-banner" id="onboardingBanner">
+            <div class="onboarding-header">
+                <div>
+                    <h6>Welcome to InternTrackAI</h6>
+                    <p>A few quick steps to get the most out of your internship search</p>
+                </div>
+                <button type="button" class="onboarding-close" id="onboardingClose" aria-label="Dismiss">&times;</button>
+            </div>
+            <div class="onboarding-checklist">
+                <a asp-controller="Profile" asp-action="Index" class="onboarding-step @(Model.HasProfileBasics ? "is-done" : "")">
+                    <span class="onboarding-step-icon">@(Model.HasProfileBasics ? "✓" : "1")</span>
+                    <span class="onboarding-step-text">Complete your profile (name &amp; skills)</span>
+                </a>
+                <a asp-controller="Profile" asp-action="Index" class="onboarding-step @(Model.HasResume ? "is-done" : "")">
+                    <span class="onboarding-step-icon">@(Model.HasResume ? "✓" : "2")</span>
+                    <span class="onboarding-step-text">Upload your resume for AI matching</span>
+                </a>
+                <a asp-controller="JobApplications" asp-action="Create" class="onboarding-step">
+                    <span class="onboarding-step-icon">3</span>
+                    <span class="onboarding-step-text">Add your first application</span>
+                </a>
+            </div>
+        </div>
+    }
 
     <!-- Deadline & follow-up alerts -->
     @if (Model.UpcomingDeadlines.Any() || Model.FollowUpSuggestions.Any())
@@ -142,6 +185,38 @@
         </div>
     }
 
+    <!-- Applications over time -->
+    @if (Model.TotalApplications > 0)
+    {
+        <div class="analytics-card mb-4 anim-fade-up anim-d4">
+            <div class="analytics-card-label">Applications Over Time</div>
+            <svg class="chart-svg" viewBox="0 0 @chartW @chartH" preserveAspectRatio="none" role="img"
+                 aria-label="Applications submitted per month, last 6 months">
+                @for (int i = 1; i < 4; i++)
+                {
+                    double gy = chartPadY + i * (chartH - 2 * chartPadY) / 4.0;
+                    <line x1="@chartPadX" y1="@gy.ToString("F1")" x2="@(chartW - chartPadX)" y2="@gy.ToString("F1")" class="chart-gridline" />
+                }
+                @if (!string.IsNullOrEmpty(chartLinePath))
+                {
+                    <path d="@chartLinePath" class="chart-line" />
+                }
+                @foreach (var p in chartPoints)
+                {
+                    <circle cx="@p.X.ToString("F1")" cy="@p.Y.ToString("F1")" r="3.5" class="chart-dot">
+                        <title>@p.Label: @p.Count</title>
+                    </circle>
+                }
+            </svg>
+            <div class="chart-axis-labels">
+                @foreach (var p in chartPoints)
+                {
+                    <span>@p.Label</span>
+                }
+            </div>
+        </div>
+    }
+
     <!-- Recent applications -->
     <div class="app-table-wrapper anim-fade-up anim-d4">
         <div class="card-header-clean">
@@ -215,6 +290,19 @@
 
 @section Scripts {
 <script>
+(function () {
+    var banner = document.getElementById('onboardingBanner');
+    if (!banner) return;
+    if (localStorage.getItem('onboardingDismissed') === '1') {
+        banner.style.display = 'none';
+        return;
+    }
+    document.getElementById('onboardingClose').addEventListener('click', function () {
+        localStorage.setItem('onboardingDismissed', '1');
+        banner.style.display = 'none';
+    });
+})();
+
 (function () {
     function easeOutQuart(t) { return 1 - Math.pow(1 - t, 4); }
 

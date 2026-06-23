@@ -23,10 +23,19 @@ public class DashboardViewModel
     public double SuccessRate { get; set; }
     public List<KeyValuePair<string, int>> TopCompanies { get; set; } = new();
 
+    // Applications applied to per month, oldest to newest, for the last 6 months —
+    // drives the "applications over time" line chart. Bucketed by DateApplied since
+    // there's no separate CreatedAt timestamp on JobApplication.
+    public List<KeyValuePair<string, int>> ApplicationsOverTime { get; set; } = new();
+
     // Alerts
     // Applications with a Deadline within the next 3 days.
     public List<JobApplication> UpcomingDeadlines { get; set; } = new();
 
     // Applications sitting 7+ days without a status change — surfaced as a nudge to follow up.
     public List<JobApplication> FollowUpSuggestions { get; set; } = new();
+
+    // Onboarding checklist (shown only to brand-new users with zero applications).
+    public bool HasProfileBasics { get; set; }
+    public bool HasResume { get; set; }
 }

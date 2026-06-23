@@ -33,4 +33,7 @@ public class ProfileViewModel
 
     // Null until the user has run the AI Resume Score feature at least once.
     public ResumeScoreResult? ScoreResult { get; set; }
+
+    // Null if no GitHub username is set, or if the API call failed/rate-limited.
+    public List<GitHubRepoDto>? GitHubRepos { get; set; }
 }

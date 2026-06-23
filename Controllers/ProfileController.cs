@@ -25,6 +25,8 @@ public class ProfileController : Controller
     private readonly IWebHostEnvironment _env;
     private readonly ResumeScoreService _scorer;
     private readonly ResumeMatcherService _matcher;
+    private readonly ProfileExtractorService _extractor;
+    private readonly GitHubService _github;
     private readonly ILogger<ProfileController> _logger;
 
     public ProfileController(
@@ -33,6 +35,8 @@ public class ProfileController : Controller
         IWebHostEnvironment env,
         ResumeScoreService scorer,
         ResumeMatcherService matcher,
+        ProfileExtractorService extractor,
+        GitHubService github,
         ILogger<ProfileController> logger)
     {
         _db = db;
@@ -40,6 +44,8 @@ public class ProfileController : Controller
         _env = env;
         _scorer = scorer;
         _matcher = matcher;
+        _extractor = extractor;
+        _github = github;
         _logger = logger;
     }
 
@@ -53,24 +59,119 @@ public class ProfileController : Controller
         return View(vm);
     }
 
-    // ── POST /Profile/SaveInfo ───────────────────────────
+    // ── POST /Profile/TogglePublic ───────────────────────
 
-    /// <summary>Saves the personal-info section of the profile (creates the profile row if it doesn't exist yet).</summary>
+    /// <summary>
+    /// Turns the public profile link on/off. A <see cref="UserProfile.PublicSlug"/> is generated
+    /// once on first enable and then kept stable across later toggles, so a link a user already
+    /// shared doesn't break if they turn sharing off and back on.
+    /// </summary>
+    /// <returns>JSON <c>{ success, isPublic, url }</c>.</returns>
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> SaveInfo(string? fullName, string? displayName, int? age, string? country, string? phoneNumber)
+    public async Task<IActionResult> TogglePublic(bool isPublic)
     {
         var userId = UserId();
         var profile = await GetOrCreateProfileAsync(userId);
 
-        profile.FullName    = fullName?.Trim();
-        profile.DisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
-        profile.Age         = age;
-        profile.Country     = country?.Trim();
-        profile.PhoneNumber = phoneNumber?.Trim();
+        profile.IsPublic = isPublic;
+        if (isPublic && string.IsNullOrEmpty(profile.PublicSlug))
+            profile.PublicSlug = GenerateSlug();
 
         await _db.SaveChangesAsync();
-        TempData["Success"] = "Profile saved.";
-        return RedirectToAction(nameof(Index));
+
+        var url = profile.PublicSlug != null
+            ? Url.Action("Public", "Profile", new { slug = profile.PublicSlug }, Request.Scheme)
+            : null;
+
+        return Json(new { success = true, isPublic = profile.IsPublic, url });
+    }
+
+    // ── POST /Profile/RegenerateLink ─────────────────────
+
+    /// <summary>Replaces the current public slug with a new one, invalidating any previously shared link.</summary>
+    /// <returns>JSON <c>{ success, url }</c>.</returns>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> RegenerateLink()
+    {
+        var userId = UserId();
+        var profile = await GetOrCreateProfileAsync(userId);
+
+        profile.PublicSlug = GenerateSlug();
+        await _db.SaveChangesAsync();
+
+        var url = Url.Action("Public", "Profile", new { slug = profile.PublicSlug }, Request.Scheme);
+        return Json(new { success = true, url });
+    }
+
+    // ── GET /p/{slug} ─────────────────────────────────────
+
+    /// <summary>
+    /// Read-only public profile view, reachable by anyone with the link — no sign-in required.
+    /// Deliberately exposes only name/photo/skills/target roles/stats, never resumes, cover
+    /// letters, email, or the raw application list. Returns 404 if the slug is unknown or the
+    /// owner has turned sharing off.
+    /// </summary>
+    [HttpGet("/p/{slug}"), AllowAnonymous]
+    public async Task<IActionResult> Public(string slug)
+    {
+        var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.PublicSlug == slug && p.IsPublic);
+        if (profile == null)
+            return NotFound();
+
+        var apps = await _db.JobApplications
+            .Where(a => a.UserId == profile.UserId)
+            .ToListAsync();
+
+        int offers = apps.Count(a => a.Status == ApplicationStatus.Offer);
+        double successRate = apps.Count > 0 ? Math.Round(offers * 100.0 / apps.Count, 1) : 0;
+
+        var vm = new PublicProfileViewModel
+        {
+            DisplayName = !string.IsNullOrWhiteSpace(profile.DisplayName) ? profile.DisplayName!
+                        : !string.IsNullOrWhiteSpace(profile.FullName) ? profile.FullName!
+                        : "Anonymous",
+            PhotoPath = profile.PhotoFileName != null
+                ? $"/uploads/photos/{profile.PhotoFileName}?v={profile.PhotoVersion}"
+                : null,
+            Skills = ParseTagJson(profile.SkillsJson),
+            TargetRoles = ParseTagJson(profile.TargetRolesJson),
+            TotalApplications = apps.Count,
+            SuccessRate = successRate,
+            GitHubUsername = profile.GitHubUsername
+        };
+
+        if (!string.IsNullOrWhiteSpace(profile.GitHubUsername))
+            vm.GitHubRepos = await _github.GetPublicReposAsync(profile.GitHubUsername);
+
+        return View(vm);
+    }
+
+    // ── POST /Profile/SaveInfo ───────────────────────────
+
+    /// <summary>
+    /// Saves the personal-info section of the profile via AJAX (creates the profile row if it
+    /// doesn't exist yet). Returns JSON rather than redirecting so the page stays at the user's
+    /// current scroll position and can show a toast instead of a full reload.
+    /// </summary>
+    /// <returns>JSON <c>{ success, error }</c> — <c>error</c> is set if <paramref name="fullName"/> is blank.</returns>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveInfo(string? fullName, string? displayName, int? age, string? country, string? phoneNumber, string? githubUsername)
+    {
+        if (string.IsNullOrWhiteSpace(fullName))
+            return Json(new { success = false, error = "Full name is required." });
+
+        var userId = UserId();
+        var profile = await GetOrCreateProfileAsync(userId);
+
+        profile.FullName       = fullName.Trim();
+        profile.DisplayName    = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
+        profile.Age            = age;
+        profile.Country        = country?.Trim();
+        profile.PhoneNumber    = phoneNumber?.Trim();
+        profile.GitHubUsername = string.IsNullOrWhiteSpace(githubUsername) ? null : githubUsername.Trim().TrimStart('@');
+
+        await _db.SaveChangesAsync();
+        return Json(new { success = true });
     }
 
     // ── POST /Profile/UploadPhoto ────────────────────────
@@ -128,8 +229,13 @@ public class ProfileController : Controller
 
     // ── POST /Profile/SaveSkills ─────────────────────────
 
-    /// <summary>Saves the tag-based skills list, deduplicated and JSON-encoded into <c>UserProfile.SkillsJson</c>.</summary>
+    /// <summary>
+    /// Auto-saves the tag-based skills list via AJAX, deduplicated and JSON-encoded into
+    /// <c>UserProfile.SkillsJson</c>. Called immediately whenever a skill tag is added or removed
+    /// on the Profile page, so there's no separate "Save" button or page reload.
+    /// </summary>
     /// <param name="skillsJson">A JSON array of skill strings from the tag input widget.</param>
+    /// <returns>JSON <c>{ success: true }</c> on save.</returns>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveSkills(string? skillsJson)
     {
@@ -137,14 +243,18 @@ public class ProfileController : Controller
         var profile = await GetOrCreateProfileAsync(userId);
         profile.SkillsJson = NormalizeTagJson(skillsJson);
         await _db.SaveChangesAsync();
-        TempData["Success"] = "Skills saved.";
-        return RedirectToAction(nameof(Index));
+        return Json(new { success = true });
     }
 
     // ── POST /Profile/SaveTargetRoles ────────────────────
 
-    /// <summary>Saves the tag-based target-roles list, deduplicated and JSON-encoded into <c>UserProfile.TargetRolesJson</c>.</summary>
+    /// <summary>
+    /// Auto-saves the tag-based target-roles list via AJAX, deduplicated and JSON-encoded into
+    /// <c>UserProfile.TargetRolesJson</c>. Called immediately whenever a role tag is added or
+    /// removed on the Profile page (including from the searchable role combobox).
+    /// </summary>
     /// <param name="targetRolesJson">A JSON array of role-name strings from the tag input widget.</param>
+    /// <returns>JSON <c>{ success: true }</c> on save.</returns>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveTargetRoles(string? targetRolesJson)
     {
@@ -152,8 +262,54 @@ public class ProfileController : Controller
         var profile = await GetOrCreateProfileAsync(userId);
         profile.TargetRolesJson = NormalizeTagJson(targetRolesJson);
         await _db.SaveChangesAsync();
-        TempData["Success"] = "Target roles saved.";
-        return RedirectToAction(nameof(Index));
+        return Json(new { success = true });
+    }
+
+    // ── POST /Profile/AnalyzeResume (AJAX) ───────────────
+
+    /// <summary>
+    /// Extracts text from the user's active resume and asks <see cref="ProfileExtractorService"/>
+    /// to pull out a full name, skills, and likely target roles, so the profile form can be
+    /// auto-filled right after upload instead of the user retyping information already on their resume.
+    /// This only returns the extracted data — saving it is a separate AJAX call from the client
+    /// (the existing SaveInfo/SaveSkills/SaveTargetRoles endpoints) so the user can see and adjust
+    /// the suggestions before they're persisted.
+    /// </summary>
+    /// <returns>
+    /// JSON <c>{ success, hasResume, fullName, skills, targetRoles, error }</c>. <c>hasResume</c> is
+    /// false if no active resume exists yet (nothing to analyze).
+    /// </returns>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> AnalyzeResume()
+    {
+        var userId = UserId();
+        var activeResume = await _db.ResumeVersions.FirstOrDefaultAsync(r => r.UserId == userId && r.IsActive);
+        if (activeResume == null)
+            return Json(new { success = false, hasResume = false });
+
+        var filePath = Path.Combine(_env.ContentRootPath, activeResume.StoredPath);
+        if (!System.IO.File.Exists(filePath))
+            return Json(new { success = false, hasResume = false, error = "Resume file not found. Try uploading it again." });
+
+        string resumeText;
+        try
+        {
+            await using var fs = System.IO.File.OpenRead(filePath);
+            resumeText = ResumeMatcherService.ExtractPdfText(fs);
+        }
+        catch
+        {
+            return Json(new { success = false, hasResume = true, error = "Could not read the PDF. Make sure it is a text-based (not scanned) PDF." });
+        }
+
+        if (string.IsNullOrWhiteSpace(resumeText) || resumeText.Length < 50)
+            return Json(new { success = false, hasResume = true, error = "No readable text found in the PDF." });
+
+        var (success, fullName, skills, targetRoles, error) = await _extractor.ExtractAsync(resumeText);
+        if (!success)
+            return Json(new { success = false, hasResume = true, error });
+
+        return Json(new { success = true, hasResume = true, fullName, skills, targetRoles });
     }
 
     // ── POST /Profile/UploadResume ───────────────────────
@@ -394,6 +550,9 @@ public class ProfileController : Controller
     /// <summary>Resolves the current signed-in user's id from the auth claims.</summary>
     private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
+    /// <summary>Short, URL-safe, non-enumerable slug for public profile links.</summary>
+    private static string GenerateSlug() => Guid.NewGuid().ToString("N")[..10];
+
     /// <summary>Fetches the user's profile row, creating (but not yet saving) an empty one if none exists.</summary>
     private async Task<UserProfile> GetOrCreateProfileAsync(string userId)
     {
@@ -458,6 +617,10 @@ public class ProfileController : Controller
             .Take(5)
             .ToList();
 
+        List<GitHubRepoDto>? githubRepos = null;
+        if (!string.IsNullOrWhiteSpace(profile.GitHubUsername))
+            githubRepos = await _github.GetPublicReposAsync(profile.GitHubUsername);
+
         return new ProfileViewModel
         {
             Profile       = profile,
@@ -471,7 +634,8 @@ public class ProfileController : Controller
             SuccessRate   = successRate,
             ApplicationsThisMonth  = appsThisMonth,
             UpcomingDeadlines7Days = upcomingDeadlines7,
-            RecentMatchedApps      = recentMatched
+            RecentMatchedApps      = recentMatched,
+            GitHubRepos            = githubRepos
         };
     }
 

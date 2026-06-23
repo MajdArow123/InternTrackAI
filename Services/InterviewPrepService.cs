@@ -140,4 +140,89 @@ public class InterviewPrepService
             return (false, new(), "Request to OpenAI failed. Check your connection.");
         }
     }
+
+    /// <summary>
+    /// Critiques a candidate's typed-out answer to one interview question, acting as a coach:
+    /// what's strong, what's missing (e.g. no concrete example, no STAR structure for behavioral
+    /// questions), and one concrete way to improve it. Kept separate from <see cref="GenerateAsync"/>
+    /// since it reviews a single existing answer rather than generating new questions.
+    /// </summary>
+    /// <returns>
+    /// A tuple: <c>Success</c> indicates whether the critique succeeded, <c>Feedback</c> is the
+    /// coach's response (empty on failure), and <c>Error</c> is a user-facing message for missing
+    /// keys, rate limits, or network failures.
+    /// </returns>
+    public async Task<(bool Success, string Feedback, string? Error)> CritiqueAnswerAsync(
+        string question, string answer, string role, string company)
+    {
+        if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
+            return (false, "", "OpenAI API key is not configured.");
+
+        if (answer.Length > 4000) answer = answer[..4000];
+
+        const string systemPrompt =
+            "You are an expert interview coach giving direct, encouraging feedback on a candidate's " +
+            "practice answer. Be specific and concise. Return plain text only — no markdown, no headers.";
+
+        var userPrompt =
+            $"The candidate is interviewing for {role} at {company}.\n\n" +
+            $"QUESTION:\n{question}\n\n" +
+            $"CANDIDATE'S ANSWER:\n{answer}\n\n" +
+            "Give feedback in 3 short parts, each 1-2 sentences:\n" +
+            "1. What works well about this answer\n" +
+            "2. What's missing or could be stronger (e.g. lack of a concrete example, no measurable " +
+            "result, rambling structure, not using STAR format for behavioral questions)\n" +
+            "3. One specific, actionable suggestion to improve it\n" +
+            "Plain text only, no bullet point characters, no markdown — just 3 short paragraphs.";
+
+        var body = new
+        {
+            model = "gpt-4o-mini",
+            messages = new[]
+            {
+                new { role = "system", content = systemPrompt },
+                new { role = "user",   content = userPrompt   }
+            },
+            max_tokens  = 400,
+            temperature = 0.5
+        };
+
+        var json = JsonSerializer.Serialize(body, _camel);
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            "https://api.openai.com/v1/chat/completions");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
+        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        try
+        {
+            var response = await _http.SendAsync(request);
+            var raw      = await response.Content.ReadAsStringAsync();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogError("OpenAI error {Status}: {Body}", (int)response.StatusCode, raw);
+                var msg = (int)response.StatusCode switch
+                {
+                    401 => "Invalid API key. Set it via dotnet user-secrets.",
+                    429 => "OpenAI quota exceeded. Add credits at platform.openai.com.",
+                    _   => $"OpenAI returned {(int)response.StatusCode}."
+                };
+                return (false, "", msg);
+            }
+
+            using var doc = JsonDocument.Parse(raw);
+            var content = doc.RootElement
+                .GetProperty("choices")[0]
+                .GetProperty("message")
+                .GetProperty("content")
+                .GetString() ?? "";
+
+            return (true, content.Trim(), null);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error critiquing interview answer");
+            return (false, "", "Request to OpenAI failed. Check your connection.");
+        }
+    }
 }

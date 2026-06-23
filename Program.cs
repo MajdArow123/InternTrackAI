@@ -65,6 +65,10 @@ builder.Services.AddHttpClient<ResumeMatcherService>();
 builder.Services.AddHttpClient<ResumeScoreService>();
 builder.Services.AddHttpClient<CoverLetterGeneratorService>();
 builder.Services.AddHttpClient<InterviewPrepService>();
+builder.Services.AddHttpClient<ProfileExtractorService>();
+builder.Services.AddHttpClient<SalaryInsightService>();
+builder.Services.AddHttpClient<GitHubService>()
+    .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient("UrlFetcher")
     .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddControllersWithViews();

@@ -45,6 +45,9 @@ public class HomeController : Controller
             .Where(a => a.UserId == uid)
             .ToListAsync();
 
+        var profile   = await _context.UserProfiles.FirstOrDefaultAsync(p => p.UserId == uid);
+        var hasResume = await _context.ResumeVersions.AnyAsync(r => r.UserId == uid);
+
         var today  = DateTime.UtcNow.Date;
         int offers = applications.Count(a => a.Status == ApplicationStatus.Offer);
         int total  = applications.Count;
@@ -72,6 +75,17 @@ public class HomeController : Controller
             .Take(5)
             .ToList();
 
+        var monthStarts = Enumerable.Range(0, 6)
+            .Select(i => new DateTime(today.Year, today.Month, 1).AddMonths(-(5 - i)))
+            .ToList();
+        var applicationsOverTime = monthStarts
+            .Select(m => new KeyValuePair<string, int>(
+                m.ToString("MMM"),
+                applications.Count(a => a.DateApplied.HasValue
+                    && a.DateApplied.Value.Year == m.Year
+                    && a.DateApplied.Value.Month == m.Month)))
+            .ToList();
+
         var vm = new DashboardViewModel
         {
             TotalApplications = total,
@@ -81,10 +95,14 @@ public class HomeController : Controller
                 .OrderByDescending(a => a.Id)
                 .Take(8)
                 .ToList(),
-            SuccessRate        = total > 0 ? Math.Round(offers * 100.0 / total, 1) : 0,
-            TopCompanies       = topCompanies,
-            UpcomingDeadlines  = upcomingDeadlines,
-            FollowUpSuggestions = followUpSuggestions
+            SuccessRate          = total > 0 ? Math.Round(offers * 100.0 / total, 1) : 0,
+            TopCompanies         = topCompanies,
+            ApplicationsOverTime = applicationsOverTime,
+            UpcomingDeadlines    = upcomingDeadlines,
+            FollowUpSuggestions  = followUpSuggestions,
+            HasProfileBasics     = profile != null && !string.IsNullOrWhiteSpace(profile.FullName)
+                                    && !string.IsNullOrWhiteSpace(profile.SkillsJson) && profile.SkillsJson != "[]",
+            HasResume            = hasResume
         };
 
         return View(vm);

@@ -1346,77 +1346,92 @@ textarea.form-control { min-height: 100px; resize: vertical; }
   white-space: nowrap;
 }
 
-/* Tag input */
+/* Tag input — chip system (skills / target roles) */
 .tag-cloud {
   display: flex;
   flex-wrap: wrap;
-  gap: .4rem;
+  gap: .32rem;
   align-items: center;
-  min-height: 38px;
+  min-height: 34px;
 }
 
 .tag-item {
   display: inline-flex;
   align-items: center;
   gap: .3rem;
-  background: #eef2ff;
+  background: rgba(79, 70, 229, .08);
   color: var(--primary);
-  border: 1px solid #c7d2fe;
+  border: 1px solid transparent;
   border-radius: var(--radius-pill);
   font-size: .78rem;
   font-weight: 600;
-  padding: .25em .65em;
+  line-height: 1;
+  padding: .38em .4em .38em .75em;
   white-space: nowrap;
+  transition: background var(--duration) var(--ease);
 }
+
+.tag-item:hover { background: rgba(79, 70, 229, .13); }
+
+.tag-item-label { letter-spacing: -.01em; }
 
 .tag-item button {
-  background: none;
+  background: rgba(79, 70, 229, .12);
   border: none;
   color: var(--primary);
-  font-size: .85rem;
+  font-size: .62rem;
   line-height: 1;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
   padding: 0;
   cursor: pointer;
-  opacity: .6;
-  display: flex; align-items: center;
+  opacity: .75;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--duration) var(--ease), opacity var(--duration) var(--ease);
 }
 
-.tag-item button:hover { opacity: 1; }
+.tag-item button:hover { opacity: 1; background: rgba(79, 70, 229, .28); }
 
 .tag-input-row {
   display: flex;
-  gap: .4rem;
+  gap: .5rem;
   flex-wrap: nowrap;
+  align-items: center;
 }
 
 .tag-text-input {
   flex: 0 1 200px;
   min-width: 0;
-  height: 32px;
-  font-size: .82rem;
-  border-radius: 6px;
-  border: 1.5px solid var(--border);
-  padding: 0 .65rem;
-  transition: border-color var(--duration);
+  height: 30px;
+  font-size: .8rem;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid var(--border);
+  border-radius: 0;
+  padding: 0 .15rem .2rem;
+  transition: border-color var(--duration) var(--ease);
 }
 
-.tag-text-input:focus { outline: none; border-color: var(--primary); }
+.tag-text-input:focus { outline: none; border-bottom-color: var(--primary); }
 
 .tag-add-btn {
-  height: 32px;
-  padding: 0 .85rem;
-  font-size: .78rem;
+  height: 28px;
+  padding: 0 .8rem;
+  font-size: .76rem;
   font-weight: 600;
-  background: var(--primary);
-  color: #fff;
+  background: rgba(79, 70, 229, .1);
+  color: var(--primary);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   white-space: nowrap;
-  transition: background var(--duration);
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
 }
 
-.tag-add-btn:hover { background: var(--primary-h); }
+.tag-add-btn:hover { background: var(--primary); color: #fff; }
 
 /* Inline match result (on Create page) */
 .inline-match-card {
@@ -2289,8 +2304,13 @@ html[data-theme="dark"] .doc-row.doc-active    { background: rgba(79,70,229,.15)
 html[data-theme="dark"] .doc-version-badge     { background: rgba(79,70,229,.2); color: #a5b4fc; }
 html[data-theme="dark"] .doc-active .doc-version-badge { background: var(--primary); color: #fff; }
 html[data-theme="dark"] .active-label          { background: rgba(79,70,229,.2); color: #a5b4fc; }
-html[data-theme="dark"] .tag-item              { background: rgba(79,70,229,.15); color: #a5b4fc; border-color: rgba(129,140,248,.3); }
-html[data-theme="dark"] .tag-item button       { color: #a5b4fc; }
+html[data-theme="dark"] .tag-item              { background: rgba(129,140,248,.14); color: #a5b4fc; border-color: transparent; }
+html[data-theme="dark"] .tag-item:hover         { background: rgba(129,140,248,.2); }
+html[data-theme="dark"] .tag-item button        { background: rgba(129,140,248,.16); color: #a5b4fc; }
+html[data-theme="dark"] .tag-item button:hover  { background: rgba(129,140,248,.32); }
+html[data-theme="dark"] .tag-text-input         { border-bottom-color: var(--border); color: var(--text); }
+html[data-theme="dark"] .tag-add-btn            { background: rgba(129,140,248,.16); color: #a5b4fc; }
+html[data-theme="dark"] .tag-add-btn:hover      { background: var(--primary); color: #fff; }
 
 /* Score track in dark mode */
 html[data-theme="dark"] .score-track { stroke: #334155; }

@@ -602,7 +602,7 @@
                 values.forEach((val, i) => {
                     const tag = document.createElement('span');
                     tag.className = 'tag-item';
-                    tag.innerHTML = `${escHtml(val)} <button type="button" data-i="${i}" aria-label="Remove">&times;</button>`;
+                    tag.innerHTML = `<span class="tag-item-label">${escHtml(val)}</span><button type="button" data-i="${i}" aria-label="Remove">&times;</button>`;
                     cloud.insertBefore(tag, inputRow);
                 });
                 hidden.value = JSON.stringify(values);

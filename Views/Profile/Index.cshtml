@@ -384,11 +384,12 @@
         <p class="text-muted mb-3" style="font-size:.82rem">Add your technical and professional skills. These are used as context during AI resume matching. Changes save automatically.</p>
         <div class="field-skeleton-wrap" id="skillsWrap">
             <input type="hidden" id="skillsJsonInput" />
-            <div class="tag-cloud" id="skillsCloud">
+            <div class="tag-manager">
                 <div class="tag-input-row">
                     <input type="text" class="tag-text-input" id="skillsText" placeholder="e.g. Python" />
                     <button type="button" class="tag-add-btn" id="skillsAdd">Add</button>
                 </div>
+                <div class="tag-cloud" id="skillsCloud"></div>
             </div>
         </div>
     </div>
@@ -402,7 +403,7 @@
         <p class="text-muted mb-3" style="font-size:.82rem">Search common internship roles or type your own. These help the AI give more relevant scoring and advice. Changes save automatically.</p>
         <div class="field-skeleton-wrap" id="rolesWrap">
             <input type="hidden" id="rolesJsonInput" />
-            <div class="tag-cloud" id="rolesCloud">
+            <div class="tag-manager">
                 <div class="tag-input-row">
                     <div class="role-combobox-wrap">
                         <input type="text" class="tag-text-input" id="rolesText" placeholder="Search or type a role..." autocomplete="off" style="flex:0 1 260px" />
@@ -410,6 +411,7 @@
                     </div>
                     <button type="button" class="tag-add-btn" id="rolesAdd">Add</button>
                 </div>
+                <div class="tag-cloud" id="rolesCloud"></div>
             </div>
         </div>
     </div>
@@ -597,13 +599,12 @@
             let values    = Array.isArray(initialValues) ? [...initialValues] : [];
 
             function render() {
-                cloud.querySelectorAll('.tag-item').forEach(t => t.remove());
-                const inputRow = cloud.querySelector('.tag-input-row');
+                cloud.innerHTML = '';
                 values.forEach((val, i) => {
                     const tag = document.createElement('span');
                     tag.className = 'tag-item';
                     tag.innerHTML = `<span class="tag-item-label">${escHtml(val)}</span><button type="button" data-i="${i}" aria-label="Remove">&times;</button>`;
-                    cloud.insertBefore(tag, inputRow);
+                    cloud.appendChild(tag);
                 });
                 hidden.value = JSON.stringify(values);
             }

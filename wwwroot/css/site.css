@@ -1347,13 +1347,25 @@ textarea.form-control { min-height: 100px; resize: vertical; }
 }
 
 /* Tag input — chip system (skills / target roles) */
+.tag-manager {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+
 .tag-cloud {
   display: flex;
   flex-wrap: wrap;
   gap: .32rem;
   align-items: center;
-  min-height: 34px;
 }
+
+.tag-manager .tag-cloud {
+  padding-top: .6rem;
+  border-top: 1px solid var(--border);
+}
+
+.tag-manager .tag-cloud:empty { display: none; padding-top: 0; border-top: none; }
 
 .tag-item {
   display: inline-flex;

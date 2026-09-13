@@ -3622,3 +3622,111 @@ code { color: var(--accent-text); background: var(--accent-soft); padding: .1em 
 .error-title { font-size: 1.4667rem; margin-bottom: .6rem; }
 .error-text { font-size: .9333rem; line-height: 1.6; margin-bottom: 1.5rem; }
 
+
+/* ── List / Board view toggle (segmented, lives in the filter-pill row) ── */
+.view-toggle {
+  display: inline-flex;
+  gap: .2rem;
+  padding: .2rem;
+  margin-left: auto;
+  border-radius: var(--radius-pill);
+  background: var(--surface-3);
+}
+.view-toggle .filter-pill { background: transparent; box-shadow: none; padding: .3rem .85rem; }
+.view-toggle .filter-pill:hover { transform: none; box-shadow: none; }
+.view-toggle .filter-pill.active { background: var(--card); color: var(--text); box-shadow: var(--shadow-xs); }
+
+/* ── Kanban board ────────────────────────────────────── */
+.board {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: .25rem .25rem 1rem;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.board-column {
+  flex: 0 0 280px;
+  min-width: 280px;
+  max-width: 320px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+  border-radius: var(--radius);
+  padding: .6rem;
+  scroll-snap-align: start;
+  transition: box-shadow var(--duration) var(--ease);
+}
+@media (min-width: 1400px) {
+  .board-column { flex: 1 1 280px; max-width: none; }
+}
+.board-column.is-highlighted { box-shadow: var(--focus-ring); }
+.board-column-head {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .3rem .4rem .65rem;
+}
+.board-column-title { font-weight: 600; font-size: .95rem; color: var(--text); }
+.board-count { font-variant-numeric: tabular-nums; }
+.board-add {
+  margin-left: auto;
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--text-2);
+  font-weight: 600; font-size: 1.05rem; line-height: 1;
+  text-decoration: none;
+  box-shadow: var(--shadow-xs);
+  transition: color var(--duration) var(--ease), transform var(--duration) var(--ease);
+}
+.board-add:hover { color: var(--text); transform: translateY(-1px); }
+.board-column-body {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  flex: 1;
+  min-height: 120px;
+}
+.board-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: .75rem .85rem;
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  user-select: none;
+  touch-action: manipulation;
+  transition: box-shadow var(--duration) var(--ease), transform var(--duration) var(--ease);
+}
+.board-card:hover { box-shadow: var(--shadow-sm); }
+.board-card:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
+.board-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: .6rem; }
+.board-card-text { min-width: 0; }
+.board-card-company { font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.board-card-role { color: var(--text-2); font-size: .9rem; margin-top: .05rem; }
+.board-card-date { color: var(--muted); font-size: .8rem; margin-top: .35rem; }
+.board-tags { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .5rem; }
+.board-tag {
+  font-size: .75rem; font-weight: 500;
+  padding: .15em .6em;
+  border-radius: var(--radius-pill);
+  background: var(--neutral-soft);
+  color: var(--neutral-text);
+  white-space: nowrap;
+}
+.board-tag--warning { background: var(--warning-soft); color: var(--warning-text); }
+.board-tag--danger  { background: var(--danger-soft);  color: var(--danger-text); }
+.board-empty {
+  display: none;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: 1.5rem .5rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: .875rem;
+}
+.board-column-body.is-empty .board-empty { display: block; }

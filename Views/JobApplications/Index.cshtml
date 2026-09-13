@@ -3,6 +3,7 @@
 
 @{
     ViewData["Title"] = "Applications";
+    ViewData["FilterAction"] = "Index";
 
     bool isFiltered  = ViewBag.IsFiltered == true;
     int  totalCount  = ViewBag.TotalCount ?? 0;
@@ -50,5 +51,6 @@
 <partial name="_Drawer" />
 
 @section Scripts {
+    <script src="~/js/app-drawer.js" asp-append-version="true"></script>
     <script src="~/js/applications.js" asp-append-version="true"></script>
 }

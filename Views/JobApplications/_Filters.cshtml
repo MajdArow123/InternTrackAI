@@ -2,6 +2,10 @@
 @{
     bool isFiltered = ViewBag.IsFiltered == true;
     int  totalCount = ViewBag.TotalCount ?? 0;
+    // Both the list (Index) and the Kanban board (Board) render this partial; links and the
+    // filter form post back to whichever page is showing.
+    string filterAction = ViewData["FilterAction"] as string ?? "Index";
+    bool   isBoard      = filterAction == "Board";
 }
     <!-- ── Status filter pills ── -->
     @{
@@ -13,20 +17,26 @@
     }
     <div class="filter-pills mb-3" role="navigation" aria-label="Filter by status">
         <a class="filter-pill @(curStatus == "" ? "active" : "")"
-           asp-action="Index" asp-route-search="@curSearch" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">
+           asp-action="@filterAction" asp-route-search="@curSearch" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">
             All <span class="filter-pill-count">@totalCount</span>
         </a>
         @foreach (var st in pillOrder)
         {
             <a class="filter-pill filter-pill-@st.ToString().ToLower() @(curStatus == st.ToString() ? "active" : "")"
-               asp-action="Index" asp-route-status="@st" asp-route-search="@curSearch" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">
+               asp-action="@filterAction" asp-route-status="@st" asp-route-search="@curSearch" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">
                 <span class="filter-pill-dot"></span>@st
             </a>
         }
+        <div class="view-toggle" role="group" aria-label="View">
+            <a class="filter-pill @(isBoard ? "" : "active")" aria-current="@(isBoard ? null : "page")"
+               asp-action="Index" asp-route-view="list" asp-route-search="@curSearch" asp-route-status="@curStatus" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">List</a>
+            <a class="filter-pill @(isBoard ? "active" : "")" aria-current="@(isBoard ? "page" : null)"
+               asp-action="Board" asp-route-search="@curSearch" asp-route-status="@curStatus" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">Board</a>
+        </div>
     </div>
 
     <!-- ── Filter Bar ── -->
-    <form method="get" asp-action="Index" class="filter-bar mb-3">
+    <form method="get" asp-action="@filterAction" class="filter-bar mb-3">
         <input type="hidden" name="status" value="@curStatus" />
         <div class="filter-group filter-group-search">
             <label class="filter-label" for="filterSearch">Search</label>
@@ -54,6 +64,8 @@
                 }
             </select>
         </div>
+        @if (!isBoard)
+        {
         <div class="filter-group">
             <label class="filter-label">Sort By</label>
             <select name="sortBy" class="form-select">
@@ -76,11 +88,12 @@
                 else                 { <option value="status">Status</option> }
             </select>
         </div>
+        }
         <div class="d-flex gap-2 align-self-end filter-actions">
             <button type="submit" class="btn btn-primary filter-apply-btn">Apply</button>
             @if (isFiltered)
             {
-                <a asp-action="Index" class="btn btn-outline-secondary filter-apply-btn">Clear</a>
+                <a asp-action="@filterAction" class="btn btn-outline-secondary filter-apply-btn">Clear</a>
             }
         </div>
     </form>

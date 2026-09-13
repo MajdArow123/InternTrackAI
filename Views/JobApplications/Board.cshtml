@@ -1,0 +1,79 @@
+@model IEnumerable<InternTrackAI.Models.JobApplication>
+@using InternTrackAI.Models.Enums
+@using InternTrackAI.Controllers
+
+@{
+    ViewData["Title"] = "Applications";
+    ViewData["FilterAction"] = "Board";
+
+    bool isFiltered = ViewBag.IsFiltered == true;
+    int  totalCount = ViewBag.TotalCount ?? 0;
+    int  shownCount = Model.Count();
+    var  byStatus   = Model.GroupBy(a => a.Status).ToDictionary(g => g.Key, g => g.ToList());
+}
+
+<div class="container py-4">
+
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb-nav" aria-label="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li>Applications</li>
+        </ol>
+    </nav>
+
+    <div class="page-header">
+        <div>
+            <h2>Applications</h2>
+            <p class="sub">
+                @if (isFiltered)
+                {
+                    @($"{shownCount} of {totalCount} application{(totalCount == 1 ? "" : "s")}")
+                }
+                else
+                {
+                    @($"{totalCount} application{(totalCount == 1 ? "" : "s")} total")
+                }
+            </p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap page-actions">
+            <a asp-action="Export" class="btn btn-outline-secondary">Export CSV</a>
+            <a asp-action="Create" class="btn btn-primary">+ Add Application</a>
+        </div>
+    </div>
+
+    <partial name="_Filters" />
+
+    <!-- Any antiforgery input works for app-drawer.js / board.js fetch() calls. -->
+    <form id="board-token-form" hidden>@Html.AntiForgeryToken()</form>
+
+    <div class="board" id="board" role="list" aria-label="Applications by status">
+        @foreach (var st in JobApplicationsController.PipelineOrder)
+        {
+            var cards = byStatus.TryGetValue(st, out var list) ? list : new List<InternTrackAI.Models.JobApplication>();
+            <section class="board-column" id="status-@st.ToString().ToLower()" data-status="@st" role="listitem" aria-label="@st column">
+                <header class="board-column-head">
+                    <span class="board-column-title">@st</span>
+                    <span class="status-badge board-count @StatusDisplay.BadgeClass(st)" data-count-for="@st">@cards.Count</span>
+                    <a class="board-add" asp-action="Create" asp-route-status="@st" aria-label="Add application in @st" title="Add to @st">+</a>
+                </header>
+                <div class="board-column-body @(cards.Count == 0 ? "is-empty" : "")" data-status="@st">
+                    @foreach (var item in cards)
+                    {
+                        <partial name="_BoardCard" model="item" />
+                    }
+                    <div class="board-empty" aria-hidden="true">No applications</div>
+                </div>
+            </section>
+        }
+    </div>
+
+    <div id="board-live" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+</div>
+
+<partial name="_Drawer" />
+
+@section Scripts {
+    <script src="~/js/app-drawer.js" asp-append-version="true"></script>
+    <script src="~/js/board.js" asp-append-version="true"></script>
+}

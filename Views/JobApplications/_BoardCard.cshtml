@@ -1,0 +1,58 @@
+@model InternTrackAI.Models.JobApplication
+@{
+    // Same data-* contract as the list rows in _Table.cshtml so app-drawer.js can open the
+    // detail drawer from a card. Free-text fields are URI-escaped for attribute safety.
+    int? daysToDeadline = Model.Deadline.HasValue ? (Model.Deadline.Value.Date - DateTime.UtcNow.Date).Days : null;
+    bool showDeadline   = daysToDeadline is >= 0 and <= 14;
+    string deadlineTag  = daysToDeadline switch { 0 => "Deadline today", 1 => "Deadline tomorrow", _ => $"Deadline in {daysToDeadline} days" };
+    string deadlineCls  = daysToDeadline <= 3 ? "board-tag--danger" : daysToDeadline <= 7 ? "board-tag--warning" : "";
+}
+<article class="board-card app-row"
+         data-app-id="@Model.Id"
+         data-company="@Model.CompanyName"
+         data-role="@Model.RoleTitle"
+         data-location="@(Model.Location ?? "")"
+         data-salary="@(Model.Salary ?? "")"
+         data-match-score="@(Model.MatchScore?.ToString() ?? "")"
+         data-match-rec="@(Model.MatchRecommendation ?? "")"
+         data-match-summary="@(Uri.EscapeDataString(Model.MatchSummary ?? ""))"
+         data-matching-skills="@(Uri.EscapeDataString(Model.MatchingSkillsJson ?? "[]"))"
+         data-missing-skills="@(Uri.EscapeDataString(Model.MissingSkillsJson ?? "[]"))"
+         data-status="@((int)Model.Status)"
+         data-deadline="@(Model.Deadline.HasValue ? Model.Deadline.Value.ToString("MMM d, yyyy") : "")"
+         data-mode="@Model.WorkMode"
+         data-job-description="@(Uri.EscapeDataString(Model.JobDescription ?? ""))"
+         role="button"
+         tabindex="0"
+         aria-label="@Model.CompanyName, @Model.RoleTitle">
+    <div class="board-card-top">
+        <div class="board-card-text">
+            <div class="board-card-company">@Model.CompanyName</div>
+            <div class="board-card-role">@Model.RoleTitle</div>
+        </div>
+        @if (Model.MatchScore.HasValue)
+        {
+            var tooltip = $"{Model.MatchScore}% Match · {StatusDisplay.MatchTooltip(Model.MatchScore.Value)}";
+            <span class="match-ring match-ring--sm match-ring--tier-@StatusDisplay.MatchTier(Model.MatchScore.Value)"
+                  style="--p:@Model.MatchScore"
+                  data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="@tooltip"
+                  aria-label="@tooltip"><span>@Model.MatchScore</span></span>
+        }
+    </div>
+    <div class="board-card-date">
+        @(Model.DateApplied.HasValue ? $"Applied {Model.DateApplied.Value:MMM d, yyyy}" : "Not applied yet")
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Model.Salary) || showDeadline)
+    {
+        <div class="board-tags">
+            @if (!string.IsNullOrWhiteSpace(Model.Salary))
+            {
+                <span class="board-tag">@Model.Salary</span>
+            }
+            @if (showDeadline)
+            {
+                <span class="board-tag @deadlineCls">@deadlineTag</span>
+            }
+        </div>
+    }
+</article>

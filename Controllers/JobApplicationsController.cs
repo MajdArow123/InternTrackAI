@@ -30,20 +30,71 @@ public class JobApplicationsController : Controller
 
     // ── Index (search / filter / sort) ────────────────────
 
+    /// <summary>Cookie remembering whether the user last used the list or the board view.</summary>
+    public const string ViewCookie = "apps_view";
+
     /// <summary>
     /// Lists the current user's applications, optionally filtered by company/role text search,
     /// status, and work mode, and sorted by deadline, date applied, status, or company name
-    /// (defaults to newest-first by id).
+    /// (defaults to newest-first by id). When the user last used the board view (see
+    /// <see cref="ViewCookie"/>) and no explicit <paramref name="view"/> was requested, redirects
+    /// to <see cref="Board"/> with the same filters.
     /// </summary>
     /// <param name="search">Case-sensitive substring match against company name or role title.</param>
     /// <param name="status">String name of an <see cref="ApplicationStatus"/> value; ignored if it doesn't parse.</param>
     /// <param name="workMode">String name of a <see cref="WorkMode"/> value; ignored if it doesn't parse.</param>
     /// <param name="sortBy">One of "deadline", "dateApplied", "status", "company"; any other value falls back to id descending.</param>
+    /// <param name="view">"list" forces the list even if the cookie says board (used by the view toggle).</param>
     /// <returns>The Index view with the filtered/sorted list, plus filter state and total count in ViewBag.</returns>
     public async Task<IActionResult> Index(
-        string? search, string? status, string? workMode, string? sortBy)
+        string? search, string? status, string? workMode, string? sortBy, string? view)
     {
-        var uid   = UserId();
+        if (view is null && Request.Cookies[ViewCookie] == "board")
+            return RedirectToAction(nameof(Board), new { search, status, workMode, sortBy });
+
+        RememberView("list");
+
+        var uid  = UserId();
+        var apps = await FilteredQuery(uid, search, status, workMode, sortBy).ToListAsync();
+        await SetFilterViewBagAsync(uid, search, status, workMode, sortBy);
+
+        return View(apps);
+    }
+
+    // ── Board (Kanban) ────────────────────────────────────
+
+    /// <summary>
+    /// Kanban view of the same filtered set as <see cref="Index"/>: one column per status in
+    /// pipeline order, cards ordered by <see cref="JobApplication.BoardOrder"/> then newest
+    /// applied first. Remembers the choice in <see cref="ViewCookie"/>.
+    /// </summary>
+    public async Task<IActionResult> Board(string? search, string? status, string? workMode, string? sortBy)
+    {
+        RememberView("board");
+
+        var uid  = UserId();
+        var apps = await FilteredQuery(uid, search, status, workMode, sortBy).ToListAsync();
+        await SetFilterViewBagAsync(uid, search, status, workMode, sortBy);
+
+        var ordered = apps
+            .OrderBy(a => a.BoardOrder)
+            .ThenByDescending(a => a.DateApplied ?? DateTime.MinValue)
+            .ThenByDescending(a => a.Id)
+            .ToList();
+
+        return View(ordered);
+    }
+
+    /// <summary>Statuses in pipeline order, shared by the filter pills and the board columns.</summary>
+    public static readonly ApplicationStatus[] PipelineOrder =
+    {
+        ApplicationStatus.Saved, ApplicationStatus.Applied, ApplicationStatus.Interview,
+        ApplicationStatus.Offer, ApplicationStatus.Rejected
+    };
+
+    /// <summary>The user-scoped, filtered, sorted query behind both the list and the board.</summary>
+    private IQueryable<JobApplication> FilteredQuery(string uid, string? search, string? status, string? workMode, string? sortBy)
+    {
         var query = _context.JobApplications.Where(a => a.UserId == uid);
 
         if (!string.IsNullOrWhiteSpace(search))
@@ -56,7 +107,7 @@ public class JobApplicationsController : Controller
         if (Enum.TryParse<WorkMode>(workMode, out var wm))
             query = query.Where(a => a.WorkMode == wm);
 
-        query = sortBy switch
+        return sortBy switch
         {
             "deadline"    => query.OrderBy(a => a.Deadline),
             "dateApplied" => query.OrderByDescending(a => a.DateApplied),
@@ -64,10 +115,10 @@ public class JobApplicationsController : Controller
             "company"     => query.OrderBy(a => a.CompanyName),
             _             => query.OrderByDescending(a => a.Id)
         };
+    }
 
-        var apps       = await query.ToListAsync();
-        var totalCount = await _context.JobApplications.CountAsync(a => a.UserId == uid);
-
+    private async Task SetFilterViewBagAsync(string uid, string? search, string? status, string? workMode, string? sortBy)
+    {
         ViewBag.Search     = search;
         ViewBag.Status     = status;
         ViewBag.WorkMode   = workMode;
@@ -75,17 +126,25 @@ public class JobApplicationsController : Controller
         ViewBag.IsFiltered = !string.IsNullOrWhiteSpace(search)
                           || !string.IsNullOrWhiteSpace(status)
                           || !string.IsNullOrWhiteSpace(workMode);
-        ViewBag.TotalCount = totalCount;
-
-        return View(apps);
+        ViewBag.TotalCount = await _context.JobApplications.CountAsync(a => a.UserId == uid);
     }
+
+    private void RememberView(string view) =>
+        Response.Cookies.Append(ViewCookie, view, new CookieOptions
+        {
+            Expires     = DateTimeOffset.UtcNow.AddYears(1),
+            HttpOnly    = true,
+            SameSite    = SameSiteMode.Lax,
+            IsEssential = true
+        });
 
     // ── Create ────────────────────────────────────────────
 
     /// <summary>Renders the empty Add Application form, including the AI Job Analyzer panel.</summary>
-    public IActionResult Create()
+    /// <param name="status">Optional status to pre-select (the board's per-column "+" button).</param>
+    public IActionResult Create(ApplicationStatus? status)
     {
-        return View();
+        return View(new JobApplication { Status = status ?? default });
     }
 
     /// <summary>

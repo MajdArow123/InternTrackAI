@@ -1,4 +1,8 @@
 @model InternTrackAI.Models.ViewModels.ProfileViewModel
+@{
+    var clock       = await Clocks.GetAsync();
+    var currentZone = clock.ZoneId;
+}
     <!-- ── Personal Info ── -->
     <div class="form-card mb-3">
         <p class="form-section-title">Basic info</p>
@@ -41,6 +45,21 @@
                     <label class="form-label">GitHub username <span class="text-muted fw-normal">(optional)</span></label>
                     <input name="githubUsername" class="form-control" placeholder="e.g. octocat"
                            value="@Model.Profile.GitHubUsername" />
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label" for="timeZoneSelect">Time zone</label>
+                    <select name="timeZoneId" id="timeZoneSelect" class="form-select" aria-describedby="timeZoneHint">
+                        @foreach (var group in TimeZones.Groups(clock.NowUtc, currentZone))
+                        {
+                            <optgroup label="@group.Region">
+                                @foreach (var z in group.Zones)
+                                {
+                                    <option value="@z.Id" selected="@(z.Id == currentZone)">@z.Label</option>
+                                }
+                            </optgroup>
+                        }
+                    </select>
+                    <div class="form-hint mt-1" id="timeZoneHint">Interview times, notes and reminders are shown in this zone. Now: <span id="timeZoneNow">@clock.NowLocal.ToString(UserClock.TimeFormat, System.Globalization.CultureInfo.InvariantCulture)</span></div>
                 </div>
             </div>
             <div class="mt-3 d-flex align-items-center">

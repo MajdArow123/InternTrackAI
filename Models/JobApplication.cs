@@ -78,16 +78,17 @@ public class JobApplication
 
     // ── Reminder fields (see Services/ReminderService.cs for the rules that read them) ──
 
-    // Scheduled interview, date + time as the user typed it. No time zone is stored: the value is
-    // wall-clock time and is compared/displayed as such.
+    // Scheduled interview as a UTC instant. The Create/Edit forms read and write it in the user's
+    // profile time zone (UserClock converts both ways); every display goes through UserClock too.
     [DataType(DataType.DateTime)]
     public DateTime? InterviewAt { get; set; }
 
-    // Explicit follow-up date. While it is in the future the follow-up reminder stays quiet
-    // ("Snooze" sets it to today + 3); once it passes, the normal follow-up rule applies again.
+    // Explicit follow-up date, stored as midnight of that day in the user's zone (a UTC instant).
+    // While it is in the future the follow-up reminder stays quiet ("Snooze" sets it to today + 3);
+    // once it passes, the normal follow-up rule applies again.
     [DataType(DataType.Date)]
     public DateTime? FollowUpAt { get; set; }
 
-    // When the user last reached out ("Mark contacted"). Restarts the follow-up clock.
+    // When the user last reached out ("Mark contacted"), UTC. Restarts the follow-up clock.
     public DateTime? LastContactAt { get; set; }
 }

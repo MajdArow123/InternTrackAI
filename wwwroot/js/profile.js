@@ -177,7 +177,11 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
                     saveInfoBtn.disabled = false;
                     if (res.success) {
                         flashSaveIndicator(document.getElementById('infoSaveIndicator'));
+                        const nowEl = document.getElementById('timeZoneNow');
+                        if (nowEl && res.nowLocal) nowEl.textContent = res.nowLocal;
                         showAppToast('success', 'Profile info saved.');
+                    } else if (res.field === 'timeZoneId') {
+                        shakeField(document.getElementById('timeZoneSelect'), res.error || 'Unknown time zone');
                     } else {
                         shakeField(fullNameInput, res.error || 'This field is required');
                     }

@@ -23,8 +23,13 @@ public class CalendarController : Controller
     public const int MaxTokenLength = 128;
 
     private readonly ApplicationDbContext _db;
+    private readonly UserClockProvider _clocks;
 
-    public CalendarController(ApplicationDbContext db) => _db = db;
+    public CalendarController(ApplicationDbContext db, UserClockProvider clocks)
+    {
+        _db     = db;
+        _clocks = clocks;
+    }
 
     /// <summary>32 random bytes, Base64Url-encoded (43 URL-safe characters, no padding).</summary>
     public static string NewToken() => WebEncoders.Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
@@ -40,9 +45,9 @@ public class CalendarController : Controller
             .FirstOrDefaultAsync();
         if (owner is null) return NotFound();
 
-        var apps = await _db.JobApplications.AsNoTracking().Where(a => a.UserId == owner).ToListAsync();
-        var now  = DateTime.UtcNow;
-        return Ics(IcsBuilder.Build(apps.SelectMany(a => IcsBuilder.EventsFor(a, now))), "interntrackai.ics");
+        var apps  = await _db.JobApplications.AsNoTracking().Where(a => a.UserId == owner).ToListAsync();
+        var clock = await _clocks.ForUserAsync(owner);   // the feed is anonymous: the zone comes from the token's owner
+        return Ics(IcsBuilder.Build(apps.SelectMany(a => IcsBuilder.EventsFor(a, clock.NowUtc, clock))), "interntrackai.ics");
     }
 
     [HttpGet("/Calendar/application/{id:int}.ics"), Authorize]
@@ -52,7 +57,8 @@ public class CalendarController : Controller
         var app = await _db.JobApplications.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id && a.UserId == uid);
         if (app is null) return NotFound();
 
-        var ics = IcsBuilder.Build(IcsBuilder.EventsFor(app, DateTime.UtcNow), $"{app.CompanyName} — {app.RoleTitle}");
+        var clock = await _clocks.GetAsync();
+        var ics   = IcsBuilder.Build(IcsBuilder.EventsFor(app, clock.NowUtc, clock), $"{app.CompanyName} — {app.RoleTitle}");
         return Ics(ics, SafeFileName($"{app.CompanyName}-{app.RoleTitle}") + ".ics");
     }
 

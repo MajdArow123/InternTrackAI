@@ -28,6 +28,7 @@ public class ProfileController : Controller
     private readonly ResumeMatcherService _matcher;
     private readonly ProfileExtractorService _extractor;
     private readonly GitHubService _github;
+    private readonly UserClockProvider _clocks;
     private readonly ILogger<ProfileController> _logger;
 
     public ProfileController(
@@ -38,8 +39,10 @@ public class ProfileController : Controller
         ResumeMatcherService matcher,
         ProfileExtractorService extractor,
         GitHubService github,
+        UserClockProvider clocks,
         ILogger<ProfileController> logger)
     {
+        _clocks = clocks;
         _db = db;
         _userManager = userManager;
         _uploads = uploads;
@@ -170,12 +173,14 @@ public class ProfileController : Controller
     /// doesn't exist yet). Returns JSON rather than redirecting so the page stays at the user's
     /// current scroll position and can show a toast instead of a full reload.
     /// </summary>
-    /// <returns>JSON <c>{ success, error }</c> — <c>error</c> is set if <paramref name="fullName"/> is blank.</returns>
+    /// <returns>JSON <c>{ success, error }</c> — <c>error</c> is set if <paramref name="fullName"/> is blank or <paramref name="timeZoneId"/> is not a zone this host knows.</returns>
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> SaveInfo(string? fullName, string? displayName, int? age, string? country, string? phoneNumber, string? githubUsername)
+    public async Task<IActionResult> SaveInfo(string? fullName, string? displayName, int? age, string? country, string? phoneNumber, string? githubUsername, string? timeZoneId)
     {
         if (string.IsNullOrWhiteSpace(fullName))
             return Json(new { success = false, error = "Full name is required." });
+        if (timeZoneId is not null && !TimeZones.IsValid(timeZoneId))
+            return Json(new { success = false, error = "Unknown time zone.", field = "timeZoneId" });
 
         var userId = UserId();
         var profile = await GetOrCreateProfileAsync(userId);
@@ -186,9 +191,11 @@ public class ProfileController : Controller
         profile.Country        = country?.Trim();
         profile.PhoneNumber    = phoneNumber?.Trim();
         profile.GitHubUsername = string.IsNullOrWhiteSpace(githubUsername) ? null : githubUsername.Trim().TrimStart('@');
+        if (timeZoneId is not null) profile.TimeZoneId = timeZoneId;   // older clients without the dropdown leave it unchanged
 
         await _db.SaveChangesAsync();
-        return Json(new { success = true });
+        var clock = UserClock.For(profile.TimeZoneId);   // fresh, not the request-cached clock: the zone may have just changed
+        return Json(new { success = true, timeZoneId = profile.TimeZoneId, nowLocal = clock.LocalTime(clock.NowUtc) });
     }
 
     // ── POST /Profile/RegenerateCalendarToken ────────────
@@ -651,7 +658,7 @@ public class ProfileController : Controller
         int offers = statusCounts.GetValueOrDefault(ApplicationStatus.Offer);
         double successRate = apps.Count > 0 ? Math.Round(offers * 100.0 / apps.Count, 1) : 0;
 
-        var today = DateTime.UtcNow.Date;
+        var today = (await _clocks.GetAsync()).Today;
         var appsThisMonth = apps.Count(a =>
             a.DateApplied.HasValue &&
             a.DateApplied.Value.Year  == today.Year &&

@@ -1,4 +1,5 @@
 @model InternTrackAI.Models.ViewModels.CoverLetterGeneratorViewModel
+@{ var clock = await Clocks.GetAsync(); }
     <!-- ── Saved Cover Letters ── -->
     <div class="form-card">
         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -40,7 +41,7 @@
                                 }
                             </div>
                             <div class="doc-meta">
-                                @letter.GeneratedAt.ToLocalTime().ToString("MMM d, yyyy 'at' h:mm tt")
+                                @clock.LocalDateTime(letter.GeneratedAt)
                                 &middot; @WordCount(letter.Content) words
                             </div>
                         </div>

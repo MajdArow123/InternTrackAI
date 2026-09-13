@@ -20,12 +20,14 @@ public class HomeController : Controller
     private readonly ILogger<HomeController> _logger;
     private readonly ApplicationDbContext _context;
     private readonly ReminderService _reminders;
+    private readonly UserClockProvider _clocks;
 
-    public HomeController(ILogger<HomeController> logger, ApplicationDbContext context, ReminderService reminders)
+    public HomeController(ILogger<HomeController> logger, ApplicationDbContext context, ReminderService reminders, UserClockProvider clocks)
     {
         _logger = logger;
         _context = context;
         _reminders = reminders;
+        _clocks = clocks;
     }
 
     /// <summary>Renders the marketing/hero landing page. No model, no auth required.</summary>
@@ -51,7 +53,8 @@ public class HomeController : Controller
         var profile   = await _context.UserProfiles.FirstOrDefaultAsync(p => p.UserId == uid);
         var hasResume = await _context.ResumeVersions.AnyAsync(r => r.UserId == uid);
 
-        var today  = DateTime.UtcNow.Date;
+        var clock  = await _clocks.GetAsync();
+        var today  = clock.Today;
         int offers = applications.Count(a => a.Status == ApplicationStatus.Offer);
         int total  = applications.Count;
 
@@ -62,7 +65,7 @@ public class HomeController : Controller
             .Select(g => new KeyValuePair<string, int>(g.Key, g.Count()))
             .ToList();
 
-        var attention = ReminderService.Build(applications, await _reminders.FollowUpAfterDaysAsync(uid), DateTime.UtcNow);
+        var attention = ReminderService.Build(applications, await _reminders.FollowUpAfterDaysAsync(uid), clock);
 
         var monthStarts = Enumerable.Range(0, 6)
             .Select(i => new DateTime(today.Year, today.Month, 1).AddMonths(-(5 - i)))

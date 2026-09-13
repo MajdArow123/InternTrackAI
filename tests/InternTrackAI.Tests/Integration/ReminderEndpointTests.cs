@@ -90,7 +90,9 @@ public class ReminderEndpointTests : IClassFixture<TestAppFactory>
 
         Assert.Equal(HttpStatusCode.Redirect, res.StatusCode);
         Assert.EndsWith($"/JobApplications/Edit/{id}", res.Headers.Location!.ToString());
-        Assert.Equal(DateTime.UtcNow.Date.AddDays(ReminderService.SnoozeDays), (await Reload(id)).FollowUpAt);
+        // New accounts are in the default zone (Toronto): the snooze lands on local midnight three days out, stored as UTC.
+        var clock = UserClock.For(TimeZones.DefaultZoneId);
+        Assert.Equal(clock.StartOfLocalDayUtc(clock.Today.AddDays(ReminderService.SnoozeDays)), (await Reload(id)).FollowUpAt);
     }
 
     [Fact]

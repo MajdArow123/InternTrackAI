@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = "Edit Application";
+    var clock = await Clocks.GetAsync();
 }
 
 <div class="container py-4 container-narrow">
@@ -101,7 +102,7 @@
                     <div class="form-hint mt-1">The follow-up reminder stays quiet until this date.</div>
                 </div>
                 <div class="col-12 d-flex align-items-center gap-2 flex-wrap">
-                    <span class="text-muted small" id="lastContactedText">Last contacted: @(Model.LastContactAt?.ToString("MMM d, yyyy") ?? "never")</span>
+                    <span class="text-muted small" id="lastContactedText">Last contacted: @clock.LocalDate(Model.LastContactAt, "never")</span>
                     <!-- Belongs to the separate #mark-contacted-form below (HTML form= attribute), so it can't be nested. -->
                     <button type="submit" form="mark-contacted-form" class="btn btn-sm btn-outline-primary" id="markContactedBtn">Mark contacted today</button>
                 </div>

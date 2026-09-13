@@ -1,5 +1,6 @@
 @model InternTrackAI.Models.JobApplication
 @using InternTrackAI.Models.Enums
+@{ var clock = await Clocks.GetAsync(); }
 
 @{
     ViewData["Title"] = "Delete Application";
@@ -49,7 +50,7 @@
                 <dd class="col-7">@Model.WorkMode</dd>
 
                 <dt class="col-5 text-muted fw-normal">Deadline</dt>
-                <dd class="col-7">@(Model.Deadline.HasValue ? Model.Deadline.Value.ToString("MMM d, yyyy") : "—")</dd>
+                <dd class="col-7">@clock.Date(Model.Deadline, "—")</dd>
             </dl>
         </div>
     </div>

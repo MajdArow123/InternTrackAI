@@ -21,11 +21,29 @@ public class JobApplicationsController : Controller
 {
     private readonly ApplicationDbContext _context;
     private readonly ReminderService _reminders;
+    private readonly UserClockProvider _clocks;
 
-    public JobApplicationsController(ApplicationDbContext context, ReminderService reminders)
+    public JobApplicationsController(ApplicationDbContext context, ReminderService reminders, UserClockProvider clocks)
     {
         _context   = context;
         _reminders = reminders;
+        _clocks    = clocks;
+    }
+
+    /// <summary>
+    /// The Create/Edit forms read and write InterviewAt / FollowUpAt as the user's wall-clock time;
+    /// storage is UTC. Deadline and DateApplied are calendar dates and are left alone.
+    /// </summary>
+    private static void FormToUtc(JobApplication app, UserClock clock)
+    {
+        app.InterviewAt = clock.ToUtc(app.InterviewAt);
+        app.FollowUpAt  = clock.ToUtc(app.FollowUpAt);
+    }
+
+    private static void UtcToForm(JobApplication app, UserClock clock)
+    {
+        app.InterviewAt = clock.ToLocal(app.InterviewAt);
+        app.FollowUpAt  = clock.ToLocal(app.FollowUpAt);
     }
 
     /// <summary>Resolves the current signed-in user's id from the auth claims (ASP.NET Identity's "sub" claim).</summary>
@@ -220,6 +238,7 @@ public class JobApplicationsController : Controller
             }
         }
 
+        FormToUtc(jobApplication, await _clocks.GetAsync());
         _context.Add(jobApplication);
         await _context.SaveChangesAsync();
         TempData["Toast"] = "success|Application saved successfully.";
@@ -233,6 +252,7 @@ public class JobApplicationsController : Controller
     {
         var app = await FindOwnedAsync(id);
         if (app is null) return NotFound();
+        UtcToForm(app, await _clocks.GetAsync());   // the entity is not saved on GET, so this only affects the form
         return View(app);
     }
 
@@ -261,6 +281,7 @@ public class JobApplicationsController : Controller
         if (!ModelState.IsValid)
             return View(jobApplication);
 
+        FormToUtc(jobApplication, await _clocks.GetAsync());
         try
         {
             _context.Update(jobApplication);
@@ -471,12 +492,15 @@ public class JobApplicationsController : Controller
             app.FollowUpAt    = null;
         }, "Marked as contacted today.");
 
-    /// <summary>Pushes the follow-up reminder out by <see cref="ReminderService.SnoozeDays"/> days (sets <c>FollowUpAt</c>).</summary>
+    /// <summary>Pushes the follow-up reminder out by <see cref="ReminderService.SnoozeDays"/> days (sets <c>FollowUpAt</c> to that day's midnight in the user's zone).</summary>
     [HttpPost("JobApplications/{id:int}/snooze")]
     [ValidateAntiForgeryToken]
-    public Task<IActionResult> Snooze(int id) =>
-        UpdateReminderAsync(id, app => app.FollowUpAt = DateTime.UtcNow.Date.AddDays(ReminderService.SnoozeDays),
+    public async Task<IActionResult> Snooze(int id)
+    {
+        var clock = await _clocks.GetAsync();
+        return await UpdateReminderAsync(id, app => app.FollowUpAt = clock.StartOfLocalDayUtc(clock.Today.AddDays(ReminderService.SnoozeDays)),
             $"Follow-up snoozed for {ReminderService.SnoozeDays} days.");
+    }
 
     private bool IsAjax => Request.Headers.XRequestedWith == "XMLHttpRequest";
 
@@ -496,15 +520,16 @@ public class JobApplicationsController : Controller
         }
 
         // Re-evaluate so the caller can update chips/rows without reloading.
+        var clock  = await _clocks.GetAsync();
         var window = await _reminders.FollowUpAfterDaysAsync(UserId());
-        var items  = ReminderService.Evaluate(app, window, DateTime.UtcNow).ToList();
+        var items  = ReminderService.Evaluate(app, window, clock).ToList();
         return Ok(new
         {
             success        = true,
             id             = app.Id,
             message        = toast,
-            lastContactAt  = app.LastContactAt?.ToString("MMM d, yyyy"),
-            followUpAt     = app.FollowUpAt?.ToString("MMM d, yyyy"),
+            lastContactAt  = app.LastContactAt.HasValue ? clock.LocalDate(app.LastContactAt) : null,
+            followUpAt     = app.FollowUpAt.HasValue ? clock.LocalDate(app.FollowUpAt) : null,
             followUpDue    = items.Any(i => i.Kind == ReminderKind.FollowUpDue),
             needsAttention = items.Count > 0
         });
@@ -529,13 +554,14 @@ public class JobApplicationsController : Controller
             .AnyAsync(a => a.Id == appId && a.UserId == uid);
         if (!owns) return NotFound();
 
+        var clock = await _clocks.GetAsync();
         var notes = await _context.ApplicationNotes
             .Where(n => n.JobApplicationId == appId && n.UserId == uid)
             .OrderByDescending(n => n.CreatedAt)
-            .Select(n => new { n.Id, n.Text, createdAt = n.CreatedAt.ToString("MMM d, yyyy 'at' h:mm tt") })
+            .Select(n => new { n.Id, n.Text, n.CreatedAt })
             .ToListAsync();
 
-        return Json(notes);
+        return Json(notes.Select(n => new { n.Id, n.Text, createdAt = clock.LocalDateTime(n.CreatedAt) }));
     }
 
     /// <summary>Appends a new note to an application's activity timeline.</summary>
@@ -560,7 +586,8 @@ public class JobApplicationsController : Controller
         _context.ApplicationNotes.Add(note);
         await _context.SaveChangesAsync();
 
-        return Json(new { note.Id, note.Text, createdAt = note.CreatedAt.ToString("MMM d, yyyy 'at' h:mm tt") });
+        var clock = await _clocks.GetAsync();
+        return Json(new { note.Id, note.Text, createdAt = clock.LocalDateTime(note.CreatedAt) });
     }
 
     // ── Export CSV ────────────────────────────────────────

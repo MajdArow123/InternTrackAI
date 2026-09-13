@@ -1,5 +1,6 @@
 @model InternTrackAI.Models.ViewModels.DashboardViewModel
 @using InternTrackAI.Models.Enums
+@{ var clock = await Clocks.GetAsync(); }
     <!-- Recent applications -->
     <div class="app-table-wrapper anim-fade-up anim-d4">
         <div class="card-header-clean">
@@ -56,7 +57,7 @@
                                     </span>
                                 </td>
                                 <td class="text-muted d-none d-sm-table-cell">
-                                    @(app.Deadline.HasValue ? app.Deadline.Value.ToString("MMM d, yyyy") : "—")
+                                    @clock.Date(app.Deadline, "—")
                                 </td>
                             </tr>
                         }

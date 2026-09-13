@@ -1,3 +1,5 @@
+using InternTrackAI.Services;
+
 namespace InternTrackAI.Models;
 
 /// <summary>
@@ -46,4 +48,8 @@ public class UserProfile
     // Base64Url-encoded. Null until the user first opens the profile page; "Regenerate link"
     // replaces it, which invalidates any calendar subscription using the old URL.
     public string? CalendarToken { get; set; }
+
+    // IANA time zone every timestamp is shown in and every date/time the user types is read in
+    // (see Services/UserClock.cs). Storage stays UTC. Defaults to Toronto for existing and new rows.
+    public string TimeZoneId { get; set; } = TimeZones.DefaultZoneId;
 }

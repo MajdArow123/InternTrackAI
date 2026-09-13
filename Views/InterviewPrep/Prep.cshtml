@@ -3,6 +3,7 @@
 
 @{
     ViewData["Title"] = "Interview Prep";
+    var clock = await Clocks.GetAsync();
     var app = Model.Application;
 }
 
@@ -50,7 +51,7 @@
         @if (Model.Session is not null)
         {
             <p class="form-hint mb-3">
-                Last generated on @Model.Session.GeneratedAt.ToLocalTime().ToString("MMM d, yyyy 'at' h:mm tt").
+                Last generated on @clock.LocalDateTime(Model.Session.GeneratedAt).
                 Regenerate to get a fresh set based on your current resume and skills.
             </p>
         }
@@ -77,7 +78,7 @@
         <div id="generatedAt" class="form-hint mb-3">
             @if (Model.Session is not null)
             {
-                @($"Generated on {Model.Session.GeneratedAt.ToLocalTime():MMM d, yyyy}")
+                @($"Generated on {clock.LocalDate(Model.Session.GeneratedAt)}")
             }
         </div>
         <div id="questionsContainer">

@@ -6,7 +6,8 @@
     // Reminder state comes from ReminderService via ViewBag.AttentionById (set by the controller).
     var byId      = ViewBag.AttentionById as Dictionary<int, List<ReminderItem>>;
     var reminders = byId != null && byId.TryGetValue(Model.Id, out var found) ? found : new List<ReminderItem>();
-    var deadline  = ReminderService.DeadlineChip(Model, DateTime.UtcNow.Date);
+    var clock     = await Clocks.GetAsync();
+    var deadline  = ReminderService.DeadlineChip(Model, clock.Today);
     bool followUpDue = reminders.Any(r => r.Kind == ReminderKind.FollowUpDue);
     var interview    = reminders.FirstOrDefault(r => r.Kind == ReminderKind.Interview);
 }
@@ -22,10 +23,10 @@
          data-matching-skills="@(Uri.EscapeDataString(Model.MatchingSkillsJson ?? "[]"))"
          data-missing-skills="@(Uri.EscapeDataString(Model.MissingSkillsJson ?? "[]"))"
          data-status="@((int)Model.Status)"
-         data-deadline="@(Model.Deadline.HasValue ? Model.Deadline.Value.ToString("MMM d, yyyy") : "")"
-         data-interview-at="@(Model.InterviewAt?.ToString("MMM d, yyyy 'at' h:mm tt") ?? "")"
-         data-follow-up-at="@(Model.FollowUpAt?.ToString("MMM d, yyyy") ?? "")"
-         data-last-contact-at="@(Model.LastContactAt?.ToString("MMM d, yyyy") ?? "")"
+         data-deadline="@clock.Date(Model.Deadline)"
+         data-interview-at="@clock.LocalDateTime(Model.InterviewAt)"
+         data-follow-up-at="@clock.LocalDate(Model.FollowUpAt)"
+         data-last-contact-at="@clock.LocalDate(Model.LastContactAt)"
          data-follow-up-due="@(followUpDue ? "1" : "")"
          data-has-dates="@(Model.Deadline.HasValue || Model.InterviewAt.HasValue || Model.FollowUpAt.HasValue ? "1" : "")"
          data-mode="@Model.WorkMode"
@@ -48,7 +49,7 @@
         }
     </div>
     <div class="board-card-date">
-        @(Model.DateApplied.HasValue ? $"Applied {Model.DateApplied.Value:MMM d, yyyy}" : "Not applied yet")
+        @(Model.DateApplied.HasValue ? $"Applied {clock.Date(Model.DateApplied)}" : "Not applied yet")
     </div>
     @if (!string.IsNullOrWhiteSpace(Model.Salary) || deadline != null || followUpDue || interview != null)
     {

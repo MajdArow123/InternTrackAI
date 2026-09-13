@@ -1,4 +1,5 @@
 @model InternTrackAI.Models.ViewModels.ProfileViewModel
+@{ var clock = await Clocks.GetAsync(); }
 @{
     var initials = string.IsNullOrWhiteSpace(Model.Profile.FullName)
         ? (Model.Email?.Substring(0, 1).ToUpperInvariant() ?? "?")
@@ -80,7 +81,7 @@
                     <div class="quick-deadline-list">
                         @foreach (var app in Model.UpcomingDeadlines7Days.Take(3))
                         {
-                            var daysLeft = (app.Deadline!.Value.Date - DateTime.UtcNow.Date).Days;
+                            var daysLeft = clock.DaysUntil(app.Deadline!.Value);
                             var urgent   = daysLeft <= 2;
                             <div class="quick-deadline-item">
                                 <span class="@(urgent ? "quick-deadline-urgent" : "")">@app.CompanyName</span>

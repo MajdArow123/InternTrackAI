@@ -1,4 +1,5 @@
 @model InternTrackAI.Models.ViewModels.ProfileViewModel
+@{ var clock = await Clocks.GetAsync(); }
     <!-- ── Cover Letters ── -->
     <div class="form-card mb-3">
         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -16,7 +17,7 @@
                         <div class="doc-info">
                             <div class="doc-filename">@cl.OriginalFileName</div>
                             <div class="doc-meta">
-                                @cl.UploadedAt.ToLocalTime().ToString("MMM d, yyyy") &middot;
+                                @clock.LocalDate(cl.UploadedAt) &middot;
                                 @((cl.FileSize / 1024.0).ToString("F0")) KB
                             </div>
                         </div>

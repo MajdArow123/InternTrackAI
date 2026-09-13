@@ -1,4 +1,5 @@
 @model InternTrackAI.Models.ViewModels.ProfileViewModel
+@{ var clock = await Clocks.GetAsync(); }
     <!-- ── Resume: versions, drop zone, AI analyze, AI score ── -->
     <div class="form-card mb-3 resume-hero-card @(Model.Resumes.Any() ? "has-resume" : "")" id="resumeHeroCard">
         <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
@@ -16,7 +17,7 @@
                         <div class="doc-info">
                             <div class="doc-filename">@r.OriginalFileName</div>
                             <div class="doc-meta">
-                                @r.UploadedAt.ToLocalTime().ToString("MMM d, yyyy") &middot;
+                                @clock.LocalDate(r.UploadedAt) &middot;
                                 @((r.FileSize / 1024.0).ToString("F0")) KB
                             </div>
                         </div>

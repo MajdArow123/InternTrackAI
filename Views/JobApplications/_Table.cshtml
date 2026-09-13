@@ -1,6 +1,7 @@
 @model IEnumerable<InternTrackAI.Models.JobApplication>
 @using InternTrackAI.Models.Enums
 @using InternTrackAI.Services
+@{ var clock = await Clocks.GetAsync(); }
 @{
     bool isFiltered = ViewBag.IsFiltered == true;
     var  byId       = ViewBag.AttentionById as Dictionary<int, List<ReminderItem>>;
@@ -69,10 +70,10 @@
                                 data-matching-skills="@(Uri.EscapeDataString(item.MatchingSkillsJson ?? "[]"))"
                                 data-missing-skills="@(Uri.EscapeDataString(item.MissingSkillsJson ?? "[]"))"
                                 data-status="@((int)item.Status)"
-                                data-deadline="@(item.Deadline.HasValue ? item.Deadline.Value.ToString("MMM d, yyyy") : "")"
-                                data-interview-at="@(item.InterviewAt?.ToString("MMM d, yyyy 'at' h:mm tt") ?? "")"
-                                data-follow-up-at="@(item.FollowUpAt?.ToString("MMM d, yyyy") ?? "")"
-                                data-last-contact-at="@(item.LastContactAt?.ToString("MMM d, yyyy") ?? "")"
+                                data-deadline="@clock.Date(item.Deadline)"
+                                data-interview-at="@clock.LocalDateTime(item.InterviewAt)"
+                                data-follow-up-at="@clock.LocalDate(item.FollowUpAt)"
+                                data-last-contact-at="@clock.LocalDate(item.LastContactAt)"
                                 data-follow-up-due="@(byId != null && byId.TryGetValue(item.Id, out var rs) && rs.Any(r => r.Kind == ReminderKind.FollowUpDue) ? "1" : "")"
                                 data-has-dates="@(item.Deadline.HasValue || item.InterviewAt.HasValue || item.FollowUpAt.HasValue ? "1" : "")"
                                 data-mode="@item.WorkMode"
@@ -112,7 +113,7 @@
                                     }
                                 </td>
                                 <td class="text-muted d-none d-sm-table-cell">
-                                    @(item.Deadline.HasValue ? item.Deadline.Value.ToString("MMM d, yyyy") : "—")
+                                    @clock.Date(item.Deadline, "—")
                                 </td>
                                 <td class="text-end pe-3">
                                     <div class="d-flex gap-2 justify-content-end">

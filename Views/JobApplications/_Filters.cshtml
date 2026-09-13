@@ -13,12 +13,20 @@
         string curSearch   = ViewBag.Search ?? "";
         string curWorkMode = ViewBag.WorkMode ?? "";
         string curSort     = ViewBag.SortBy ?? "";
+        bool   curAttention   = ViewBag.Attention == true;
+        int    attentionCount = ViewBag.AttentionCount ?? 0;
+        string? attentionRoute = curAttention ? "true" : null;
         var pillOrder = new[] { ApplicationStatus.Saved, ApplicationStatus.Applied, ApplicationStatus.Interview, ApplicationStatus.Offer, ApplicationStatus.Rejected };
     }
     <div class="filter-pills mb-3" role="navigation" aria-label="Filter by status">
-        <a class="filter-pill @(curStatus == "" ? "active" : "")"
+        <a class="filter-pill @(curStatus == "" && !curAttention ? "active" : "")"
            asp-action="@filterAction" asp-route-search="@curSearch" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">
             All <span class="filter-pill-count">@totalCount</span>
+        </a>
+        <a class="filter-pill filter-pill-attention @(curAttention ? "active" : "")" id="attention-pill"
+           asp-action="@filterAction" asp-route-attention="true" asp-route-search="@curSearch" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort"
+           title="Overdue, deadline soon, follow-up due, or interview coming up">
+            <span class="filter-pill-dot"></span>Needs attention <span class="filter-pill-count">@attentionCount</span>
         </a>
         @foreach (var st in pillOrder)
         {
@@ -29,15 +37,19 @@
         }
         <div class="view-toggle" role="group" aria-label="View">
             <a class="filter-pill @(isBoard ? "" : "active")" aria-current="@(isBoard ? null : "page")"
-               asp-action="Index" asp-route-view="list" asp-route-search="@curSearch" asp-route-status="@curStatus" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">List</a>
+               asp-action="Index" asp-route-view="list" asp-route-search="@curSearch" asp-route-status="@curStatus" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort" asp-route-attention="@attentionRoute">List</a>
             <a class="filter-pill @(isBoard ? "active" : "")" aria-current="@(isBoard ? "page" : null)"
-               asp-action="Board" asp-route-search="@curSearch" asp-route-status="@curStatus" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">Board</a>
+               asp-action="Board" asp-route-search="@curSearch" asp-route-status="@curStatus" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort" asp-route-attention="@attentionRoute">Board</a>
         </div>
     </div>
 
     <!-- ── Filter Bar ── -->
     <form method="get" asp-action="@filterAction" class="filter-bar mb-3">
         <input type="hidden" name="status" value="@curStatus" />
+        @if (curAttention)
+        {
+            <input type="hidden" name="attention" value="true" />
+        }
         <div class="filter-group filter-group-search">
             <label class="filter-label" for="filterSearch">Search</label>
             <div class="filter-search-wrap">

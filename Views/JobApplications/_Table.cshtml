@@ -1,7 +1,9 @@
 @model IEnumerable<InternTrackAI.Models.JobApplication>
 @using InternTrackAI.Models.Enums
+@using InternTrackAI.Services
 @{
     bool isFiltered = ViewBag.IsFiltered == true;
+    var  byId       = ViewBag.AttentionById as Dictionary<int, List<ReminderItem>>;
 }
     @if (!Model.Any())
     {
@@ -68,6 +70,11 @@
                                 data-missing-skills="@(Uri.EscapeDataString(item.MissingSkillsJson ?? "[]"))"
                                 data-status="@((int)item.Status)"
                                 data-deadline="@(item.Deadline.HasValue ? item.Deadline.Value.ToString("MMM d, yyyy") : "")"
+                                data-interview-at="@(item.InterviewAt?.ToString("MMM d, yyyy 'at' h:mm tt") ?? "")"
+                                data-follow-up-at="@(item.FollowUpAt?.ToString("MMM d, yyyy") ?? "")"
+                                data-last-contact-at="@(item.LastContactAt?.ToString("MMM d, yyyy") ?? "")"
+                                data-follow-up-due="@(byId != null && byId.TryGetValue(item.Id, out var rs) && rs.Any(r => r.Kind == ReminderKind.FollowUpDue) ? "1" : "")"
+                                data-has-dates="@(item.Deadline.HasValue || item.InterviewAt.HasValue || item.FollowUpAt.HasValue ? "1" : "")"
                                 data-mode="@item.WorkMode"
                                 data-job-description="@(Uri.EscapeDataString(item.JobDescription ?? ""))"
                                 class="app-row"

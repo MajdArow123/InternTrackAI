@@ -38,4 +38,5 @@
 <script type="application/json" id="appsOverTimeData">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ApplicationsOverTime.Select(kv => new { label = kv.Key, value = kv.Value })))</script>
 <script src="~/lib/chart.js/chart.umd.min.js"></script>
 <script src="~/js/dashboard.js" asp-append-version="true"></script>
+<script src="~/js/reminders.js" asp-append-version="true"></script>
 }

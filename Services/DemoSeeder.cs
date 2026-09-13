@@ -17,7 +17,8 @@ public sealed record DemoResetResult(bool UserFound, string? Email, int Applicat
 /// generated cover letter, interview prep session, and any resume/cover-letter versions visitors
 /// uploaded are removed (the <em>active</em> resume and cover letter, plus the profile itself, are
 /// kept so the sample resume keeps powering match scores), then a fixed set of 15 applications
-/// spanning every status and match tier is recreated along with a few notes and one saved letter.
+/// spanning every status, match tier, and Attention category (overdue, deadline soon, follow-up
+/// due, upcoming interview) is recreated along with a few notes and one saved letter.
 /// Used by <see cref="DemoResetService"/> nightly and by <c>POST /Admin/ResetDemo</c> on demand.
 /// </summary>
 public class DemoSeeder
@@ -83,10 +84,12 @@ public class DemoSeeder
     private static JobApplication App(string userId, DateTime today,
         string company, string role, string location, WorkMode mode, ApplicationStatus status,
         int? deadlineInDays, int? appliedDaysAgo, string? salary, string link, string description,
-        int? score = null, string? summary = null, string[]? matching = null, string[]? missing = null)
+        int? score = null, string? summary = null, string[]? matching = null, string[]? missing = null,
+        DateTime? interviewAt = null)
     {
         return new JobApplication
         {
+            InterviewAt         = interviewAt,
             UserId              = userId,
             CompanyName         = company,
             RoleTitle           = role,
@@ -114,7 +117,8 @@ public class DemoSeeder
             deadlineInDays: 12, appliedDaysAgo: 18, salary: "$52/hr", link: "https://stripe.com/jobs/listing/backend-engineering-intern",
             description: "Stripe's Payments Infrastructure team is hiring a summer intern to build and ship services that move billions of dollars a day. You will write production code in Java and Go, design APIs used by other engineering teams, and work closely with a mentor on a scoped project from design review to launch.\n\nRequirements: strong fundamentals in data structures and algorithms; experience with at least one statically typed language; familiarity with SQL and REST APIs; interest in distributed systems and reliability. Nice to have: Kubernetes, gRPC, observability tooling.",
             score: 84, summary: "Strong fit. Your Java and PostgreSQL experience maps directly onto the Payments Infrastructure stack, and your REST API project shows the design skills the posting asks for. Kubernetes and gRPC are the main gaps, but both are listed as nice-to-have.",
-            matching: new[] { "Java", "SQL", "REST APIs", "Data Structures", "Git", "Distributed Systems" }, missing: new[] { "Go", "Kubernetes", "gRPC" }),
+            matching: new[] { "Java", "SQL", "REST APIs", "Data Structures", "Git", "Distributed Systems" }, missing: new[] { "Go", "Kubernetes", "gRPC" },
+            interviewAt: today.AddDays(3).AddHours(14)),                       // upcoming interview on the dashboard/board
 
         App(userId, today, "Shopify", "Software Engineering Intern (Ruby/Rails)", "Toronto, ON", WorkMode.Remote, ApplicationStatus.Interview,
             deadlineInDays: 20, appliedDaysAgo: 25, salary: "CA$45/hr", link: "https://www.shopify.com/careers/engineering-intern",
@@ -126,7 +130,8 @@ public class DemoSeeder
             deadlineInDays: 9, appliedDaysAgo: 14, salary: "$48/hr", link: "https://careers.datadoghq.com/detail/sre-intern",
             description: "Datadog's SRE interns keep one of the largest observability platforms in the world running smoothly. You will automate operational work in Python and Go, improve deployment pipelines, and participate in a shadow on-call rotation with a senior engineer.\n\nRequirements: Linux fundamentals, scripting in Python or Bash, understanding of networking basics (TCP/IP, DNS, HTTP). Preferred: Terraform, Kubernetes, experience with monitoring tools.",
             score: 58, summary: "Moderate fit. Your Python scripting and Linux coursework cover the core requirements, but the role leans on infrastructure tooling (Terraform, Kubernetes) that does not appear on your resume. Highlight any deployment or CI work you have done.",
-            matching: new[] { "Python", "Linux", "Bash", "Networking", "Git" }, missing: new[] { "Terraform", "Kubernetes", "Go", "Monitoring Tools" }),
+            matching: new[] { "Python", "Linux", "Bash", "Networking", "Git" }, missing: new[] { "Terraform", "Kubernetes", "Go", "Monitoring Tools" },
+            interviewAt: today.AddDays(6).AddHours(10).AddMinutes(30)),
 
         // ── Offer ──
         App(userId, today, "Notion", "Frontend Engineering Intern", "Remote", WorkMode.Remote, ApplicationStatus.Offer,
@@ -178,8 +183,9 @@ public class DemoSeeder
             description: "Vercel's DX team makes Next.js and the Vercel platform delightful to use. As an intern you will build example apps and templates, improve error messages and docs, and contribute to open-source packages used by millions of developers.\n\nRequirements: React and Next.js experience, strong written communication, empathy for developers. Preferred: open-source contributions, Node.js tooling experience.",
             score: null),
 
+        // Saved with a deadline that already passed → "Overdue" in the Attention card.
         App(userId, today, "Linear", "Full Stack Engineering Intern", "Remote", WorkMode.Remote, ApplicationStatus.Saved,
-            deadlineInDays: 35, appliedDaysAgo: null, salary: null, link: "https://linear.app/careers/full-stack-intern",
+            deadlineInDays: -2, appliedDaysAgo: null, salary: null, link: "https://linear.app/careers/full-stack-intern",
             description: "Linear is a small team building the issue tracker of choice for fast-moving software companies. Interns work across the stack in TypeScript, React, Node.js, and PostgreSQL, with a focus on speed and craft.\n\nRequirements: TypeScript, React, familiarity with relational databases, an obsession with product quality. Preferred: experience with real-time sync or local-first architectures.",
             score: 66, summary: "Good fit. TypeScript, React, and PostgreSQL all match. Local-first sync is specialised knowledge that few interns have, so treat it as a learning opportunity rather than a gap.",
             matching: new[] { "TypeScript", "React", "Node.js", "PostgreSQL", "Git" }, missing: new[] { "Real-time Sync", "Local-first Architecture" }),

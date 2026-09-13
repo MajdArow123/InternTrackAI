@@ -28,12 +28,11 @@ public class DashboardViewModel
     // there's no separate CreatedAt timestamp on JobApplication.
     public List<KeyValuePair<string, int>> ApplicationsOverTime { get; set; } = new();
 
-    // Alerts
-    // Applications with a Deadline within the next 3 days.
-    public List<JobApplication> UpcomingDeadlines { get; set; } = new();
-
-    // Applications sitting 7+ days without a status change — surfaced as a nudge to follow up.
-    public List<JobApplication> FollowUpSuggestions { get; set; } = new();
+    // Attention card: the most urgent reminders (overdue, deadline soon, follow-up due, interview)
+    // from ReminderService, capped at AttentionLimit; AttentionTotal is the uncapped count.
+    public const int AttentionLimit = 8;
+    public List<InternTrackAI.Services.ReminderItem> Attention { get; set; } = new();
+    public int AttentionTotal { get; set; }
 
     // Onboarding checklist (shown only to brand-new users with zero applications).
     public bool HasProfileBasics { get; set; }

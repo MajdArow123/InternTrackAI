@@ -97,6 +97,19 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
     }
 
     [Fact]
+    public async Task JobApplications_MarkContacted_and_Snooze_POST()
+    {
+        await Assert404(await _f.Alice.PostAsync($"/JobApplications/{_f.BobAppId}/contacted", _f.Form()));
+        await Assert404(await _f.Alice.PostAsync($"/JobApplications/{_f.BobAppId}/snooze", _f.Form()));
+        // AJAX flavour answers JSON 404 without leaking anything either
+        var ajax = new HttpRequestMessage(HttpMethod.Post, $"/JobApplications/{_f.BobAppId}/contacted");
+        ajax.Headers.Add("RequestVerificationToken", _f.AliceToken);
+        ajax.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        await Assert404(await _f.Alice.SendAsync(ajax));
+        await AssertBobAppUntouched();
+    }
+
+    [Fact]
     public async Task JobApplications_Delete_POST()
     {
         await Assert404(await _f.Alice.PostAsync($"/JobApplications/Delete/{_f.BobAppId}", _f.Form(("Id", _f.BobAppId.ToString()))));

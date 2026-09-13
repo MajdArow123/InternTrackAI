@@ -7,6 +7,7 @@ using InternTrackAI.Data;
 using InternTrackAI.Models;
 using InternTrackAI.Models.Enums;
 using InternTrackAI.Models.ViewModels;
+using InternTrackAI.Services;
 
 namespace InternTrackAI.Controllers;
 
@@ -18,11 +19,13 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly ApplicationDbContext _context;
+    private readonly ReminderService _reminders;
 
-    public HomeController(ILogger<HomeController> logger, ApplicationDbContext context)
+    public HomeController(ILogger<HomeController> logger, ApplicationDbContext context, ReminderService reminders)
     {
         _logger = logger;
         _context = context;
+        _reminders = reminders;
     }
 
     /// <summary>Renders the marketing/hero landing page. No model, no auth required.</summary>
@@ -33,8 +36,8 @@ public class HomeController : Controller
 
     /// <summary>
     /// Builds the signed-in user's dashboard: total/per-status application counts, success rate,
-    /// top companies by application count, deadlines in the next 3 days, and applications that
-    /// have sat in "Applied" for 7+ days without movement (follow-up nudges).
+    /// top companies by application count, and the "Attention" list (overdue / deadline soon /
+    /// follow-up due / upcoming interview) computed by <see cref="ReminderService"/>.
     /// </summary>
     /// <returns>The Dashboard view bound to a <see cref="DashboardViewModel"/>.</returns>
     [Authorize]
@@ -59,21 +62,7 @@ public class HomeController : Controller
             .Select(g => new KeyValuePair<string, int>(g.Key, g.Count()))
             .ToList();
 
-        var upcomingDeadlines = applications
-            .Where(a => a.Deadline.HasValue
-                     && a.Deadline.Value.Date >= today
-                     && a.Deadline.Value.Date <= today.AddDays(3)
-                     && a.Status != ApplicationStatus.Rejected)
-            .OrderBy(a => a.Deadline)
-            .ToList();
-
-        var followUpSuggestions = applications
-            .Where(a => a.Status == ApplicationStatus.Applied
-                     && a.DateApplied.HasValue
-                     && (today - a.DateApplied.Value.Date).Days >= 7)
-            .OrderBy(a => a.DateApplied)
-            .Take(5)
-            .ToList();
+        var attention = ReminderService.Build(applications, await _reminders.FollowUpAfterDaysAsync(uid), DateTime.UtcNow);
 
         var monthStarts = Enumerable.Range(0, 6)
             .Select(i => new DateTime(today.Year, today.Month, 1).AddMonths(-(5 - i)))
@@ -98,8 +87,8 @@ public class HomeController : Controller
             SuccessRate          = total > 0 ? Math.Round(offers * 100.0 / total, 1) : 0,
             TopCompanies         = topCompanies,
             ApplicationsOverTime = applicationsOverTime,
-            UpcomingDeadlines    = upcomingDeadlines,
-            FollowUpSuggestions  = followUpSuggestions,
+            Attention            = attention.Take(DashboardViewModel.AttentionLimit).ToList(),
+            AttentionTotal       = attention.Count,
             HasProfileBasics     = profile != null && !string.IsNullOrWhiteSpace(profile.FullName)
                                     && !string.IsNullOrWhiteSpace(profile.SkillsJson) && profile.SkillsJson != "[]",
             HasResume            = hasResume

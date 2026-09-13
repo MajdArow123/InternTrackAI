@@ -20,10 +20,12 @@ namespace InternTrackAI.Controllers;
 public class JobApplicationsController : Controller
 {
     private readonly ApplicationDbContext _context;
+    private readonly ReminderService _reminders;
 
-    public JobApplicationsController(ApplicationDbContext context)
+    public JobApplicationsController(ApplicationDbContext context, ReminderService reminders)
     {
-        _context = context;
+        _context   = context;
+        _reminders = reminders;
     }
 
     /// <summary>Resolves the current signed-in user's id from the auth claims (ASP.NET Identity's "sub" claim).</summary>
@@ -46,18 +48,20 @@ public class JobApplicationsController : Controller
     /// <param name="workMode">String name of a <see cref="WorkMode"/> value; ignored if it doesn't parse.</param>
     /// <param name="sortBy">One of "deadline", "dateApplied", "status", "company"; any other value falls back to id descending.</param>
     /// <param name="view">"list" forces the list even if the cookie says board (used by the view toggle).</param>
+    /// <param name="attention">When true, only applications that <see cref="ReminderService"/> flags are shown (the "Needs attention" pill).</param>
     /// <returns>The Index view with the filtered/sorted list, plus filter state and total count in ViewBag.</returns>
     public async Task<IActionResult> Index(
-        string? search, string? status, string? workMode, string? sortBy, string? view)
+        string? search, string? status, string? workMode, string? sortBy, string? view, bool attention = false)
     {
         if (view is null && Request.Cookies[ViewCookie] == "board")
-            return RedirectToAction(nameof(Board), new { search, status, workMode, sortBy });
+            return RedirectToAction(nameof(Board), new { search, status, workMode, sortBy, attention = attention ? "true" : null });
 
         RememberView("list");
 
         var uid  = UserId();
         var apps = await FilteredQuery(uid, search, status, workMode, sortBy).ToListAsync();
-        await SetFilterViewBagAsync(uid, search, status, workMode, sortBy);
+        apps = await ApplyAttentionAsync(uid, apps, attention);
+        await SetFilterViewBagAsync(uid, search, status, workMode, sortBy, attention);
 
         return View(apps);
     }
@@ -69,13 +73,14 @@ public class JobApplicationsController : Controller
     /// pipeline order, cards ordered by <see cref="JobApplication.BoardOrder"/> then newest
     /// applied first. Remembers the choice in <see cref="ViewCookie"/>.
     /// </summary>
-    public async Task<IActionResult> Board(string? search, string? status, string? workMode, string? sortBy)
+    public async Task<IActionResult> Board(string? search, string? status, string? workMode, string? sortBy, bool attention = false)
     {
         RememberView("board");
 
         var uid  = UserId();
         var apps = await FilteredQuery(uid, search, status, workMode, sortBy).ToListAsync();
-        await SetFilterViewBagAsync(uid, search, status, workMode, sortBy);
+        apps = await ApplyAttentionAsync(uid, apps, attention);
+        await SetFilterViewBagAsync(uid, search, status, workMode, sortBy, attention);
 
         var ordered = apps
             .OrderBy(a => a.BoardOrder)
@@ -118,7 +123,25 @@ public class JobApplicationsController : Controller
         };
     }
 
-    private async Task SetFilterViewBagAsync(string uid, string? search, string? status, string? workMode, string? sortBy)
+    /// <summary>
+    /// Computes the user's reminders once per page and exposes them to the row/card partials as
+    /// <c>ViewBag.AttentionById</c> (chips, drawer values) plus the "Needs attention" pill count.
+    /// When <paramref name="attention"/> is set, narrows the page to flagged applications.
+    /// </summary>
+    private async Task<List<JobApplication>> ApplyAttentionAsync(string uid, List<JobApplication> apps, bool attention)
+    {
+        var byId = (await _reminders.ForUserAsync(uid))
+            .GroupBy(r => r.Application.Id)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        ViewBag.AttentionById  = byId;
+        ViewBag.AttentionCount = byId.Count;
+        ViewBag.Attention      = attention;
+
+        return attention ? apps.Where(a => byId.ContainsKey(a.Id)).ToList() : apps;
+    }
+
+    private async Task SetFilterViewBagAsync(string uid, string? search, string? status, string? workMode, string? sortBy, bool attention)
     {
         ViewBag.Search     = search;
         ViewBag.Status     = status;
@@ -126,7 +149,8 @@ public class JobApplicationsController : Controller
         ViewBag.SortBy     = sortBy;
         ViewBag.IsFiltered = !string.IsNullOrWhiteSpace(search)
                           || !string.IsNullOrWhiteSpace(status)
-                          || !string.IsNullOrWhiteSpace(workMode);
+                          || !string.IsNullOrWhiteSpace(workMode)
+                          || attention;
         ViewBag.TotalCount = await _context.JobApplications.CountAsync(a => a.UserId == uid);
     }
 
@@ -429,6 +453,61 @@ public class JobApplicationsController : Controller
         await tx.CommitAsync();
 
         return Ok(new { status = status.ToString(), updated = apps.Count });
+    }
+
+    // ── Reminders: mark contacted / snooze ────────────────
+
+    /// <summary>
+    /// Stamps <c>LastContactAt = now</c> (and clears any pending snooze) so the follow-up clock
+    /// restarts. Called by the Edit page's plain form POST (redirects back to Edit with a toast)
+    /// and by the drawer / dashboard via fetch with <c>X-Requested-With</c> (returns JSON).
+    /// </summary>
+    [HttpPost("JobApplications/{id:int}/contacted")]
+    [ValidateAntiForgeryToken]
+    public Task<IActionResult> MarkContacted(int id) =>
+        UpdateReminderAsync(id, app =>
+        {
+            app.LastContactAt = DateTime.UtcNow;
+            app.FollowUpAt    = null;
+        }, "Marked as contacted today.");
+
+    /// <summary>Pushes the follow-up reminder out by <see cref="ReminderService.SnoozeDays"/> days (sets <c>FollowUpAt</c>).</summary>
+    [HttpPost("JobApplications/{id:int}/snooze")]
+    [ValidateAntiForgeryToken]
+    public Task<IActionResult> Snooze(int id) =>
+        UpdateReminderAsync(id, app => app.FollowUpAt = DateTime.UtcNow.Date.AddDays(ReminderService.SnoozeDays),
+            $"Follow-up snoozed for {ReminderService.SnoozeDays} days.");
+
+    private bool IsAjax => Request.Headers.XRequestedWith == "XMLHttpRequest";
+
+    private async Task<IActionResult> UpdateReminderAsync(int id, Action<JobApplication> apply, string toast)
+    {
+        var app = await FindOwnedAsync(id);
+        if (app is null)
+            return IsAjax ? NotFound(new { success = false, error = "Application not found." }) : NotFound();
+
+        apply(app);
+        await _context.SaveChangesAsync();
+
+        if (!IsAjax)
+        {
+            TempData["Toast"] = "success|" + toast;
+            return RedirectToAction(nameof(Edit), new { id });
+        }
+
+        // Re-evaluate so the caller can update chips/rows without reloading.
+        var window = await _reminders.FollowUpAfterDaysAsync(UserId());
+        var items  = ReminderService.Evaluate(app, window, DateTime.UtcNow).ToList();
+        return Ok(new
+        {
+            success        = true,
+            id             = app.Id,
+            message        = toast,
+            lastContactAt  = app.LastContactAt?.ToString("MMM d, yyyy"),
+            followUpAt     = app.FollowUpAt?.ToString("MMM d, yyyy"),
+            followUpDue    = items.Any(i => i.Kind == ReminderKind.FollowUpDue),
+            needsAttention = items.Count > 0
+        });
     }
 
     /// <summary>Parses a status name (case-insensitive); rejects blanks and bare numbers like "7".</summary>

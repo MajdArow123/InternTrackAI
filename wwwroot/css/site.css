@@ -3852,3 +3852,49 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .lp-board-card .match-ring::before { inset: 3px; }
 .lp-board-card .match-ring > span { font-size: .55rem; color: var(--text); }
 .lp-board-card .match-ring > span::after { display: none; }
+
+
+/* ── Reminders: Attention card (dashboard), board chips, filter pill, drawer actions ── */
+.attention-card {
+  background: var(--card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 1.25rem;
+}
+.attention-count {
+  display: inline-block; min-width: 1.6em; text-align: center;
+  padding: .05em .5em; margin-left: .35rem; vertical-align: middle;
+  border-radius: var(--radius-pill);
+  background: var(--neutral-soft); color: var(--neutral-text);
+  font-size: .8rem; font-weight: 600;
+}
+.attention-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.attention-item {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .5rem .85rem;
+  padding: .65rem .85rem;
+  background: var(--surface-2);
+  border-left: 4px solid var(--warning);
+  border-radius: var(--radius-md);
+}
+.attention-item--danger { border-left-color: var(--danger); }
+.attention-item--accent { border-left-color: var(--accent); }
+.attention-main { min-width: 0; flex: 1 1 14rem; }
+.attention-title {
+  display: block; font-weight: 600; color: var(--text); text-decoration: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.attention-title:hover { color: var(--accent-text); }
+.attention-sep { color: var(--muted); font-weight: 400; }
+.attention-why { font-size: .8667rem; color: var(--text-2); }
+.attention-kind { font-weight: 600; }
+.attention-item--danger  .attention-kind { color: var(--danger-text); }
+.attention-item--warning .attention-kind { color: var(--warning-text); }
+.attention-item--accent  .attention-kind { color: var(--accent-text); }
+.attention-actions { display: flex; gap: .4rem; flex: none; flex-wrap: wrap; }
+.attention-empty { margin: 0; padding: .35rem 0; color: var(--muted); font-size: .9333rem; }
+
+.board-tag--accent { background: var(--accent-soft); color: var(--accent-text); }
+.filter-pill-attention .filter-pill-dot { background: var(--warning); }
+.drawer-reminder-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+.reminder-days-input { max-width: 6.5rem; }

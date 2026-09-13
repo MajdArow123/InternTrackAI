@@ -1,33 +1,37 @@
 @model InternTrackAI.Models.ViewModels.DashboardViewModel
-@using InternTrackAI.Models.Enums
-    <!-- Deadline & follow-up alerts -->
-    @if (Model.UpcomingDeadlines.Any() || Model.FollowUpSuggestions.Any())
+@using InternTrackAI.Services
+    <!-- Attention: overdue / deadline soon / follow-up due / upcoming interview (from ReminderService).
+         Hidden for brand-new accounts (the onboarding checklist covers that case). -->
+    @if (Model.TotalApplications > 0)
     {
-        <div class="alert-section">
-            @if (Model.UpcomingDeadlines.Any())
-            {
-                <div class="alert-card alert-card--amber mb-2">
-                    <div class="alert-card-title">
-                        @Model.UpcomingDeadlines.Count deadline@(Model.UpcomingDeadlines.Count == 1 ? "" : "s") in the next 3 days
-                    </div>
-                    @foreach (var app in Model.UpcomingDeadlines)
-                    {
-                        var daysLeft = (app.Deadline!.Value.Date - DateTime.UtcNow.Date).Days;
-                        var urgency  = daysLeft == 0 ? "Today" : daysLeft == 1 ? "Tomorrow" : $"In {daysLeft} days";
-                        <div class="alert-item">@app.CompanyName &mdash; @app.RoleTitle &mdash; @urgency</div>
-                    }
-                </div>
-            }
-            @if (Model.FollowUpSuggestions.Any())
-            {
-                <div class="alert-card alert-card--blue">
-                    <div class="alert-card-title">Follow-up opportunities</div>
-                    @foreach (var app in Model.FollowUpSuggestions)
-                    {
-                        var days = (DateTime.UtcNow.Date - app.DateApplied!.Value.Date).Days;
-                        <div class="alert-item">@app.CompanyName &mdash; @app.RoleTitle &mdash; applied @days days ago</div>
-                    }
-                </div>
-            }
-        </div>
+        <form hidden aria-hidden="true">@Html.AntiForgeryToken()</form>
+        <section class="attention-card anim-fade-up" id="attention-card" aria-labelledby="attention-heading">
+            <div class="card-header-clean">
+                <h5 id="attention-heading">Attention <span class="attention-count" id="attention-count">@Model.AttentionTotal</span></h5>
+                <a asp-controller="JobApplications" asp-action="Index" asp-route-attention="true" asp-route-view="list"
+                   class="btn btn-sm btn-outline-secondary @(Model.AttentionTotal == 0 ? "d-none" : "")" id="attention-view-all">View all</a>
+            </div>
+            <ul class="attention-list" id="attention-list">
+                @foreach (var item in Model.Attention)
+                {
+                    var app = item.Application;
+                    <li class="attention-item attention-item--@item.Tone" data-app-id="@app.Id" data-kind="@item.Kind">
+                        <div class="attention-main">
+                            <a class="attention-title" asp-controller="JobApplications" asp-action="Edit" asp-route-id="@app.Id">
+                                @app.CompanyName <span class="attention-sep">&mdash;</span> @app.RoleTitle
+                            </a>
+                            <div class="attention-why"><span class="attention-kind">@item.Label</span> &middot; @item.Reason</div>
+                        </div>
+                        @if (item.Kind == ReminderKind.FollowUpDue)
+                        {
+                            <div class="attention-actions">
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-reminder-action="contacted" data-app-id="@app.Id">Mark contacted</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-reminder-action="snooze" data-app-id="@app.Id">Snooze 3 days</button>
+                            </div>
+                        }
+                    </li>
+                }
+            </ul>
+            <p class="attention-empty" id="attention-empty" hidden="@(Model.Attention.Count > 0)">Nothing needs attention.</p>
+        </section>
     }

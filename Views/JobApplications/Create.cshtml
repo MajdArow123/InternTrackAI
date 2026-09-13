@@ -115,6 +115,15 @@
                     <label asp-for="DateApplied" class="form-label">Date Applied</label>
                     <input asp-for="DateApplied" class="form-control" type="date" />
                 </div>
+                <div class="col-sm-6">
+                    <label asp-for="InterviewAt" class="form-label">Interview <span class="text-muted fw-normal">(date &amp; time, optional)</span></label>
+                    <input asp-for="InterviewAt" class="form-control" type="datetime-local" />
+                </div>
+                <div class="col-sm-6">
+                    <label asp-for="FollowUpAt" class="form-label">Follow-up date <span class="text-muted fw-normal">(optional)</span></label>
+                    <input asp-for="FollowUpAt" class="form-control" type="date" />
+                    <div class="form-hint mt-1">The follow-up reminder stays quiet until this date.</div>
+                </div>
                 <div class="col-12">
                     <div class="salary-insight-card mt-1" id="salaryInsightCard" hidden></div>
                     <div class="match-error-banner mt-2" id="salaryInsightError" hidden></div>

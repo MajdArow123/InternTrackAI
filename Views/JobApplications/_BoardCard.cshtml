@@ -1,11 +1,14 @@
 @model InternTrackAI.Models.JobApplication
+@using InternTrackAI.Services
 @{
     // Same data-* contract as the list rows in _Table.cshtml so app-drawer.js can open the
     // detail drawer from a card. Free-text fields are URI-escaped for attribute safety.
-    int? daysToDeadline = Model.Deadline.HasValue ? (Model.Deadline.Value.Date - DateTime.UtcNow.Date).Days : null;
-    bool showDeadline   = daysToDeadline is >= 0 and <= 14;
-    string deadlineTag  = daysToDeadline switch { 0 => "Deadline today", 1 => "Deadline tomorrow", _ => $"Deadline in {daysToDeadline} days" };
-    string deadlineCls  = daysToDeadline <= 3 ? "board-tag--danger" : daysToDeadline <= 7 ? "board-tag--warning" : "";
+    // Reminder state comes from ReminderService via ViewBag.AttentionById (set by the controller).
+    var byId      = ViewBag.AttentionById as Dictionary<int, List<ReminderItem>>;
+    var reminders = byId != null && byId.TryGetValue(Model.Id, out var found) ? found : new List<ReminderItem>();
+    var deadline  = ReminderService.DeadlineChip(Model, DateTime.UtcNow.Date);
+    bool followUpDue = reminders.Any(r => r.Kind == ReminderKind.FollowUpDue);
+    var interview    = reminders.FirstOrDefault(r => r.Kind == ReminderKind.Interview);
 }
 <article class="board-card app-row"
          data-app-id="@Model.Id"
@@ -20,6 +23,11 @@
          data-missing-skills="@(Uri.EscapeDataString(Model.MissingSkillsJson ?? "[]"))"
          data-status="@((int)Model.Status)"
          data-deadline="@(Model.Deadline.HasValue ? Model.Deadline.Value.ToString("MMM d, yyyy") : "")"
+         data-interview-at="@(Model.InterviewAt?.ToString("MMM d, yyyy 'at' h:mm tt") ?? "")"
+         data-follow-up-at="@(Model.FollowUpAt?.ToString("MMM d, yyyy") ?? "")"
+         data-last-contact-at="@(Model.LastContactAt?.ToString("MMM d, yyyy") ?? "")"
+         data-follow-up-due="@(followUpDue ? "1" : "")"
+         data-has-dates="@(Model.Deadline.HasValue || Model.InterviewAt.HasValue || Model.FollowUpAt.HasValue ? "1" : "")"
          data-mode="@Model.WorkMode"
          data-job-description="@(Uri.EscapeDataString(Model.JobDescription ?? ""))"
          role="button"
@@ -42,16 +50,24 @@
     <div class="board-card-date">
         @(Model.DateApplied.HasValue ? $"Applied {Model.DateApplied.Value:MMM d, yyyy}" : "Not applied yet")
     </div>
-    @if (!string.IsNullOrWhiteSpace(Model.Salary) || showDeadline)
+    @if (!string.IsNullOrWhiteSpace(Model.Salary) || deadline != null || followUpDue || interview != null)
     {
         <div class="board-tags">
             @if (!string.IsNullOrWhiteSpace(Model.Salary))
             {
                 <span class="board-tag">@Model.Salary</span>
             }
-            @if (showDeadline)
+            @if (deadline != null)
             {
-                <span class="board-tag @deadlineCls">@deadlineTag</span>
+                <span class="board-tag @(deadline.Value.Tone == "" ? "" : "board-tag--" + deadline.Value.Tone)">@deadline.Value.Text</span>
+            }
+            @if (followUpDue)
+            {
+                <span class="board-tag board-tag--warning board-tag--followup">Follow up</span>
+            }
+            @if (interview != null)
+            {
+                <span class="board-tag board-tag--accent">@interview.Reason</span>
             }
         </div>
     }

@@ -165,6 +165,10 @@
             mode: appRow.dataset.mode,
             status: statusNum,
             deadline: appRow.dataset.deadline,
+            interviewAt: appRow.dataset.interviewAt,
+            followUpAt: appRow.dataset.followUpAt,
+            lastContactAt: appRow.dataset.lastContactAt,
+            hasDates: appRow.dataset.hasDates === '1',
             matchScore: appRow.dataset.matchScore ? parseInt(appRow.dataset.matchScore) : null,
             matchRec: appRow.dataset.matchRec,
             matchSummary: decodeURIComponent(appRow.dataset.matchSummary || ''),
@@ -208,6 +212,16 @@
         document.getElementById('drawer-mode').textContent = data.mode || '—';
         document.getElementById('drawer-salary').textContent = data.salary || '—';
         document.getElementById('drawer-deadline').textContent = data.deadline || '—';
+        setReminderValues(data);
+        currentRow = appRow;
+
+        // Reminder actions (handled by reminders.js through data-reminder-action)
+        document.querySelectorAll('#app-drawer [data-reminder-action]').forEach(function (b) { b.dataset.appId = data.id; });
+        const calBtn = document.getElementById('drawer-calendar-btn');
+        if (calBtn) {
+            calBtn.href   = '/Calendar/application/' + data.id + '.ics';
+            calBtn.hidden = !data.hasDates;
+        }
 
         // Action buttons
         const editBtn = document.getElementById('drawer-edit-btn');
@@ -233,6 +247,30 @@
         backdrop.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
     }
+
+    // ── Reminder values (interview / follow-up / last contact) ──
+    let currentRow = null;
+
+    function setReminderValues(d) {
+        document.getElementById('drawer-interview').textContent    = d.interviewAt    || '—';
+        document.getElementById('drawer-followup').textContent     = d.followUpAt     || '—';
+        document.getElementById('drawer-last-contact').textContent = d.lastContactAt  || '—';
+    }
+
+    // reminders.js posted Mark contacted / Snooze for the open application: patch the drawer, the
+    // row/card's data-* (so reopening shows fresh values) and the board's "Follow up" chip.
+    document.addEventListener('reminder:updated', function (e) {
+        const d = e.detail;
+        if (!currentRow || String(currentRow.dataset.appId) !== String(d.id)) return;
+        currentRow.dataset.followUpAt    = d.followUpAt    || '';
+        currentRow.dataset.lastContactAt = d.lastContactAt || '';
+        currentRow.dataset.followUpDue   = d.followUpDue ? '1' : '';
+        currentRow.dataset.hasDates      = (currentRow.dataset.deadline || currentRow.dataset.interviewAt || d.followUpAt) ? '1' : '';
+        setReminderValues(currentRow.dataset);
+        const calBtn = document.getElementById('drawer-calendar-btn');
+        if (calBtn) calBtn.hidden = currentRow.dataset.hasDates !== '1';
+        if (!d.followUpDue) currentRow.querySelector('.board-tag--followup')?.remove();
+    });
 
     // ── Notes / activity timeline ──────────────────────
     const noteForm = document.getElementById('drawer-note-form');

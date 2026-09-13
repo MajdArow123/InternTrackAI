@@ -190,6 +190,26 @@ public class ProfileController : Controller
         return Json(new { success = true });
     }
 
+    // ── POST /Profile/SaveReminderSettings ───────────────
+
+    /// <summary>Saves the follow-up window (3–30 days) used by <see cref="ReminderService"/>.</summary>
+    /// <returns>JSON <c>{ success, followUpAfterDays }</c> or <c>{ success:false, error }</c>.</returns>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> SaveReminderSettings(int? followUpAfterDays)
+    {
+        if (followUpAfterDays is null
+            || followUpAfterDays < ReminderService.MinFollowUpAfterDays
+            || followUpAfterDays > ReminderService.MaxFollowUpAfterDays)
+        {
+            return Json(new { success = false, error = $"Choose between {ReminderService.MinFollowUpAfterDays} and {ReminderService.MaxFollowUpAfterDays} days." });
+        }
+
+        var profile = await GetOrCreateProfileAsync(UserId());
+        profile.FollowUpAfterDays = followUpAfterDays.Value;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, followUpAfterDays = profile.FollowUpAfterDays });
+    }
+
     // ── POST /Profile/UploadPhoto ────────────────────────
 
     /// <summary>

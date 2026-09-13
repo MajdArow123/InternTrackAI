@@ -265,6 +265,35 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
             setTimeout(() => scoreCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
         }
 
+        // ── Reminders: follow-up window ─────────────────
+        const reminderForm  = document.getElementById('reminderForm');
+        const reminderInput = document.getElementById('followUpAfterDaysInput');
+        const reminderBtn   = document.getElementById('saveReminderBtn');
+
+        reminderForm?.addEventListener('submit', e => {
+            e.preventDefault();
+            const days = parseInt(reminderInput.value, 10);
+            const min = parseInt(reminderInput.min, 10), max = parseInt(reminderInput.max, 10);
+            if (!Number.isInteger(days) || days < min || days > max) {
+                shakeField(reminderInput, `Choose between ${min} and ${max} days`);
+                return;
+            }
+            clearFieldError(reminderInput);
+            reminderBtn.disabled = true;
+            postForm('/Profile/SaveReminderSettings', { followUpAfterDays: days })
+                .then(res => {
+                    reminderBtn.disabled = false;
+                    if (res.success) {
+                        reminderInput.value = res.followUpAfterDays;
+                        flashSaveIndicator(document.getElementById('reminderSaveIndicator'));
+                        showAppToast('success', `Follow-up reminders now trigger after ${res.followUpAfterDays} days.`);
+                    } else {
+                        shakeField(reminderInput, res.error || 'Invalid value');
+                    }
+                })
+                .catch(() => { reminderBtn.disabled = false; showAppToast('error', 'Could not save — try again.'); });
+        });
+
         // ── Public Profile Link ──────────────────────────
         const publicToggle  = document.getElementById('publicProfileToggle');
         const publicLinkRow = document.getElementById('publicLinkRow');

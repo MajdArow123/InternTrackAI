@@ -79,12 +79,15 @@
         @RenderBody()
     </main>
 
+    @if (ViewData["HideFooter"] is not true)
+    {
     <footer class="site-footer">
         <div class="container d-flex flex-wrap justify-content-center align-items-center gap-2">
             <span>&copy; 2026 InternTrackAI &middot; built for students.</span>
             <span class="kbd-hint-footer d-none d-sm-inline">Press <kbd class="kbd-inline">?</kbd> for keyboard shortcuts</span>
         </div>
     </footer>
+    }
 
     <!-- ── Global confirm dialog (used by appConfirm() in site.js and data-confirm forms) ── -->
     <div id="app-confirm" class="app-confirm-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="app-confirm-title">

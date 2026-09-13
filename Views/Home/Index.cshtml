@@ -1,77 +1,55 @@
 @{
     ViewData["Title"] = "Home";
+    ViewData["HideFooter"] = true;
+    bool signedIn = User.Identity?.IsAuthenticated == true;
+    const string repoUrl = "https://github.com/MajdArow123/InternTrackAI";
 }
 
-<!-- Hero -->
-<section class="hero-section text-center">
-    <div class="hero-blob hero-blob-1"></div>
-    <div class="hero-blob hero-blob-2"></div>
-
-    <div class="container hero-content">
-        <div class="hero-eyebrow anim-fade-up anim-d1">
-            Your internship command center
+<!-- ── Hero ───────────────────────────────────────────────────────────── -->
+<section class="lp-hero">
+    <div class="container lp-wrap">
+        <h1 class="lp-h1">Every application, deadline, and interview. One place.</h1>
+        <p class="lp-sub">InternTrackAI keeps your internship search organised and tells you which roles you actually match, before you apply.</p>
+        <div class="lp-cta">
+            @if (signedIn)
+            {
+                <a asp-controller="Home" asp-action="Dashboard" class="btn btn-primary btn-lg">Open your dashboard</a>
+                <a asp-controller="JobApplications" asp-action="Create" class="btn lp-ghost btn-lg">Add an application</a>
+            }
+            else
+            {
+                <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-primary btn-lg">Try the live demo</a>
+                <a asp-area="Identity" asp-page="/Account/Register" class="btn lp-ghost btn-lg">Create an account</a>
+            }
         </div>
+        <p class="lp-fine">No signup needed for the demo. The shared demo credentials are in the README on GitHub.</p>
 
-        <h1 class="hero-title anim-fade-up anim-d2">
-            Land your<br><span class="highlight">dream internship.</span>
-        </h1>
-
-        <p class="hero-subtitle anim-fade-up anim-d3">
-            Track every application, deadline, and interview in one clean dashboard.
-            Stop losing track &mdash; start landing offers.
-        </p>
-
-        <div class="hero-cta-group anim-fade-up anim-d4">
-            <a asp-controller="Home" asp-action="Dashboard" class="btn btn-hero-primary">
-                Open dashboard
-            </a>
-            <a asp-controller="JobApplications" asp-action="Create" class="btn btn-hero-secondary">
-                Add application
-            </a>
-        </div>
-
-        <!-- Product preview mockup -->
-        <div class="hero-preview anim-fade-up anim-d5">
-            <div class="hero-preview-bar">
-                <span class="hero-preview-dot"></span>
-                <span class="hero-preview-dot"></span>
-                <span class="hero-preview-dot"></span>
-                <span class="hero-preview-bar-title">InternTrackAI &mdash; Dashboard</span>
+        <!-- Static dashboard preview -->
+        <div class="lp-shot" aria-hidden="true">
+            <div class="lp-shot-nav">
+                <b><span class="brand-dot"></span>InternTrackAI</b>
+                <span class="on">Dashboard</span><span>Applications</span><span>Cover Letter</span><span>Profile</span>
             </div>
-            <div class="hero-preview-body">
-                <div class="hero-preview-stats">
-                    <div class="hero-preview-stat">
-                        <span class="hero-preview-stat-num hero-preview-stat-num--total">12</span>
-                        <span class="hero-preview-stat-label">Total</span>
-                    </div>
-                    <div class="hero-preview-stat">
-                        <span class="hero-preview-stat-num hero-preview-stat-num--applied">4</span>
-                        <span class="hero-preview-stat-label">Applied</span>
-                    </div>
-                    <div class="hero-preview-stat">
-                        <span class="hero-preview-stat-num hero-preview-stat-num--interview">3</span>
-                        <span class="hero-preview-stat-label">Interview</span>
-                    </div>
-                    <div class="hero-preview-stat">
-                        <span class="hero-preview-stat-num hero-preview-stat-num--offer">2</span>
-                        <span class="hero-preview-stat-label">Offer</span>
-                    </div>
+            <div class="lp-shot-body">
+                <div class="lp-shot-head"><h3>Dashboard</h3><span>Last 6 months</span></div>
+                <div class="lp-shot-stats">
+                    <div class="lp-mini-card lp-stat"><div class="l">Total applications</div><div class="n">47</div><div class="d"><span class="up">+6</span> this month</div></div>
+                    <div class="lp-mini-card lp-stat"><div class="l">Interview</div><div class="n">9</div><div class="d"><span class="up">19%</span> response rate</div></div>
+                    <div class="lp-mini-card lp-stat"><div class="l">Offer</div><div class="n">2</div><div class="d">Shopify, Wealthsimple</div></div>
+                    <div class="lp-mini-card lp-stat"><div class="l">Success rate</div><div class="n">4.3<span class="u">%</span></div><div class="d">Offers &divide; applications</div></div>
                 </div>
-                <div class="hero-preview-rows">
-                    <div class="hero-preview-row">
-                        <span class="hero-preview-avatar">ST</span>
-                        <span class="hero-preview-company">Stripe <span class="hero-preview-role">Backend Engineering Intern</span></span>
-                        <span class="hero-preview-badge hero-preview-badge--interview">Interview</span>
+                <div class="lp-shot-row">
+                    <div class="lp-mini-card">
+                        <h4>Applications over time</h4>
+                        <div class="lp-bars">
+                            <i style="--v:30%"></i><i style="--v:45%"></i><i style="--v:40%"></i><i style="--v:70%"></i><i style="--v:55%"></i><i style="--v:85%"></i><i style="--v:65%"></i><i style="--v:95%"></i><i style="--v:60%"></i><i style="--v:80%"></i><i style="--v:100%"></i><i style="--v:78%"></i>
+                        </div>
                     </div>
-                    <div class="hero-preview-row">
-                        <span class="hero-preview-avatar">ME</span>
-                        <span class="hero-preview-company">Meta <span class="hero-preview-role">Data Science Intern</span></span>
-                        <span class="hero-preview-badge hero-preview-badge--offer">Offer</span>
-                    </div>
-                    <div class="hero-preview-row">
-                        <span class="hero-preview-avatar">SH</span>
-                        <span class="hero-preview-company">Shopify <span class="hero-preview-role">Full-Stack Engineering Intern</span></span>
-                        <span class="hero-preview-badge hero-preview-badge--applied">Applied</span>
+                    <div class="lp-mini-card">
+                        <h4>Recent</h4>
+                        <div class="lp-li"><span class="company-avatar">SH</span><div class="m"><b>Shopify</b><span>Backend Developer Intern</span></div><span class="status-badge badge-offer">Offer</span></div>
+                        <div class="lp-li"><span class="company-avatar">RB</span><div class="m"><b>RBC</b><span>Software Developer Co-op</span></div><span class="status-badge badge-interview">Interview</span></div>
+                        <div class="lp-li"><span class="company-avatar">TD</span><div class="m"><b>TD</b><span>.NET Developer Co-op</span></div><span class="status-badge badge-applied">Applied</span></div>
                     </div>
                 </div>
             </div>
@@ -79,45 +57,140 @@
     </div>
 </section>
 
-<!-- Features -->
-<section class="section-spacer">
-    <div class="container">
-        <div class="text-center mb-4 anim-fade-up">
-            <p class="text-muted small fw-semibold mb-1">Why InternTrackAI</p>
-            <h2 class="section-heading">Everything you need, nothing you don&rsquo;t.</h2>
+<!-- ── Company strip ──────────────────────────────────────────────────── -->
+<div class="container lp-wrap lp-logos">
+    <p>Built for students applying to</p>
+    <div><span>Shopify</span><span>RBC</span><span>Wealthsimple</span><span>TD</span><span>Kinaxis</span><span>Manulife</span></div>
+</div>
+
+<!-- ── Feature: resume match ──────────────────────────────────────────── -->
+<section class="lp-story" id="ai">
+    <div class="container lp-wrap lp-story-grid">
+        <div>
+            <h2>Know your odds before you apply.</h2>
+            <p>Paste a job posting. InternTrackAI reads it against your active resume and shows exactly which requirements you cover and which you're missing.</p>
+            <ul>
+                <li>Match score out of 100 for every role</li>
+                <li>Matched and missing skills, side by side</li>
+                <li>Plain-language summary of the fit</li>
+            </ul>
         </div>
-
-        <div class="feature-grid">
-            <div class="feature-card anim-fade-up anim-d2">
-                <div class="feature-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="9" x2="17" y2="9"/><line x1="7" y1="13" x2="14" y2="13"/><line x1="7" y1="17" x2="11" y2="17"/></svg>
-                </div>
-                <h5>Track Everything</h5>
-                <p>Company, role, location, deadline, salary &mdash; every detail logged in one spot.</p>
+        <div class="lp-frag">
+            <h5>Resume match &middot; Shopify, Backend Developer Intern</h5>
+            <div class="lp-score">
+                <span class="match-ring match-ring--tier-5" style="--p:91"><span>91</span></span>
+                <div class="lp-kv">Strong fit. Your <b>Ruby</b> and <b>PostgreSQL</b> experience covers 11 of 12 requirements.</div>
             </div>
-            <div class="feature-card anim-fade-up anim-d3">
-                <div class="feature-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="20" x2="6" y2="14"/><line x1="12" y1="20" x2="12" y2="9"/><line x1="18" y1="20" x2="18" y2="4"/></svg>
-                </div>
-                <h5>Status at a Glance</h5>
-                <p>Color-coded stages from Saved to Offer so you always know where things stand.</p>
+            <div class="lp-tags">
+                <span class="skill-tag skill-tag--match">Ruby</span><span class="skill-tag skill-tag--match">PostgreSQL</span><span class="skill-tag skill-tag--match">REST APIs</span><span class="skill-tag skill-tag--match">Git</span><span class="skill-tag skill-tag--match">Docker</span><span class="skill-tag skill-tag--missing">GraphQL</span>
             </div>
-            <div class="feature-card anim-fade-up anim-d4">
-                <div class="feature-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><path d="M9 16l1.8 1.8L15 14"/></svg>
-                </div>
-                <h5>Never Miss a Deadline</h5>
-                <p>Deadlines front and center so you apply before the window closes.</p>
-            </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="text-center anim-fade-up anim-d2">
-            <p class="text-muted mb-3">Ready to get organized?</p>
-            <a asp-controller="JobApplications" asp-action="Index" class="btn btn-primary px-4">
-                View all applications
-            </a>
         </div>
     </div>
 </section>
+
+<!-- ── Feature: cover letter ──────────────────────────────────────────── -->
+<section class="lp-story lp-story--flip">
+    <div class="container lp-wrap lp-story-grid">
+        <div>
+            <h2>A cover letter that isn't generic.</h2>
+            <p>Generated from the posting, your resume, and your profile, not a template. Edit it, ask the AI to improve it, save it to your profile, and download it as a PDF.</p>
+            <ul>
+                <li>Written against the actual job description</li>
+                <li>Improve it with a one-line instruction</li>
+                <li>Saved versions, exported as PDF</li>
+            </ul>
+        </div>
+        <div class="lp-frag">
+            <h5>Cover letter &middot; draft 2</h5>
+            <div class="lp-aibox">
+                <b><i></i>InternTrackAI</b>
+                I'm applying for the Backend Developer Intern role on the Checkout team. In my last project I built a PostgreSQL-backed REST API in ASP.NET Core that handled concurrent order writes without duplication, the same class of problem your posting describes under "high-traffic systems"&hellip;
+            </div>
+            <div class="lp-frag-actions">
+                <span class="btn btn-primary btn-sm">Improve letter</span>
+                <span class="btn lp-ghost btn-sm">Save to profile</span>
+                <span class="btn lp-ghost btn-sm">Download PDF</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── Feature: interview prep ────────────────────────────────────────── -->
+<section class="lp-story">
+    <div class="container lp-wrap lp-story-grid">
+        <div>
+            <h2>Practise the interview you're about to have.</h2>
+            <p>Questions generated from that specific posting and your resume. Answer them, get feedback, and go in knowing what they'll probably ask.</p>
+            <ul>
+                <li>Technical, behavioural, and company-specific questions</li>
+                <li>AI feedback on your written answer</li>
+                <li>Salary estimate for the role and location</li>
+            </ul>
+        </div>
+        <div class="lp-frag">
+            <h5>Interview prep &middot; RBC, Software Developer Co-op</h5>
+            <div class="lp-q"><b>How would you diagnose an N+1 query problem in an EF Core application?</b><span>Technical</span></div>
+            <div class="lp-q"><b>Tell me about a time you disagreed with a teammate on a technical decision.</b><span>Behavioural</span></div>
+            <div class="lp-input">Type your answer to get feedback&hellip;</div>
+        </div>
+    </div>
+</section>
+
+<!-- ── Three steps ────────────────────────────────────────────────────── -->
+<section class="lp-steps" id="how">
+    <div class="container lp-wrap">
+        <h2>Three steps, then it runs itself.</h2>
+        <p class="lp-steps-sub">Set up once. Every application after that takes under a minute.</p>
+        <div class="lp-step-grid">
+            <div class="lp-step"><i>1</i><b>Upload your resume</b><p>Your name, skills, and target roles are extracted by AI. Keep several versions and choose which one is active.</p></div>
+            <div class="lp-step"><i>2</i><b>Paste a posting</b><p>Company, role, location, and salary are filled in for you, along with a match score against your resume.</p></div>
+            <div class="lp-step"><i>3</i><b>Track it to the offer</b><p>Move it from Saved through Applied, Interview, and Offer. Notes and cover letters stay attached.</p></div>
+        </div>
+    </div>
+</section>
+
+<!-- ── Tech stack ─────────────────────────────────────────────────────── -->
+<div class="container lp-wrap lp-stack" id="stack">
+    <p>Open source, built with</p>
+    <div><span>ASP.NET Core 9</span><span>EF Core</span><span>PostgreSQL</span><span>OpenAI</span><span>Bootstrap 5</span><span>Railway</span></div>
+</div>
+
+<!-- ── Closing CTA ────────────────────────────────────────────────────── -->
+<section class="lp-final">
+    <div class="container lp-wrap">
+        <div class="lp-final-box">
+            <h2>See it with real data.</h2>
+            <p>The demo account comes with a sample profile, resume, and applications already loaded. Add, edit, and explore freely.</p>
+            <div class="lp-cta">
+                @if (signedIn)
+                {
+                    <a asp-controller="Home" asp-action="Dashboard" class="btn btn-primary btn-lg">Open your dashboard</a>
+                }
+                else
+                {
+                    <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-primary btn-lg">Open the demo</a>
+                }
+                <a href="@repoUrl" target="_blank" rel="noopener" class="btn lp-ghost btn-lg">View on GitHub</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ── Landing footer ─────────────────────────────────────────────────── -->
+<footer class="lp-footer">
+    <div class="container lp-wrap lp-footer-in">
+        <span>InternTrackAI &middot; a portfolio project by Majd Arow</span>
+        <div>
+            <a href="@repoUrl" target="_blank" rel="noopener">GitHub</a>
+            <a href="#" rel="noopener">LinkedIn</a>
+            @if (signedIn)
+            {
+                <a asp-controller="Home" asp-action="Dashboard">Dashboard</a>
+            }
+            else
+            {
+                <a asp-area="Identity" asp-page="/Account/Login">Sign in</a>
+            }
+        </div>
+    </div>
+</footer>

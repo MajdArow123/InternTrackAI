@@ -6,9 +6,9 @@
 /* ── Variables ───────────────────────────────────────── */
 :root {
   /* Surfaces & text */
-  --bg:            #F5F5F7;
-  --card:          #FFFFFF;
-  --surface-2:     #F9F9FB;   /* table heads, kbd keys, subtle wells */
+  --bg:            #EEEEF1;
+  --card:          #FBFBFD;
+  --surface-2:     #F4F4F7;   /* table heads, drawer sections, AI boxes, hover rows */
   --surface-3:     #EFEFF2;   /* pressed / neutral chips */
   --text:          #1D1D1F;
   --text-2:        #6E6E73;
@@ -198,7 +198,7 @@ button:focus:not(:focus-visible), a:focus:not(:focus-visible), input:focus:not(:
   top: 0;
   z-index: 1000;
   padding: .55rem 0;
-  background: rgba(245,245,247,.72);
+  background: rgba(238,238,241,.72);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
   border-bottom: 1px solid var(--border);
@@ -1747,7 +1747,7 @@ html[data-theme="dark"] .tag-text-input { background: var(--surface-3); }
   left: 50%;
   right: auto;
   z-index: 9999;
-  background: rgba(255,255,255,.86);
+  background: rgba(251,251,253,.86);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   backdrop-filter: saturate(180%) blur(20px);
   color: var(--text);

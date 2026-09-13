@@ -7,8 +7,28 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using InternTrackAI.Data;
 using InternTrackAI.Services;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Serilog;
+using Serilog.Events;
+using System.Security.Claims;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// ── Logging (Serilog → console) ──────────────────────────────────────────────
+// Defaults are set in code so production (which has no appsettings.json in the image) gets sane
+// levels; a "Serilog" configuration section can override any of them. Nothing here logs request
+// bodies, headers, cookies, or query strings, so credentials and API keys never reach the log.
+builder.Host.UseSerilog((context, loggerConfig) => loggerConfig
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
+    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Migrations", LogEventLevel.Warning)
+    .Enrich.FromLogContext()
+    .Enrich.WithProperty("Application", "InternTrackAI")
+    .ReadFrom.Configuration(context.Configuration)
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}"));
 
 // ── Database ────────────────────────────────────────────────────────────────
 // Railway sets DATABASE_URL for the attached PostgreSQL service.
@@ -89,6 +109,11 @@ builder.Services.AddHttpClient("UrlFetcher")
     .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddControllersWithViews();
 
+// ── Health checks ────────────────────────────────────────────────────────────
+// /health verifies the database connection (Railway's health check path points here).
+builder.Services.AddHealthChecks()
+    .AddDbContextCheck<ApplicationDbContext>("database");
+
 // ── Rate limiting for the OpenAI-backed endpoints ────────────────────────────
 // One fixed-window bucket per user shared by every action tagged [EnableRateLimiting("ai")];
 // limits come from the RateLimiting:AI section (see AiRateLimitOptions for defaults).
@@ -151,6 +176,22 @@ if (app.Environment.IsDevelopment())
 
 app.UseStaticFiles();
 
+// ── Request logging ──────────────────────────────────────────────────────────
+// One structured line per request (method, path, status, duration, user id). Placed after the
+// static file middleware so asset requests don't flood the log; /health is logged at Verbose.
+app.UseSerilogRequestLogging(options =>
+{
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0} ms (user: {UserId})";
+    options.GetLevel = (http, _, ex) =>
+        ex != null || http.Response.StatusCode >= 500 ? LogEventLevel.Error
+        : http.Request.Path.StartsWithSegments("/health") ? LogEventLevel.Verbose
+        : LogEventLevel.Information;
+    options.EnrichDiagnosticContext = (diagnosticContext, http) =>
+    {
+        diagnosticContext.Set("UserId", http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous");
+    };
+});
+
 // Serve profile photos from the uploads root (which may be a mounted volume outside wwwroot)
 // at the same /uploads/photos/... URL the views already use. Only the photos subfolder is
 // exposed — resumes and cover letters stay private and go through ProfileController.
@@ -175,6 +216,29 @@ app.MapControllerRoute(
 
 app.MapRazorPages()
    .WithStaticAssets();
+
+// ── Health endpoint ──────────────────────────────────────────────────────────
+// Anonymous. 200 {"status":"Healthy",...} when the database answers, 503 otherwise.
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    ResponseWriter = async (http, report) =>
+    {
+        http.Response.ContentType = "application/json";
+        var payload = new
+        {
+            status   = report.Status.ToString(),
+            duration = report.TotalDuration.TotalMilliseconds,
+            checks   = report.Entries.Select(e => new
+            {
+                name     = e.Key,
+                status   = e.Value.Status.ToString(),
+                duration = e.Value.Duration.TotalMilliseconds,
+                error    = e.Value.Exception?.GetType().Name
+            })
+        };
+        await http.Response.WriteAsync(JsonSerializer.Serialize(payload));
+    }
+}).AllowAnonymous();
 
 app.Run();
 

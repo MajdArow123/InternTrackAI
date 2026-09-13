@@ -15,10 +15,21 @@
     };
 }
 
-<div class="container py-4" style="max-width: 540px;">
+<div class="container py-4 container-xnarrow">
+
+    <nav class="breadcrumb-nav" aria-label="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li><a asp-controller="JobApplications" asp-action="Index">Applications</a></li>
+            <li>Delete</li>
+        </ol>
+    </nav>
 
     <div class="page-header">
-        <h2>Delete Application</h2>
+        <div>
+            <h2>Delete application</h2>
+            <p class="sub">This removes the application and its notes permanently.</p>
+        </div>
     </div>
 
     <div class="app-table-wrapper mb-4">
@@ -27,7 +38,7 @@
             <span class="status-badge @BadgeClass(Model.Status)">@Model.Status</span>
         </div>
         <div class="p-4">
-            <dl class="row mb-0" style="font-size:.875rem;">
+            <dl class="row mb-0 kv-list">
                 <dt class="col-5 text-muted fw-normal">Role</dt>
                 <dd class="col-7 fw-semibold">@Model.RoleTitle</dd>
 
@@ -47,7 +58,7 @@
         <p class="mb-3 danger-confirm-text">
             Are you sure you want to delete this application? This cannot be undone.
         </p>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
             <form asp-action="Delete" method="post">
                 <input type="hidden" asp-for="Id" />
                 <button type="submit" class="btn btn-danger px-4">Yes, delete it</button>

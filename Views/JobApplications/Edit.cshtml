@@ -4,14 +4,22 @@
     ViewData["Title"] = "Edit Application";
 }
 
-<div class="container py-4" style="max-width: 760px;">
+<div class="container py-4 container-narrow">
+
+    <nav class="breadcrumb-nav" aria-label="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li><a asp-controller="JobApplications" asp-action="Index">Applications</a></li>
+            <li>Edit</li>
+        </ol>
+    </nav>
 
     <div class="page-header">
         <div>
             <h2>Edit Application</h2>
             <p class="sub">Update the details for @Model.CompanyName</p>
         </div>
-        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">&larr; Back</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
     </div>
 
     <form asp-action="Edit" method="post">
@@ -29,17 +37,17 @@
 
         <!-- Core info -->
         <div class="form-card mb-3">
-            <p class="form-section-title">Core Info</p>
+            <p class="form-section-title">Core info</p>
             <div class="row g-3">
                 <div class="col-sm-6">
                     <label asp-for="CompanyName" class="form-label">Company</label>
                     <input asp-for="CompanyName" class="form-control" placeholder="e.g. Stripe" />
-                    <span asp-validation-for="CompanyName" class="text-danger" style="font-size:.78rem"></span>
+                    <span asp-validation-for="CompanyName" class="text-danger field-validation-error"></span>
                 </div>
                 <div class="col-sm-6">
                     <label asp-for="RoleTitle" class="form-label">Role Title</label>
                     <input asp-for="RoleTitle" class="form-control" placeholder="e.g. Software Engineering Intern" />
-                    <span asp-validation-for="RoleTitle" class="text-danger" style="font-size:.78rem"></span>
+                    <span asp-validation-for="RoleTitle" class="text-danger field-validation-error"></span>
                 </div>
                 <div class="col-sm-6">
                     <label asp-for="Location" class="form-label">Location <span class="text-muted fw-normal">(optional)</span></label>
@@ -48,14 +56,14 @@
                 <div class="col-sm-6">
                     <label asp-for="JobLink" class="form-label">Job Link <span class="text-muted fw-normal">(optional)</span></label>
                     <input asp-for="JobLink" class="form-control" placeholder="https://..." />
-                    <span asp-validation-for="JobLink" class="text-danger" style="font-size:.78rem"></span>
+                    <span asp-validation-for="JobLink" class="text-danger field-validation-error"></span>
                 </div>
             </div>
         </div>
 
         <!-- Status & Dates -->
         <div class="form-card mb-3">
-            <p class="form-section-title">Status &amp; Dates</p>
+            <p class="form-section-title">Status &amp; dates</p>
             <div class="row g-3">
                 <div class="col-sm-4">
                     <label asp-for="Status" class="form-label">Status</label>
@@ -70,7 +78,7 @@
                 <div class="col-sm-4">
                     <label asp-for="Salary" class="form-label">Salary <span class="text-muted fw-normal">(optional)</span></label>
                     <input asp-for="Salary" class="form-control" placeholder="e.g. $30/hr" />
-                    <button type="button" class="btn btn-link p-0 mt-1" id="salaryInsightBtn" style="font-size:.78rem">Get Salary Insight</button>
+                    <button type="button" class="btn btn-link p-0 mt-1 small" id="salaryInsightBtn">Get salary insight</button>
                 </div>
                 <div class="col-sm-6">
                     <label asp-for="Deadline" class="form-label">Application Deadline</label>
@@ -89,13 +97,13 @@
 
         <!-- Notes -->
         <div class="form-card mb-4">
-            <p class="form-section-title">Notes</p>
-            <label asp-for="JobDescription" class="form-label">Job Description / Notes <span class="text-muted fw-normal">(optional)</span></label>
+            <p class="form-section-title">Job description &amp; notes</p>
+            <label asp-for="JobDescription" class="form-label">Job description / notes <span class="text-muted fw-normal">(optional)</span></label>
             <textarea asp-for="JobDescription" class="form-control" placeholder="Paste the job description or add notes..."></textarea>
         </div>
 
-        <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary px-4">Save Changes</button>
+        <div class="d-flex gap-2 form-actions">
+            <button type="submit" class="btn btn-primary px-4">Save changes</button>
             <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
             <a asp-action="Delete" asp-route-id="@Model.Id"
                class="btn btn-outline-danger ms-auto">Delete</a>

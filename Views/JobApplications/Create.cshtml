@@ -4,7 +4,7 @@
     ViewData["Title"] = "Add Application";
 }
 
-<div class="container py-4" style="max-width: 760px;">
+<div class="container py-4 container-narrow">
 
     <!-- Breadcrumb -->
     <nav class="breadcrumb-nav" aria-label="breadcrumb">
@@ -20,14 +20,16 @@
             <h2>Add Application</h2>
             <p class="sub">Log a new internship you&rsquo;re tracking</p>
         </div>
-        <a asp-action="Index" class="btn btn-outline-secondary btn-sm">&larr; Back</a>
+        <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
     </div>
 
     <!-- AI Analyzer Panel -->
     <div class="analyzer-card" id="analyzerCard">
         <div class="analyzer-header" id="analyzerToggle">
             <div class="analyzer-header-left">
-                <div class="analyzer-icon">AI</div>
+                <div class="analyzer-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18.5 9.5l-4.7 1.9L12 16l-1.8-4.6L5.5 9.5l4.7-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+                </div>
                 <div>
                     <h6>AI Job Analyzer</h6>
                     <p>Paste a job description or a job posting URL to auto-fill the form</p>
@@ -43,7 +45,7 @@
                       placeholder="Paste a job posting URL (e.g. https://jobs.lever.co/...) or the full job description text — company, role, requirements, salary, location.&#10;&#10;The AI will extract key details and fill the form automatically." rows="6"></textarea>
 
             <div class="d-flex align-items-center gap-2 mt-2">
-                <button type="button" class="analyzer-submit" id="analyzeBtn">
+                <button type="button" class="btn btn-primary analyzer-submit" id="analyzeBtn">
                     Analyze with AI
                 </button>
                 <span class="analyzer-model-tag">GPT-4o mini</span>
@@ -85,17 +87,17 @@
 
         <!-- Core info -->
         <div class="form-card mb-3">
-            <p class="form-section-title">Core Info</p>
+            <p class="form-section-title">Core info</p>
             <div class="row g-3">
                 <div class="col-sm-6">
                     <label asp-for="CompanyName" class="form-label">Company</label>
                     <input asp-for="CompanyName" class="form-control" placeholder="e.g. Stripe" />
-                    <span asp-validation-for="CompanyName" class="text-danger" style="font-size:.78rem"></span>
+                    <span asp-validation-for="CompanyName" class="text-danger field-validation-error"></span>
                 </div>
                 <div class="col-sm-6">
                     <label asp-for="RoleTitle" class="form-label">Role Title</label>
                     <input asp-for="RoleTitle" class="form-control" placeholder="e.g. Software Engineering Intern" />
-                    <span asp-validation-for="RoleTitle" class="text-danger" style="font-size:.78rem"></span>
+                    <span asp-validation-for="RoleTitle" class="text-danger field-validation-error"></span>
                 </div>
                 <div class="col-sm-6">
                     <label asp-for="Location" class="form-label">Location <span class="text-muted fw-normal">(optional)</span></label>
@@ -104,14 +106,14 @@
                 <div class="col-sm-6">
                     <label asp-for="JobLink" class="form-label">Job Link <span class="text-muted fw-normal">(optional)</span></label>
                     <input asp-for="JobLink" class="form-control" placeholder="https://..." />
-                    <span asp-validation-for="JobLink" class="text-danger" style="font-size:.78rem"></span>
+                    <span asp-validation-for="JobLink" class="text-danger field-validation-error"></span>
                 </div>
             </div>
         </div>
 
         <!-- Status & Dates -->
         <div class="form-card mb-3">
-            <p class="form-section-title">Status &amp; Dates</p>
+            <p class="form-section-title">Status &amp; dates</p>
             <div class="row g-3">
                 <div class="col-sm-4">
                     <label asp-for="Status" class="form-label">Status</label>
@@ -126,7 +128,7 @@
                 <div class="col-sm-4">
                     <label asp-for="Salary" class="form-label">Salary <span class="text-muted fw-normal">(optional)</span></label>
                     <input asp-for="Salary" class="form-control" placeholder="e.g. $30/hr" />
-                    <button type="button" class="btn btn-link p-0 mt-1" id="salaryInsightBtn" style="font-size:.78rem">Get Salary Insight</button>
+                    <button type="button" class="btn btn-link p-0 mt-1 small" id="salaryInsightBtn">Get salary insight</button>
                 </div>
                 <div class="col-sm-6">
                     <label asp-for="Deadline" class="form-label">Application Deadline</label>
@@ -145,16 +147,16 @@
 
         <!-- Notes -->
         <div class="form-card mb-4">
-            <p class="form-section-title">Notes</p>
+            <p class="form-section-title">Job description &amp; notes</p>
             <label asp-for="JobDescription" class="form-label">
-                Job Description / Notes <span class="text-muted fw-normal">(optional)</span>
+                Job description / notes <span class="text-muted fw-normal">(optional)</span>
             </label>
             <textarea asp-for="JobDescription" class="form-control"
                       placeholder="Paste the job description or add notes..."></textarea>
         </div>
 
-        <div class="d-flex gap-2">
-            <button type="submit" class="btn btn-primary px-4">Save Application</button>
+        <div class="d-flex gap-2 form-actions">
+            <button type="submit" class="btn btn-primary px-4">Save application</button>
             <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
         </div>
 
@@ -374,9 +376,9 @@
                 </div>` : '';
 
             return `
-                <div class="match-result-title">Resume Match</div>
+                <div class="match-result-title">Resume match</div>
                 <div class="match-verdict-row">
-                    <span class="match-score-big match-score-big--tier-${tier.num}">${sc}%</span>
+                    <span class="match-ring match-ring--tier-${tier.num}" style="--p:${Number(sc)}"><span>${sc}</span></span>
                     <span class="match-rec-badge match-tier-${tier.num}">${tier.label}</span>
                     <span class="match-verdict-desc">${tier.desc}</span>
                 </div>
@@ -399,7 +401,7 @@
             const card = document.getElementById('inlineMatchCard');
 
             // Show loading state
-            card.innerHTML = '<p style="font-size:.82rem;color:var(--muted);margin:0">Analyzing resume match...</p>';
+            card.innerHTML = '<p class="match-loading-text">Analyzing resume match…</p>';
             wrap.hidden = false;
 
             try {
@@ -418,10 +420,10 @@
                 // instead of silently hiding the match card.
                 if (!d.hasResume) {
                     card.innerHTML = `
-                        <div style="padding: 16px; background: var(--bg); border-radius: 8px; border-left: 4px solid var(--primary)">
-                            <p style="margin: 0; font-size: 0.9rem; color: var(--text); font-weight: 500">📄 Upload your resume to see match score</p>
-                            <p style="margin: 8px 0 0 0; font-size: 0.82rem; color: var(--muted)">
-                                Go to your <a href="/Profile" style="color: var(--primary); text-decoration: underline">Profile</a> and upload your resume to get AI-powered job match analysis.
+                        <div class="match-no-resume">
+                            <p class="match-no-resume-title">Upload your resume to see a match score</p>
+                            <p class="match-no-resume-text">
+                                Go to your <a href="/Profile">Profile</a> and upload a resume to get AI-powered job match analysis.
                             </p>
                         </div>`;
                     return;

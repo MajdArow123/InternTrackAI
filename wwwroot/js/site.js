@@ -66,3 +66,45 @@ function clearFieldError(inputEl) {
     inputEl.classList.remove('field-invalid', 'field-shake');
     inputEl.parentElement.querySelector('.field-error-msg')?.remove();
 }
+
+
+// Promise-based confirm dialog backed by the #app-confirm markup (see JobApplications/Index).
+// Falls back to window.confirm when the markup is not on the page.
+function appConfirm(opts) {
+    opts = opts || {};
+    const overlay = document.getElementById('app-confirm');
+    if (!overlay) return Promise.resolve(window.confirm(opts.text || opts.title || 'Are you sure?'));
+
+    const titleEl  = overlay.querySelector('#app-confirm-title');
+    const textEl   = overlay.querySelector('#app-confirm-text');
+    const okBtn    = overlay.querySelector('#app-confirm-ok');
+    const cancelBtn= overlay.querySelector('#app-confirm-cancel');
+    if (titleEl) titleEl.textContent = opts.title || 'Are you sure?';
+    if (textEl)  textEl.textContent  = opts.text  || '';
+    if (okBtn)   okBtn.textContent   = opts.okLabel || 'Confirm';
+
+    return new Promise(resolve => {
+        const previouslyFocused = document.activeElement;
+        function close(result) {
+            overlay.classList.remove('active');
+            overlay.setAttribute('aria-hidden', 'true');
+            document.removeEventListener('keydown', onKey);
+            okBtn.removeEventListener('click', onOk);
+            cancelBtn.removeEventListener('click', onCancel);
+            overlay.removeEventListener('click', onBackdrop);
+            if (previouslyFocused && previouslyFocused.focus) previouslyFocused.focus();
+            resolve(result);
+        }
+        function onOk() { close(true); }
+        function onCancel() { close(false); }
+        function onBackdrop(e) { if (e.target === overlay) close(false); }
+        function onKey(e) { if (e.key === 'Escape') close(false); }
+        okBtn.addEventListener('click', onOk);
+        cancelBtn.addEventListener('click', onCancel);
+        overlay.addEventListener('click', onBackdrop);
+        document.addEventListener('keydown', onKey);
+        overlay.classList.add('active');
+        overlay.setAttribute('aria-hidden', 'false');
+        setTimeout(() => cancelBtn.focus(), 30);
+    });
+}

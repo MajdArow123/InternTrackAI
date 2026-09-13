@@ -33,6 +33,15 @@
         _     => "match-dot--red"
     };
 
+    int MatchTier(int score) => score switch
+    {
+        >= 80 => 5,
+        >= 60 => 4,
+        >= 40 => 3,
+        >= 20 => 2,
+        _     => 1
+    };
+
     string MatchTooltip(int score) => score switch
     {
         >= 90 => "Apply",
@@ -79,37 +88,46 @@
                 }
             </p>
         </div>
-        <div class="d-flex gap-2">
-            <button type="button" class="btn btn-outline-secondary btn-sm" id="import-csv-btn">Import CSV</button>
-            <a asp-action="Export" class="btn btn-outline-secondary btn-sm">Export CSV</a>
+        <div class="d-flex gap-2 flex-wrap page-actions">
+            <button type="button" class="btn btn-outline-secondary" id="import-csv-btn">Import CSV</button>
+            <a asp-action="Export" class="btn btn-outline-secondary">Export CSV</a>
             <a asp-action="Create" class="btn btn-primary">+ Add Application</a>
         </div>
     </div>
 
+    <!-- ── Status filter pills ── -->
+    @{
+        string curStatus   = ViewBag.Status ?? "";
+        string curSearch   = ViewBag.Search ?? "";
+        string curWorkMode = ViewBag.WorkMode ?? "";
+        string curSort     = ViewBag.SortBy ?? "";
+        var pillOrder = new[] { ApplicationStatus.Saved, ApplicationStatus.Applied, ApplicationStatus.Interview, ApplicationStatus.Offer, ApplicationStatus.Rejected };
+    }
+    <div class="filter-pills mb-3" role="navigation" aria-label="Filter by status">
+        <a class="filter-pill @(curStatus == "" ? "active" : "")"
+           asp-action="Index" asp-route-search="@curSearch" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">
+            All <span class="filter-pill-count">@totalCount</span>
+        </a>
+        @foreach (var st in pillOrder)
+        {
+            <a class="filter-pill filter-pill-@st.ToString().ToLower() @(curStatus == st.ToString() ? "active" : "")"
+               asp-action="Index" asp-route-status="@st" asp-route-search="@curSearch" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">
+                <span class="filter-pill-dot"></span>@st
+            </a>
+        }
+    </div>
+
     <!-- ── Filter Bar ── -->
     <form method="get" asp-action="Index" class="filter-bar mb-3">
-        <div class="filter-group" style="flex:2;min-width:180px">
-            <label class="filter-label">Search</label>
-            <input type="text" name="search" class="form-control"
-                   placeholder="Company or role..."
-                   value="@ViewBag.Search" />
-        </div>
-        <div class="filter-group">
-            <label class="filter-label">Status</label>
-            <select name="status" class="form-select">
-                <option value="">All Statuses</option>
-                @foreach (var st in Enum.GetValues<ApplicationStatus>())
-                {
-                    if (ViewBag.Status == st.ToString())
-                    {
-                        <option value="@st" selected>@st</option>
-                    }
-                    else
-                    {
-                        <option value="@st">@st</option>
-                    }
-                }
-            </select>
+        <input type="hidden" name="status" value="@curStatus" />
+        <div class="filter-group filter-group-search">
+            <label class="filter-label" for="filterSearch">Search</label>
+            <div class="filter-search-wrap">
+                <svg class="filter-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" name="search" id="filterSearch" class="form-control"
+                       placeholder="Company or role..."
+                       value="@ViewBag.Search" />
+            </div>
         </div>
         <div class="filter-group">
             <label class="filter-label">Work Mode</label>
@@ -150,11 +168,11 @@
                 else                 { <option value="status">Status</option> }
             </select>
         </div>
-        <div class="d-flex gap-2 align-self-end">
-            <button type="submit" class="btn btn-primary btn-sm filter-apply-btn">Filter</button>
+        <div class="d-flex gap-2 align-self-end filter-actions">
+            <button type="submit" class="btn btn-primary filter-apply-btn">Apply</button>
             @if (isFiltered)
             {
-                <a asp-action="Index" class="btn btn-outline-secondary btn-sm filter-apply-btn">Clear</a>
+                <a asp-action="Index" class="btn btn-outline-secondary filter-apply-btn">Clear</a>
             }
         </div>
     </form>
@@ -173,44 +191,43 @@
         <div class="app-table-wrapper">
             <div class="empty-state-illustrated">
                 <svg class="empty-illustration" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="25" y="22" width="70" height="68" rx="6" class="empty-illu-bg" fill="#eef2ff"/>
-                    <rect x="35" y="14" width="50" height="10" rx="5" class="empty-illu-top" fill="#c7d2fe"/>
-                    <line x1="40" y1="48" x2="80" y2="48" class="empty-illu-line" stroke="#c7d2fe" stroke-width="3.5" stroke-linecap="round"/>
-                    <line x1="40" y1="60" x2="72" y2="60" class="empty-illu-line" stroke="#c7d2fe" stroke-width="3.5" stroke-linecap="round"/>
-                    <line x1="40" y1="72" x2="62" y2="72" class="empty-illu-line" stroke="#e0e7ff" stroke-width="3.5" stroke-linecap="round"/>
+                    <rect x="25" y="22" width="70" height="68" rx="6" class="empty-illu-bg" fill="rgba(10,132,255,.10)"/>
+                    <rect x="35" y="14" width="50" height="10" rx="5" class="empty-illu-top" fill="rgba(10,132,255,.35)"/>
+                    <line x1="40" y1="48" x2="80" y2="48" class="empty-illu-line" stroke="rgba(10,132,255,.35)" stroke-width="3.5" stroke-linecap="round"/>
+                    <line x1="40" y1="60" x2="72" y2="60" class="empty-illu-line" stroke="rgba(10,132,255,.35)" stroke-width="3.5" stroke-linecap="round"/>
+                    <line x1="40" y1="72" x2="62" y2="72" class="empty-illu-line" stroke="rgba(10,132,255,.18)" stroke-width="3.5" stroke-linecap="round"/>
                 </svg>
                 @if (isFiltered)
                 {
                     <p class="empty-state-title">No matching applications</p>
                     <p class="empty-state-desc">Try adjusting the search or status filter, or clear all filters.</p>
-                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear Filters</a>
+                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear filters</a>
                 }
                 else
                 {
                     <p class="empty-state-title">No applications yet</p>
                     <p class="empty-state-desc">Start tracking your internship search by logging your first application.</p>
-                    <a asp-action="Create" class="btn btn-primary btn-sm">Add Your First Application</a>
+                    <a asp-action="Create" class="btn btn-primary btn-sm">Add your first application</a>
                 }
             </div>
         </div>
     }
     else
     {
-        <div class="app-table-wrapper">
+        <div class="app-table-wrapper app-table-sticky">
             <div class="table-responsive">
                 <table class="table" id="apps-table">
                     <thead>
                         <tr>
-                            <th class="ps-3" style="width:2.5rem">
-                                <input type="checkbox" id="select-all-check" class="form-check-input"
-                                       style="margin:0;cursor:pointer" />
+                            <th class="ps-3 col-check">
+                                <input type="checkbox" id="select-all-check" class="form-check-input" aria-label="Select all" />
                             </th>
                             <th class="ps-2">Company</th>
                             <th>Role</th>
                             <th class="d-none d-md-table-cell">Location</th>
                             <th class="d-none d-md-table-cell">Mode</th>
                             <th>Status</th>
-                            <th class="text-center d-none d-sm-table-cell" style="width:3.5rem">Match</th>
+                            <th class="text-center d-none d-sm-table-cell col-match">Match</th>
                             <th class="d-none d-sm-table-cell">Deadline</th>
                             <th></th>
                         </tr>
@@ -239,9 +256,9 @@
                                 class="app-row"
                                 role="button"
                                 tabindex="0">
-                                <td class="ps-3" style="width:2.5rem">
+                                <td class="ps-3 col-check">
                                     <input type="checkbox" class="form-check-input row-check"
-                                           value="@item.Id" style="margin:0;cursor:pointer" />
+                                           value="@item.Id" aria-label="Select @item.CompanyName" />
                                 </td>
                                 <td class="ps-2">
                                     <div class="d-flex align-items-center gap-2">
@@ -262,11 +279,12 @@
                                     {
                                         var action = MatchTooltip(item.MatchScore.Value);
                                         var tooltip = $"{item.MatchScore}% Match · {action}";
-                                        <span class="match-dot @MatchDotClass(item.MatchScore.Value)"
+                                        <span class="match-ring match-ring--sm match-ring--tier-@MatchTier(item.MatchScore.Value)"
+                                              style="--p:@item.MatchScore"
                                               data-bs-toggle="tooltip"
                                               data-bs-placement="top"
                                               data-bs-title="@tooltip"
-                                              aria-label="@tooltip"></span>
+                                              aria-label="@tooltip"><span>@item.MatchScore</span></span>
                                     }
                                 </td>
                                 <td class="text-muted d-none d-sm-table-cell">
@@ -294,16 +312,16 @@
 </div>
 
 <!-- ── Bulk Action Bar ── -->
-<div id="bulk-bar" class="bulk-bar">
-    <div class="bulk-bar-inner container">
+<div id="bulk-bar" class="bulk-bar" role="region" aria-label="Bulk actions">
+    <div class="bulk-bar-inner">
         <span id="bulk-count" class="bulk-count">0 selected</span>
         <div class="bulk-actions">
             <button type="button" class="btn btn-sm btn-outline-light" id="compare-btn" style="display:none">
                 Compare
             </button>
-            <div class="d-flex align-items-center gap-2">
-                <select id="bulk-status-select" class="form-select form-select-sm bulk-status-select">
-                    <option value="">Change status to...</option>
+            <div class="d-flex align-items-center gap-2 bulk-status-group">
+                <select id="bulk-status-select" class="form-select form-select-sm bulk-status-select" aria-label="Change status">
+                    <option value="">Change status to…</option>
                     @foreach (var st in Enum.GetValues<ApplicationStatus>())
                     {
                         <option value="@st">@st</option>
@@ -311,8 +329,23 @@
                 </select>
                 <button type="button" class="btn btn-sm btn-outline-light" id="bulk-status-btn">Apply</button>
             </div>
-            <button type="button" class="btn btn-sm btn-danger" id="bulk-delete-btn">Delete Selected</button>
-            <button type="button" class="btn btn-sm btn-link bulk-deselect-link" id="bulk-deselect-btn">Deselect All</button>
+            <button type="button" class="btn btn-sm btn-danger" id="bulk-delete-btn">Delete</button>
+            <button type="button" class="btn btn-sm btn-link bulk-deselect-link" id="bulk-deselect-btn" aria-label="Deselect all">Deselect</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Confirm dialog (replaces native confirm()) ── -->
+<div id="app-confirm" class="app-confirm-overlay" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="app-confirm-title">
+    <div class="app-confirm">
+        <div class="app-confirm-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </div>
+        <h3 id="app-confirm-title" class="app-confirm-title">Delete applications?</h3>
+        <p id="app-confirm-text" class="app-confirm-text"></p>
+        <div class="app-confirm-actions">
+            <button type="button" class="btn btn-outline-secondary" id="app-confirm-cancel">Cancel</button>
+            <button type="button" class="btn btn-danger" id="app-confirm-ok">Delete</button>
         </div>
     </div>
 </div>
@@ -327,7 +360,7 @@
             </button>
         </div>
         <form asp-action="ImportCsv" method="post" enctype="multipart/form-data" class="p-3 p-sm-4">
-            <p class="text-muted" style="font-size:.83rem">
+            <p class="text-muted small mb-3">
                 Upload a CSV file with columns: Company, Role, Location, Work Mode, Status, Deadline,
                 Date Applied, Salary, Job Link. Only Company and Role are required &mdash; this matches
                 the format produced by <strong>Export CSV</strong>.
@@ -383,7 +416,7 @@
             <section class="drawer-section">
                 <h3 class="drawer-section-title">Job Description</h3>
                 <div class="drawer-description-box">
-                    <p id="drawer-description" class="drawer-text">Loading...</p>
+                    <p id="drawer-description" class="drawer-text">Loading…</p>
                 </div>
             </section>
 
@@ -426,8 +459,8 @@
                 <h3 class="drawer-section-title">Notes</h3>
                 <form id="drawer-note-form" class="drawer-note-form">
                     <textarea id="drawer-note-input" class="drawer-note-input" rows="2"
-                              placeholder="Add a note about this application..." maxlength="2000"></textarea>
-                    <button type="submit" class="btn btn-primary btn-sm drawer-note-submit">Add Note</button>
+                              placeholder="Add a note about this application…" maxlength="2000" aria-label="New note"></textarea>
+                    <button type="submit" class="btn btn-primary btn-sm drawer-note-submit">Add note</button>
                 </form>
                 <div id="drawer-note-timeline" class="drawer-note-timeline">
                     <p class="drawer-note-empty">No notes yet.</p>
@@ -437,17 +470,17 @@
 
         <!-- Action Buttons -->
         <div class="app-drawer-footer">
-            <button id="drawer-edit-btn" class="btn btn-outline-secondary btn-sm" data-app-id="">Edit</button>
-            <button id="drawer-cover-letter-btn" class="btn btn-outline-primary btn-sm" data-app-id="">Cover Letter</button>
-            <button id="drawer-interview-btn" class="btn btn-outline-primary btn-sm" data-app-id="">Interview Prep</button>
-            <button id="drawer-close-btn" class="btn btn-secondary btn-sm">Close</button>
+            <button id="drawer-edit-btn" class="btn btn-primary" data-app-id="">Edit</button>
+            <button id="drawer-cover-letter-btn" class="btn btn-outline-primary" data-app-id="">Cover Letter</button>
+            <button id="drawer-interview-btn" class="btn btn-outline-primary" data-app-id="">Interview Prep</button>
+            <button id="drawer-close-btn" class="btn btn-outline-secondary ms-auto">Close</button>
         </div>
     </div>
 </div>
 
 @section Scripts {
 <script>
-document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(function (el) {
+document.querySelectorAll('.match-ring[data-bs-toggle="tooltip"]').forEach(function (el) {
     new bootstrap.Tooltip(el);
 });
 </script>
@@ -476,6 +509,7 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
     function updateBar() {
         const ids = selectedIds();
         const n   = ids.length;
+        checkboxes.forEach(cb => cb.closest('tr')?.classList.toggle('is-selected', cb.checked));
         bulkCount.textContent = n + ' selected';
         bulkBar.classList.toggle('show', n > 0);
         if (compareBtn) compareBtn.style.display = (n >= 2 && n <= 3) ? 'inline-flex' : 'none';
@@ -498,10 +532,15 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
         updateBar();
     });
 
-    deleteBtn?.addEventListener('click', function () {
+    deleteBtn?.addEventListener('click', async function () {
         const ids = selectedIds();
         if (!ids.length) return;
-        if (!confirm('Delete ' + ids.length + ' application' + (ids.length > 1 ? 's' : '') + '? This cannot be undone.')) return;
+        const ok = await appConfirm({
+            title: 'Delete ' + ids.length + ' application' + (ids.length > 1 ? 's' : '') + '?',
+            text: 'This permanently removes ' + (ids.length > 1 ? 'these applications' : 'this application') + ' and any notes. This cannot be undone.',
+            okLabel: 'Delete'
+        });
+        if (!ok) return;
         submitBulk('bulk-delete-form', ids, null);
     });
 
@@ -724,7 +763,7 @@ document.querySelectorAll('.match-dot[data-bs-toggle="tooltip"]').forEach(functi
 
         return (
             '<div class="match-verdict-row">' +
-                '<span class="match-score-big match-score-big--tier-' + tier.num + '">' + score + '%</span>' +
+                '<span class="match-ring match-ring--tier-' + tier.num + '" style="--p:' + Number(score) + '"><span>' + score + '</span></span>' +
                 '<span class="match-rec-badge match-tier-' + tier.num + '">' + tier.label + '</span>' +
                 '<span class="match-verdict-desc">' + tier.desc + '</span>' +
             '</div>' +

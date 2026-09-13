@@ -1,4 +1,5 @@
 using InternTrackAI.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace InternTrackAI.Controllers;
@@ -7,6 +8,7 @@ namespace InternTrackAI.Controllers;
 /// Exposes the AI job description analyzer as a small JSON API consumed via fetch() from the
 /// Create Application page (see Views/JobApplications/Create.cshtml). It does not render any views itself.
 /// </summary>
+[Authorize]
 public class AnalyzerController : Controller
 {
     private readonly JobAnalyzerService _analyzer;

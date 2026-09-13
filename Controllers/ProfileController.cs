@@ -493,25 +493,13 @@ public class ProfileController : Controller
             return Json(new { hasResume = false });
 
         var userId = UserId();
-        _logger.LogInformation("AutoMatch: Retrieved userId from claims: {UserId}", userId);
 
         var activeResume = await _db.ResumeVersions
             .Where(r => r.UserId == userId && r.IsActive)
             .FirstOrDefaultAsync();
 
-        _logger.LogInformation("AutoMatch: Found active resume: {HasResume} for userId {UserId}", activeResume != null, userId);
-
         if (activeResume == null)
-        {
-            // Log all resumes for this user for debugging
-            var allResumes = await _db.ResumeVersions.Where(r => r.UserId == userId).ToListAsync();
-            _logger.LogWarning("AutoMatch: No active resume found for userId {UserId}. User has {ResumeCount} total resumes.", userId, allResumes.Count);
-            foreach (var r in allResumes)
-            {
-                _logger.LogWarning("AutoMatch: Resume {Id}: IsActive={IsActive}, Path={Path}", r.Id, r.IsActive, r.StoredPath);
-            }
             return Json(new { hasResume = false });
-        }
 
         var filePath = Path.Combine(_env.ContentRootPath, activeResume.StoredPath);
         if (!System.IO.File.Exists(filePath))

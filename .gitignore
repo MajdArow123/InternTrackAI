@@ -29,3 +29,6 @@ uploads/
 appsettings.json
 secrets.json
 appsettings.local.json
+
+## Claude Code local settings (machine-specific permissions)
+.claude/settings.local.json

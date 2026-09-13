@@ -1,8 +1,12 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InternTrackAI", "InternTrackAI.csproj", "{2BD8A7B0-AA3E-200A-6BB3-E86A121F530C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{1942C978-6169-4054-9B0D-4072E6CEEE81}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "InternTrackAI.Tests", "tests\InternTrackAI.Tests\InternTrackAI.Tests.csproj", "{2A261F13-60CF-411B-962E-AB345BB0F71B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -14,11 +18,18 @@ Global
 		{2BD8A7B0-AA3E-200A-6BB3-E86A121F530C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2BD8A7B0-AA3E-200A-6BB3-E86A121F530C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2BD8A7B0-AA3E-200A-6BB3-E86A121F530C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2A261F13-60CF-411B-962E-AB345BB0F71B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2A261F13-60CF-411B-962E-AB345BB0F71B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2A261F13-60CF-411B-962E-AB345BB0F71B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2A261F13-60CF-411B-962E-AB345BB0F71B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6E94718F-5EB0-437A-89EB-0204A4245CF5}
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2A261F13-60CF-411B-962E-AB345BB0F71B} = {1942C978-6169-4054-9B0D-4072E6CEEE81}
 	EndGlobalSection
 EndGlobal

@@ -140,7 +140,7 @@ public class ResumeMatcherService
                 .GetProperty("content")
                 .GetString() ?? "{}";
 
-            return Parse(content);
+            return ParseMatchResponse(content);
         }
         catch (Exception ex)
         {
@@ -155,7 +155,7 @@ public class ResumeMatcherService
     /// 60/40/20) are mirrored in the front-end JS (Create.cshtml/Index.cshtml TIERS array) so the
     /// color-coded badge always matches this recommendation.
     /// </summary>
-    private static ResumeMatchResult Parse(string json)
+    public static ResumeMatchResult ParseMatchResponse(string json)
     {
         try
         {
@@ -166,14 +166,7 @@ public class ResumeMatcherService
             if (r.TryGetProperty("score", out var score))
                 result.Score = score.ValueKind == JsonValueKind.Number ? Math.Clamp(score.GetInt32(), 0, 100) : 0;
 
-            result.Recommendation = result.Score switch
-            {
-                >= 80 => "APPLY",
-                >= 60 => "APPLY",
-                >= 40 => "MAYBE",
-                >= 20 => "CONSIDER SKIPPING",
-                _     => "SKIP"
-            };
+            result.Recommendation = RecommendationFor(result.Score);
 
             result.Summary        = Str(r, "summary");
             result.MatchingSkills = StrArray(r, "matchingSkills");
@@ -187,6 +180,16 @@ public class ResumeMatcherService
             return Fail("Could not parse the AI response. Please try again.");
         }
     }
+
+    /// <summary>Maps a 0-100 score onto the recommendation tier shown in the UI (80/60/40/20 bands).</summary>
+    public static string RecommendationFor(int score) => score switch
+    {
+        >= 80 => "APPLY",
+        >= 60 => "APPLY",
+        >= 40 => "MAYBE",
+        >= 20 => "CONSIDER SKIPPING",
+        _     => "SKIP"
+    };
 
     /// <summary>Reads a string property, returning null if it's missing or not a string (rather than throwing).</summary>
     private static string? Str(JsonElement root, string key) =>

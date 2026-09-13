@@ -161,3 +161,6 @@ app.MapRazorPages()
    .WithStaticAssets();
 
 app.Run();
+
+// Lets the test project reference the entry point via WebApplicationFactory<Program>.
+public partial class Program { }

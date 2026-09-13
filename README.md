@@ -2,6 +2,7 @@
 
 **Your internship search, organized — with AI doing the busywork.**
 
+[![CI](https://github.com/MajdArow123/InternTrackAI/actions/workflows/ci.yml/badge.svg)](https://github.com/MajdArow123/InternTrackAI/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![ASP.NET Core MVC](https://img.shields.io/badge/ASP.NET%20Core-MVC-512BD4?logo=dotnet)](https://learn.microsoft.com/aspnet/core)
 [![OpenAI](https://img.shields.io/badge/AI-GPT--4o--mini-412991?logo=openai)](https://platform.openai.com/)

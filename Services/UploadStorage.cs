@@ -62,7 +62,16 @@ public class UploadStorage
     /// </summary>
     public string Resolve(string storedPath)
     {
-        var rel = storedPath.Replace('\\', '/').TrimStart('/');
+        if (string.IsNullOrWhiteSpace(storedPath))
+            throw new InvalidOperationException("Stored path is empty.");
+
+        var rel = storedPath.Replace('\\', '/');
+
+        // Stored paths are always written relative to the uploads root (see MakeStoredPath), so a
+        // rooted value ("/etc/passwd", "C:/...") can only come from tampering — reject it outright.
+        if (rel.StartsWith('/') || Path.IsPathRooted(rel) || (rel.Length > 1 && rel[1] == ':'))
+            throw new InvalidOperationException("Stored path must be relative to the uploads root.");
+
         if (rel.StartsWith(DefaultRelativeRoot + "/", StringComparison.OrdinalIgnoreCase))
             rel = rel.Substring(DefaultRelativeRoot.Length + 1);
 

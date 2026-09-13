@@ -3,6 +3,7 @@ using System.Text;
 using InternTrackAI.Data;
 using InternTrackAI.Models;
 using InternTrackAI.Models.Enums;
+using InternTrackAI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -374,8 +375,9 @@ public class JobApplicationsController : Controller
     /// <summary>
     /// Bulk-imports applications from a CSV file using the same column layout produced by
     /// <see cref="Export"/> (Company,Role,Location,Work Mode,Status,Deadline,Date Applied,Salary,Job Link).
-    /// Rows missing a Company or Role are skipped rather than failing the whole import; Work Mode
-    /// and Status fall back to their default enum values (Remote/Saved) when blank or unrecognized.
+    /// Parsing lives in <see cref="CsvImportParser"/>: rows missing a Company or Role are skipped,
+    /// duplicates (in the file or already tracked) are dropped, and Work Mode / Status fall back to
+    /// Remote / Saved when blank or unrecognized.
     /// </summary>
     /// <param name="file">The uploaded .csv file.</param>
     /// <returns>Redirect to Index with a toast reporting how many rows were imported (and skipped, if any).</returns>
@@ -390,79 +392,28 @@ public class JobApplicationsController : Controller
         }
 
         var uid = UserId();
-        var imported = new List<JobApplication>();
-        int skipped = 0;
+
+        // Existing company+role pairs so re-importing an export doesn't duplicate rows.
+        var existing = await _context.JobApplications
+            .Where(a => a.UserId == uid)
+            .Select(a => new { a.CompanyName, a.RoleTitle })
+            .ToListAsync();
 
         using var reader = new StreamReader(file.OpenReadStream());
-        await reader.ReadLineAsync(); // skip header row
+        var result = CsvImportParser.Parse(reader, uid, existing.Select(e => (e.CompanyName, e.RoleTitle)));
 
-        string? line;
-        while ((line = await reader.ReadLineAsync()) is not null)
+        if (result.Applications.Count > 0)
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            var fields = ParseCsvLine(line);
-            string company = fields.ElementAtOrDefault(0) ?? "";
-            string role     = fields.ElementAtOrDefault(1) ?? "";
-
-            if (string.IsNullOrWhiteSpace(company) || string.IsNullOrWhiteSpace(role))
-            {
-                skipped++;
-                continue;
-            }
-
-            imported.Add(new JobApplication
-            {
-                UserId      = uid,
-                CompanyName = company.Trim(),
-                RoleTitle   = role.Trim(),
-                Location    = string.IsNullOrWhiteSpace(fields.ElementAtOrDefault(2)) ? null : fields[2].Trim(),
-                WorkMode    = Enum.TryParse<WorkMode>(fields.ElementAtOrDefault(3), true, out var wm) ? wm : WorkMode.Remote,
-                Status      = Enum.TryParse<ApplicationStatus>(fields.ElementAtOrDefault(4), true, out var st) ? st : ApplicationStatus.Saved,
-                Deadline    = DateTime.TryParse(fields.ElementAtOrDefault(5), out var dl) ? dl : null,
-                DateApplied = DateTime.TryParse(fields.ElementAtOrDefault(6), out var da) ? da : null,
-                Salary      = string.IsNullOrWhiteSpace(fields.ElementAtOrDefault(7)) ? null : fields[7].Trim(),
-                JobLink     = string.IsNullOrWhiteSpace(fields.ElementAtOrDefault(8)) ? null : fields[8].Trim()
-            });
-        }
-
-        if (imported.Count > 0)
-        {
-            _context.JobApplications.AddRange(imported);
+            _context.JobApplications.AddRange(result.Applications);
             await _context.SaveChangesAsync();
         }
 
-        TempData["Toast"] = skipped > 0
-            ? $"success|Imported {imported.Count} application{(imported.Count == 1 ? "" : "s")}, skipped {skipped} invalid row{(skipped == 1 ? "" : "s")}."
-            : $"success|Imported {imported.Count} application{(imported.Count == 1 ? "" : "s")}.";
+        var n = result.Applications.Count;
+        var msg = $"Imported {n} application{(n == 1 ? "" : "s")}";
+        if (result.Skipped > 0)    msg += $", skipped {result.Skipped} invalid row{(result.Skipped == 1 ? "" : "s")}";
+        if (result.Duplicates > 0) msg += $", skipped {result.Duplicates} duplicate{(result.Duplicates == 1 ? "" : "s")}";
+        TempData["Toast"] = "success|" + msg + ".";
 
         return RedirectToAction(nameof(Index));
-    }
-
-    /// <summary>Parses a single CSV line into fields, honoring double-quoted values that contain commas or escaped quotes.</summary>
-    private static List<string> ParseCsvLine(string line)
-    {
-        var fields = new List<string>();
-        var current = new StringBuilder();
-        bool inQuotes = false;
-
-        for (int i = 0; i < line.Length; i++)
-        {
-            char c = line[i];
-            if (inQuotes)
-            {
-                if (c == '"' && i + 1 < line.Length && line[i + 1] == '"') { current.Append('"'); i++; }
-                else if (c == '"') inQuotes = false;
-                else current.Append(c);
-            }
-            else
-            {
-                if (c == '"') inQuotes = true;
-                else if (c == ',') { fields.Add(current.ToString()); current.Clear(); }
-                else current.Append(c);
-            }
-        }
-        fields.Add(current.ToString());
-        return fields;
     }
 }

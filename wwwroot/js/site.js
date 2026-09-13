@@ -108,3 +108,13 @@ function appConfirm(opts) {
         setTimeout(() => cancelBtn.focus(), 30);
     });
 }
+
+// Forms with data-confirm="message" get the styled confirm dialog instead of window.confirm.
+// Optional data-confirm-title / data-confirm-ok override the title and button label.
+document.addEventListener('submit', function (e) {
+    const form = e.target;
+    if (!(form instanceof HTMLFormElement) || !form.dataset.confirm || form.dataset.confirmed === '1') return;
+    e.preventDefault();
+    appConfirm({ title: form.dataset.confirmTitle || 'Are you sure?', text: form.dataset.confirm, okLabel: form.dataset.confirmOk || 'Delete' })
+        .then(ok => { if (ok) { form.dataset.confirmed = '1'; form.requestSubmit ? form.requestSubmit() : form.submit(); } });
+}, true);

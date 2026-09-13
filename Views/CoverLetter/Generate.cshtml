@@ -4,7 +4,7 @@
     ViewData["Title"] = "Cover Letter Generator";
 }
 
-<div class="container py-4" style="max-width:860px;">
+<div class="container py-4 container-narrow">
 
     <nav class="breadcrumb-nav" aria-label="breadcrumb">
         <ol class="breadcrumb-list">
@@ -15,10 +15,10 @@
 
     <div class="page-header">
         <div>
-            <h2>Cover Letter Generator</h2>
+            <h2>Cover letters</h2>
             <p class="sub">AI-generated cover letters personalized to each job</p>
         </div>
-        <a asp-controller="Profile" asp-action="Index" class="btn btn-outline-secondary btn-sm">View Profile</a>
+        <a asp-controller="Profile" asp-action="Index" class="btn btn-outline-secondary">View profile</a>
     </div>
 
     @if (!Model.HasActiveResume)
@@ -37,12 +37,12 @@
 
     <!-- ── Generation Form ── -->
     <div class="form-card mb-3">
-        <p class="form-section-title">Generate Cover Letter</p>
+        <p class="form-section-title">Generate a cover letter</p>
 
         <div class="mb-3">
-            <label class="form-label">Job Application</label>
+            <label class="form-label" for="appSelect">Job application</label>
             <select class="form-select" id="appSelect">
-                <option value="">-- No application selected --</option>
+                <option value="">No application selected</option>
                 @foreach (var app in Model.Applications)
                 {
                     if (Model.SelectedApplicationId == app.Id)
@@ -63,8 +63,8 @@
         </div>
 
         <div class="mb-3">
-            <label class="form-label">
-                Extra Notes
+            <label class="form-label" for="extraNotes">
+                Extra notes
                 <span class="text-muted fw-normal">(optional)</span>
             </label>
             <textarea class="form-control" id="extraNotes" rows="3"
@@ -73,9 +73,9 @@
 
         <div class="d-flex align-items-center gap-3">
             <button type="button" class="btn btn-primary px-4" id="generateBtn">
-                Generate Cover Letter
+                Generate cover letter
             </button>
-            <span class="text-muted" style="font-size:.78rem">Powered by GPT-4o mini</span>
+            <span class="form-hint mt-0">Powered by GPT-4o mini</span>
         </div>
 
         <div class="match-error-banner mt-3" id="generateError" hidden></div>
@@ -85,17 +85,17 @@
     <div id="outputSection" hidden>
         <div class="form-card mb-3">
             <div class="d-flex align-items-center justify-content-between mb-1">
-                <p class="form-section-title mb-0">Generated Cover Letter</p>
+                <p class="form-section-title mb-0">Generated cover letter</p>
                 <span class="word-count" id="wordCountDisplay"></span>
             </div>
-            <p class="text-muted mb-3" style="font-size:.78rem" id="outputMeta"></p>
+            <p class="form-hint mt-0 mb-3" id="outputMeta"></p>
 
             <textarea class="form-control cl-output" id="coverLetterOutput"
                       rows="22" spellcheck="true"></textarea>
 
             <div class="d-flex gap-2 flex-wrap mt-3">
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="copyBtn">
-                    Copy to Clipboard
+                    Copy to clipboard
                 </button>
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="downloadPdfBtn">
                     Download as PDF
@@ -106,20 +106,19 @@
                     <input type="hidden" name="content"       id="saveContent" />
                     <input type="hidden" name="company"       id="saveCompany" />
                     <input type="hidden" name="role"          id="saveRole" />
-                    <button type="submit" class="btn btn-primary btn-sm">Save to Profile</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Save to profile</button>
                 </form>
             </div>
-            <div id="copyConfirm" class="text-muted mt-2" style="font-size:.78rem" hidden>Copied to clipboard.</div>
+            <div id="copyConfirm" class="form-hint mt-2" hidden>Copied to clipboard.</div>
 
             <!-- ── Improve with AI ── -->
             <div class="cl-improve-box mt-3">
-                <p class="form-section-title mb-2" style="font-size:.82rem">Improve with AI</p>
+                <p class="form-section-title form-section-title--sm mb-2">Improve with AI</p>
                 <div class="d-flex gap-2 flex-wrap">
-                    <input type="text" class="form-control" id="improveInstructions"
-                           placeholder="e.g. Make it more concise and confident"
-                           style="flex:1;min-width:220px">
-                    <button type="button" class="btn btn-outline-primary btn-sm" id="improveBtn">
-                        Improve Letter
+                    <input type="text" class="form-control flex-grow-1 improve-input" id="improveInstructions"
+                           placeholder="e.g. Make it more concise and confident" aria-label="Improvement instructions">
+                    <button type="button" class="btn btn-outline-primary" id="improveBtn">
+                        Improve letter
                     </button>
                 </div>
                 <div class="match-error-banner mt-2" id="improveError" hidden></div>
@@ -130,18 +129,18 @@
     <!-- ── Saved Cover Letters ── -->
     <div class="form-card">
         <div class="d-flex align-items-center justify-content-between mb-3">
-            <p class="form-section-title mb-0">Saved Cover Letters</p>
+            <p class="form-section-title mb-0">Saved cover letters</p>
             @if (Model.SavedLetters.Any())
             {
-                <span class="text-muted" style="font-size:.75rem">@Model.SavedLetters.Count saved</span>
+                <span class="form-hint mt-0">@Model.SavedLetters.Count saved</span>
             }
         </div>
 
         @if (!Model.SavedLetters.Any())
         {
-            <div class="empty-state" style="padding:2.5rem 1rem">
-                <p class="fw-semibold mb-1" style="color:var(--text);font-size:.9rem">No saved cover letters yet.</p>
-                <p class="mb-0" style="font-size:.82rem">Generate a cover letter above and click Save to Profile.</p>
+            <div class="doc-empty">
+                <p class="doc-empty-title">No saved cover letters yet</p>
+                <p class="doc-empty-text">Generate a cover letter above and click Save to profile.</p>
             </div>
         }
         else
@@ -173,6 +172,7 @@
                             </div>
                         </div>
 
+                        <div class="doc-actions">
                         @if (letter.IsActive)
                         {
                             <span class="active-label">Active</span>
@@ -182,26 +182,23 @@
                             <form asp-action="SetActive" method="post" class="d-inline">
                                 @Html.AntiForgeryToken()
                                 <input type="hidden" name="id" value="@letter.Id" />
-                                <button type="submit" class="btn btn-sm btn-outline-primary"
-                                        style="font-size:.72rem;padding:.2rem .6rem;">Set Active</button>
+                                <button type="submit" class="btn btn-sm btn-outline-primary doc-btn">Set active</button>
                             </form>
                         }
 
-                        <button type="button" class="btn btn-sm btn-outline-secondary"
-                                style="font-size:.72rem;padding:.2rem .6rem;"
+                        <button type="button" class="btn btn-sm btn-outline-secondary doc-btn"
                                 onclick="loadLetter(@letter.Id)">Load</button>
 
                         <a asp-action="Download" asp-route-id="@letter.Id"
-                           class="btn btn-sm btn-outline-secondary"
-                           style="font-size:.72rem;padding:.2rem .6rem;">Download</a>
+                           class="btn btn-sm btn-outline-secondary doc-btn">Download</a>
 
                         <form asp-action="Delete" method="post" class="d-inline"
-                              onsubmit="return confirm('Delete cover letter v@(letter.VersionNumber)? This cannot be undone.')">
+                              data-confirm-title="Delete cover letter v@(letter.VersionNumber)?" data-confirm="This permanently removes the saved letter. This cannot be undone.">
                             @Html.AntiForgeryToken()
                             <input type="hidden" name="id" value="@letter.Id" />
-                            <button type="submit" class="btn btn-sm btn-outline-danger"
-                                    style="font-size:.72rem;padding:.2rem .6rem;">Delete</button>
+                            <button type="submit" class="btn btn-sm btn-outline-danger doc-btn">Delete</button>
                         </form>
+                        </div>
                     </div>
 
                     @* Hidden content for Load button *@
@@ -220,9 +217,7 @@
 }
 
 @section Scripts {
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"
-            integrity="sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfYzoFMB4G/g=="
-            crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="~/lib/jspdf/jspdf.umd.min.js"></script>
     <script>
     (function () {
 
@@ -365,7 +360,7 @@
             improveBtn.disabled = on;
             improveBtn.innerHTML = on
                 ? '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Improving...'
-                : 'Improve Letter';
+                : 'Improve letter';
         }
 
         // ── Sync save content before submit ───────────────────
@@ -459,7 +454,7 @@
             generateBtn.disabled = on;
             generateBtn.innerHTML = on
                 ? '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Generating...'
-                : 'Generate Cover Letter';
+                : 'Generate cover letter';
         }
 
         function showError(msg) {

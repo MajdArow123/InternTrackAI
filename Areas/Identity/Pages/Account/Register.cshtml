@@ -12,8 +12,7 @@
 @if (!ViewData.ModelState.IsValid)
 {
     <div class="auth-alert">
-        <span>⚠</span>
-        <div asp-validation-summary="ModelOnly"></div>
+                <div asp-validation-summary="ModelOnly"></div>
     </div>
 }
 
@@ -27,7 +26,7 @@
     </div>
 
     <div class="auth-field">
-        <label asp-for="Input.DisplayName" class="form-label">Display name <span class="text-muted fw-normal" style="font-size:.85em">(optional — shown in navbar)</span></label>
+        <label asp-for="Input.DisplayName" class="form-label">Display name <span class="text-muted fw-normal">(optional)</span></label>
         <input asp-for="Input.DisplayName" class="form-control auth-input"
                type="text" placeholder="e.g. Alex" autocomplete="nickname" />
         <span asp-validation-for="Input.DisplayName" class="auth-error"></span>
@@ -47,7 +46,7 @@
         <span asp-validation-for="Input.ConfirmPassword" class="auth-error"></span>
     </div>
 
-    <button type="submit" class="btn auth-submit-btn">Create account</button>
+    <button type="submit" class="btn btn-primary auth-submit-btn">Create account</button>
 </form>
 
 <p class="auth-switch">

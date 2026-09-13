@@ -6,7 +6,7 @@
     var app = Model.Application;
 }
 
-<div class="container py-4" style="max-width:860px;">
+<div class="container py-4 container-narrow">
 
     <nav class="breadcrumb-nav" aria-label="breadcrumb">
         <ol class="breadcrumb-list">
@@ -18,16 +18,16 @@
 
     <div class="page-header">
         <div>
-            <h2>Interview Prep</h2>
+            <h2>Interview prep</h2>
             <p class="sub">AI-generated questions tailored to this role and your resume</p>
         </div>
-        <a asp-controller="JobApplications" asp-action="Index" class="btn btn-outline-secondary btn-sm">&larr; Applications</a>
+        <a asp-controller="JobApplications" asp-action="Index" class="btn btn-outline-secondary">Applications</a>
     </div>
 
     <!-- Job info card -->
     <div class="form-card mb-3">
         <div class="d-flex align-items-center gap-3">
-            <div class="company-avatar" style="width:42px;height:42px;font-size:.82rem;border-radius:10px">
+            <div class="company-avatar company-avatar--lg">
                 @{
                     var parts  = app.CompanyName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                     var initials = parts.Length >= 2
@@ -37,26 +37,26 @@
                 @initials
             </div>
             <div>
-                <div style="font-weight:700;font-size:.95rem">@app.CompanyName</div>
-                <div style="color:var(--muted);font-size:.82rem">@app.RoleTitle@(app.Location != null ? " · " + app.Location : "")</div>
+                <div class="prep-company">@app.CompanyName</div>
+                <div class="prep-role">@app.RoleTitle@(app.Location != null ? " · " + app.Location : "")</div>
             </div>
         </div>
     </div>
 
     <!-- Generate card -->
     <div class="form-card mb-3">
-        <p class="form-section-title">Generate Interview Questions</p>
+        <p class="form-section-title">Generate interview questions</p>
 
         @if (Model.Session is not null)
         {
-            <p class="text-muted mb-3" style="font-size:.82rem">
+            <p class="form-hint mb-3">
                 Last generated on @Model.Session.GeneratedAt.ToLocalTime().ToString("MMM d, yyyy 'at' h:mm tt").
                 Regenerate to get a fresh set based on your current resume and skills.
             </p>
         }
         else
         {
-            <p class="text-muted mb-3" style="font-size:.82rem">
+            <p class="form-hint mb-3">
                 The AI will generate 8–10 interview questions covering Technical, Behavioral, and
                 Company-Specific topics, using the job description and your active resume.
             </p>
@@ -65,16 +65,16 @@
         @Html.AntiForgeryToken()
         <div class="d-flex align-items-center gap-3">
             <button type="button" class="btn btn-primary px-4" id="generateBtn">
-                @(Model.Session is null ? "Generate Interview Prep" : "Regenerate")
+                @(Model.Session is null ? "Generate interview prep" : "Regenerate")
             </button>
-            <span class="text-muted" style="font-size:.78rem">Powered by GPT-4o mini</span>
+            <span class="form-hint mt-0">Powered by GPT-4o mini</span>
         </div>
         <div class="match-error-banner mt-3" id="generateError" hidden></div>
     </div>
 
     <!-- Questions section -->
     <div id="questionsSection" @(Model.Questions.Any() ? "" : "hidden")>
-        <div id="generatedAt" class="text-muted mb-3" style="font-size:.78rem">
+        <div id="generatedAt" class="form-hint mb-3">
             @if (Model.Session is not null)
             {
                 @($"Generated on {Model.Session.GeneratedAt.ToLocalTime():MMM d, yyyy}")
@@ -97,7 +97,7 @@
                     <div class="prep-category-section mb-4">
                         <div class="prep-category-header">
                             <span class="prep-category-badge @catCss.GetValueOrDefault(cat, "prep-cat-technical")">@cat</span>
-                            <span class="text-muted" style="font-size:.75rem">@qs.Count question@(qs.Count == 1 ? "" : "s")</span>
+                            <span class="form-hint mt-0">@qs.Count question@(qs.Count == 1 ? "" : "s")</span>
                         </div>
                         <div class="prep-questions-list">
                             @foreach (var q in qs)
@@ -110,11 +110,11 @@
                                             <span class="prep-tip-label">Tip</span>@q.Tip
                                         </div>
                                     }
-                                    <button type="button" class="btn btn-outline-primary btn-sm prep-practice-toggle mt-2">Practice This Answer</button>
+                                    <button type="button" class="btn btn-outline-primary btn-sm prep-practice-toggle mt-2">Practice this answer</button>
                                     <div class="prep-practice-box" hidden>
-                                        <textarea class="prep-answer-input" rows="4" placeholder="Type your answer..."></textarea>
+                                        <textarea class="prep-answer-input" rows="4" placeholder="Type your answer…"></textarea>
                                         <div class="d-flex justify-content-end mt-2">
-                                            <button type="button" class="btn btn-primary btn-sm prep-feedback-btn">Get Feedback</button>
+                                            <button type="button" class="btn btn-primary btn-sm prep-feedback-btn">Get feedback</button>
                                         </div>
                                         <div class="prep-feedback-result" hidden></div>
                                         <div class="match-error-banner prep-feedback-error mt-2" hidden></div>
@@ -198,18 +198,18 @@
             html += `<div class="prep-category-section mb-4">
                 <div class="prep-category-header">
                     <span class="prep-category-badge ${CAT_CSS[cat] || 'prep-cat-technical'}">${cat}</span>
-                    <span class="text-muted" style="font-size:.75rem">${qs.length} question${qs.length > 1 ? 's' : ''}</span>
+                    <span class="form-hint mt-0">${qs.length} question${qs.length > 1 ? 's' : ''}</span>
                 </div>
                 <div class="prep-questions-list">`;
             qs.forEach(q => {
                 html += `<div class="prep-question-card" data-question="${esc(q.question)}">
                     <div class="prep-question-text">${esc(q.question)}</div>
                     ${q.tip ? `<div class="prep-tip"><span class="prep-tip-label">Tip</span>${esc(q.tip)}</div>` : ''}
-                    <button type="button" class="btn btn-outline-primary btn-sm prep-practice-toggle mt-2">Practice This Answer</button>
+                    <button type="button" class="btn btn-outline-primary btn-sm prep-practice-toggle mt-2">Practice this answer</button>
                     <div class="prep-practice-box" hidden>
-                        <textarea class="prep-answer-input" rows="4" placeholder="Type your answer..."></textarea>
+                        <textarea class="prep-answer-input" rows="4" placeholder="Type your answer…"></textarea>
                         <div class="d-flex justify-content-end mt-2">
-                            <button type="button" class="btn btn-primary btn-sm prep-feedback-btn">Get Feedback</button>
+                            <button type="button" class="btn btn-primary btn-sm prep-feedback-btn">Get feedback</button>
                         </div>
                         <div class="prep-feedback-result" hidden></div>
                         <div class="match-error-banner prep-feedback-error mt-2" hidden></div>
@@ -229,7 +229,7 @@
         generateBtn.disabled = on;
         generateBtn.innerHTML = on
             ? '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Generating...'
-            : (questionsSection.hidden ? 'Generate Interview Prep' : 'Regenerate');
+            : (questionsSection.hidden ? 'Generate interview prep' : 'Regenerate');
         if (on) {
             questionsContainer.innerHTML =
                 '<div class="ai-shimmer-wrap" style="margin-top:.5rem">' +
@@ -250,7 +250,7 @@
         if (toggleBtn) {
             const box = toggleBtn.nextElementSibling;
             box.hidden = !box.hidden;
-            toggleBtn.textContent = box.hidden ? 'Practice This Answer' : 'Hide Practice Box';
+            toggleBtn.textContent = box.hidden ? 'Practice this answer' : 'Hide practice box';
             return;
         }
 

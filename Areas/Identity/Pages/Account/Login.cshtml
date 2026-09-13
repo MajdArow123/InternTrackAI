@@ -12,8 +12,7 @@
 @if (!ViewData.ModelState.IsValid)
 {
     <div class="auth-alert">
-        <span>⚠</span>
-        <div asp-validation-summary="ModelOnly"></div>
+                <div asp-validation-summary="ModelOnly"></div>
     </div>
 }
 
@@ -41,7 +40,7 @@
         <label class="form-check-label" for="rememberMe">Remember me for 30 days</label>
     </div>
 
-    <button type="submit" class="btn auth-submit-btn">Sign in</button>
+    <button type="submit" class="btn btn-primary auth-submit-btn">Sign in</button>
 </form>
 
 <p class="auth-switch">

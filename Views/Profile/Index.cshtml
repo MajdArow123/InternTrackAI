@@ -27,7 +27,7 @@
     string CircStr = Circ.ToString("F2", CultureInfo.InvariantCulture);
 }
 
-<div class="container py-4" style="max-width:900px;">
+<div class="container py-4 container-narrow">
 
     <!-- Breadcrumb -->
     <nav class="breadcrumb-nav" aria-label="breadcrumb">
@@ -40,90 +40,84 @@
     <div class="page-header">
         <div>
             <h2>Profile</h2>
-            <p class="sub">Manage your career information, documents, and AI tools</p>
+            <p class="sub">Your career information, documents, and AI tools</p>
         </div>
         <a asp-area="Identity" asp-page="/Account/Manage/Index"
-           class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-1">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+           class="btn btn-outline-secondary d-inline-flex align-items-center gap-2">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
-            Account Settings
+            Account settings
         </a>
     </div>
 
-    <!-- ── Resumes (moved to top: upload + AI auto-fill is the natural starting point) ── -->
-    <div class="form-card mb-3 resume-hero-card @(Model.Resumes.Any() ? "has-resume" : "")" id="resumeHeroCard">
-        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-            <p class="form-section-title mb-0">Resume</p>
-            <span class="text-muted" style="font-size:.75rem">@Model.Resumes.Count version(s)</span>
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show mb-3 profile-success-alert" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="match-error-banner mb-3">@TempData["Error"]</div>
+    }
+    @if (TempData["ScoreError"] != null)
+    {
+        <div class="match-error-banner mb-3">@TempData["ScoreError"]</div>
+    }
+
+    <!-- ── Identity card: avatar, name, stats ── -->
+    <div class="form-card mb-3 profile-hero">
+        <div class="profile-photo-row">
+            @if (photoPath != null)
+            {
+                <img src="@photoPath" class="profile-avatar" alt="Profile photo" />
+            }
+            else
+            {
+                <div class="profile-avatar-placeholder">@initials</div>
+            }
+            <div class="profile-identity">
+                <p class="profile-photo-name mb-0">@(Model.Profile.FullName ?? "Your name")</p>
+                <p class="profile-photo-email">@Model.Email</p>
+                <form asp-action="UploadPhoto" method="post" enctype="multipart/form-data" class="profile-photo-form">
+                    @Html.AntiForgeryToken()
+                    <label class="btn btn-outline-secondary btn-sm file-pick" for="photoInput">
+                        <span class="file-pick-label">Choose photo</span>
+                        <input type="file" name="photo" id="photoInput" accept=".jpg,.jpeg,.png,.webp" class="file-pick-input" />
+                    </label>
+                    <button type="submit" class="btn btn-primary btn-sm">Update photo</button>
+                </form>
+            </div>
         </div>
 
-        @if (Model.Resumes.Any())
-        {
-            <div class="doc-list mb-3">
-                @foreach (var r in Model.Resumes)
+        <div class="profile-stat-strip">
+            <div class="profile-stat">
+                <span class="profile-stat-num">@Model.TotalApplications</span>
+                <span class="profile-stat-label">Total</span>
+            </div>
+            @foreach (var entry in Model.StatusCounts)
+            {
+                var dotClass = entry.Key switch
                 {
-                    <div class="doc-row @(r.IsActive ? "doc-active" : "")">
-                        <span class="doc-version-badge">v@(r.VersionNumber)</span>
-                        <div class="doc-info">
-                            <div class="doc-filename">@r.OriginalFileName</div>
-                            <div class="doc-meta">
-                                @r.UploadedAt.ToLocalTime().ToString("MMM d, yyyy") &middot;
-                                @((r.FileSize / 1024.0).ToString("F0")) KB
-                            </div>
-                        </div>
-                        @if (r.IsActive)
-                        {
-                            <span class="active-label">Active</span>
-                        }
-                        else
-                        {
-                            <form asp-action="SetActiveResume" method="post" class="d-inline">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@r.Id" />
-                                <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:.72rem;padding:.2rem .6rem;">Set Active</button>
-                            </form>
-                        }
-                        <a asp-action="DownloadResume" asp-route-id="@r.Id"
-                           class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:.2rem .6rem;">Download</a>
-                        <form asp-action="DeleteResume" method="post" class="d-inline"
-                              onsubmit="return confirm('Delete Resume v@(r.VersionNumber)? This cannot be undone.')">
-                            @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@r.Id" />
-                            <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:.2rem .6rem;">Delete</button>
-                        </form>
-                    </div>
-                }
+                    InternTrackAI.Models.Enums.ApplicationStatus.Saved      => "dot-saved",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Applied    => "dot-applied",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Interview  => "dot-interview",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Offer      => "dot-offer",
+                    InternTrackAI.Models.Enums.ApplicationStatus.Rejected   => "dot-rejected",
+                    _ => ""
+                };
+                <div class="profile-stat">
+                    <span class="profile-stat-num">@entry.Value</span>
+                    <span class="profile-stat-label"><span class="profile-stat-dot @dotClass"></span>@entry.Key</span>
+                </div>
+            }
+            <div class="profile-stat">
+                <span class="profile-stat-num text-success">@Model.SuccessRate<span class="profile-stat-unit">%</span></span>
+                <span class="profile-stat-label">Success rate</span>
             </div>
-        }
-        else
-        {
-            <p class="text-muted mb-3" style="font-size:.875rem">No resume uploaded yet. Upload one below, then let AI fill in your name, skills, and target roles.</p>
-        }
-
-        <form asp-action="UploadResume" method="post" enctype="multipart/form-data">
-            @Html.AntiForgeryToken()
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <input type="file" name="resume" accept=".pdf"
-                       class="form-control" style="width:auto;font-size:.875rem;" />
-                <button type="submit" class="btn btn-primary">Upload New Resume</button>
-                <span class="text-muted" style="font-size:.75rem">PDF only &middot; Max 5 MB</span>
-            </div>
-        </form>
-
-        @if (Model.Resumes.Any(r => r.IsActive))
-        {
-            <div class="mt-3 pt-3" style="border-top:1px solid var(--border)">
-                <button type="button" class="analyze-btn" id="analyzeBtn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2l1.8 5.5L19 9l-5.2 1.5L12 16l-1.8-5.5L5 9l5.2-1.5z"/>
-                    </svg>
-                    <span id="analyzeBtnLabel">Analyze with AI</span>
-                </button>
-                <span class="ms-2 text-muted" style="font-size:.78rem">Auto-fills your name, skills, and target roles from your active resume</span>
-                <div id="analyzeError" class="match-error-banner mt-2" style="display:none"></div>
-            </div>
-        }
+        </div>
     </div>
 
     <!-- Quick Stats -->
@@ -131,13 +125,13 @@
     {
         <div class="quick-stats-row">
             <div class="quick-stat-card">
-                <div class="quick-stat-label">This Month</div>
+                <div class="quick-stat-label">This month</div>
                 <div class="quick-stat-value">@Model.ApplicationsThisMonth</div>
                 <div class="quick-stat-sub">application@(Model.ApplicationsThisMonth == 1 ? "" : "s") applied</div>
             </div>
 
             <div class="quick-stat-card">
-                <div class="quick-stat-label">Upcoming Deadlines</div>
+                <div class="quick-stat-label">Upcoming deadlines</div>
                 @if (Model.UpcomingDeadlines7Days.Any())
                 {
                     <div class="quick-stat-value">@Model.UpcomingDeadlines7Days.Count</div>
@@ -161,7 +155,7 @@
             </div>
 
             <div class="quick-stat-card">
-                <div class="quick-stat-label">Recent Matches</div>
+                <div class="quick-stat-label">Recent matches</div>
                 @if (Model.RecentMatchedApps.Any())
                 {
                     <div class="quick-stat-value">@Model.RecentMatchedApps.Count</div>
@@ -171,8 +165,8 @@
                             var sc       = app.MatchScore!.Value;
                             var tierCls  = sc >= 80 ? "match-tier-5" : sc >= 60 ? "match-tier-4" : sc >= 40 ? "match-tier-3" : sc >= 20 ? "match-tier-2" : "match-tier-1";
                             <div class="quick-match-item">
-                                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">@app.CompanyName</span>
-                                <span class="match-rec-badge @tierCls" style="font-size:.68rem;padding:.12em .55em">@sc%</span>
+                                <span class="text-truncate">@app.CompanyName</span>
+                                <span class="match-rec-badge match-rec-badge--sm @tierCls">@sc%</span>
                             </div>
                         }
                     </div>
@@ -186,59 +180,43 @@
         </div>
     }
 
-    @if (TempData["Success"] != null)
-    {
-        <div class="alert alert-dismissible fade show py-2 mb-3 profile-success-alert" role="alert">
-            @TempData["Success"]
-            <button type="button" class="btn-close btn-sm" data-bs-dismiss="alert"></button>
+    <!-- ── Public Profile Link ── -->
+    <div class="form-card mb-3">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+                <p class="form-section-title mb-1">Public profile</p>
+                <p class="form-hint mb-0">Share a read-only link with name, skills, target roles, and stats. No resumes, cover letters, or email are ever shown.</p>
+            </div>
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" role="switch" id="publicProfileToggle"
+                       @(Model.Profile.IsPublic ? "checked" : "") aria-label="Make profile public">
+            </div>
         </div>
-    }
-    @if (TempData["Error"] != null)
-    {
-        <div class="match-error-banner mb-3">@TempData["Error"]</div>
-    }
-    @if (TempData["ScoreError"] != null)
-    {
-        <div class="match-error-banner mb-3">@TempData["ScoreError"]</div>
-    }
+        <div id="publicLinkRow" class="d-flex align-items-center gap-2 mt-3 flex-wrap @(Model.Profile.IsPublic ? "" : "d-none")">
+            <input type="text" class="form-control public-link-input" id="publicLinkInput" readonly aria-label="Public profile link"
+                   value="@(Model.Profile.PublicSlug != null ? Url.Action("Public", "Profile", new { slug = Model.Profile.PublicSlug }, Context.Request.Scheme) : "")" />
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="copyPublicLinkBtn">Copy</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="regenLinkBtn">Regenerate link</button>
+            <span class="save-indicator" id="publicLinkIndicator">Copied &#10003;</span>
+        </div>
+    </div>
 
     <!-- ── Personal Info ── -->
     <div class="form-card mb-3">
-        <p class="form-section-title">Personal Info</p>
-
-        <div class="profile-photo-row">
-            @if (photoPath != null)
-            {
-                <img src="@photoPath" class="profile-avatar" alt="Profile photo" />
-            }
-            else
-            {
-                <div class="profile-avatar-placeholder">@initials</div>
-            }
-            <div>
-                <p class="profile-photo-name mb-0">@(Model.Profile.FullName ?? "Your Name")</p>
-                <p class="profile-photo-email">@Model.Email</p>
-                <form asp-action="UploadPhoto" method="post" enctype="multipart/form-data" class="d-inline-flex align-items-center gap-2 mt-1">
-                    @Html.AntiForgeryToken()
-                    <input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp"
-                           class="form-control form-control-sm" style="width:auto;font-size:.78rem;" />
-                    <button type="submit" class="btn btn-sm btn-outline-secondary">Update Photo</button>
-                </form>
-            </div>
-        </div>
-
+        <p class="form-section-title">Basic info</p>
+        <p class="form-hint mb-3">Used across the app and, if enabled, on your public profile.</p>
         <form id="infoForm">
             @Html.AntiForgeryToken()
             <div class="row g-3">
                 <div class="col-sm-6">
-                    <label class="form-label">Full Name</label>
+                    <label class="form-label" for="fullNameInput">Full name</label>
                     <div class="field-skeleton-wrap" id="fullNameWrap">
                         <input name="fullName" id="fullNameInput" class="form-control" placeholder="e.g. Alex Johnson"
                                value="@Model.Profile.FullName" />
                     </div>
                 </div>
                 <div class="col-sm-6">
-                    <label class="form-label">Display Name <span class="text-muted fw-normal">(shown in navbar)</span></label>
+                    <label class="form-label">Display name <span class="text-muted fw-normal">(shown in navbar)</span></label>
                     <input name="displayName" class="form-control" placeholder="e.g. Alex"
                            value="@Model.Profile.DisplayName" />
                 </div>
@@ -257,122 +235,21 @@
                     <input class="form-control" value="@Model.Email" disabled />
                 </div>
                 <div class="col-sm-6">
-                    <label class="form-label">Phone Number <span class="text-muted fw-normal">(optional)</span></label>
+                    <label class="form-label">Phone number <span class="text-muted fw-normal">(optional)</span></label>
                     <input name="phoneNumber" class="form-control" placeholder="e.g. +1 555 123 4567"
                            value="@Model.Profile.PhoneNumber" />
                 </div>
                 <div class="col-sm-6">
-                    <label class="form-label">GitHub Username <span class="text-muted fw-normal">(optional)</span></label>
+                    <label class="form-label">GitHub username <span class="text-muted fw-normal">(optional)</span></label>
                     <input name="githubUsername" class="form-control" placeholder="e.g. octocat"
                            value="@Model.Profile.GitHubUsername" />
                 </div>
             </div>
             <div class="mt-3 d-flex align-items-center">
-                <button type="submit" class="btn btn-primary px-4" id="saveInfoBtn">Save Info</button>
+                <button type="submit" class="btn btn-primary px-4" id="saveInfoBtn">Save info</button>
                 <span class="save-indicator" id="infoSaveIndicator">Saved &#10003;</span>
             </div>
         </form>
-    </div>
-
-    <!-- ── Public Profile Link ── -->
-    <div class="form-card mb-3">
-        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-            <div>
-                <p class="form-section-title mb-1">Public Profile</p>
-                <p class="text-muted mb-0" style="font-size:.82rem">Share a read-only link with name, skills, target roles, and stats. No resumes, cover letters, or email are ever shown.</p>
-            </div>
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" role="switch" id="publicProfileToggle"
-                       @(Model.Profile.IsPublic ? "checked" : "") style="width:2.5em;height:1.3em;cursor:pointer;">
-            </div>
-        </div>
-        <div id="publicLinkRow" class="d-flex align-items-center gap-2 mt-3 flex-wrap @(Model.Profile.IsPublic ? "" : "d-none")">
-            <input type="text" class="form-control" id="publicLinkInput" readonly
-                   style="font-size:.82rem;max-width:420px;"
-                   value="@(Model.Profile.PublicSlug != null ? Url.Action("Public", "Profile", new { slug = Model.Profile.PublicSlug }, Context.Request.Scheme) : "")" />
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="copyPublicLinkBtn">Copy</button>
-            <button type="button" class="btn btn-sm btn-outline-secondary" id="regenLinkBtn">Regenerate Link</button>
-            <span class="save-indicator" id="publicLinkIndicator">Copied &#10003;</span>
-        </div>
-    </div>
-
-    @if (!string.IsNullOrWhiteSpace(Model.Profile.GitHubUsername))
-    {
-        <!-- ── GitHub Projects ── -->
-        <div class="form-card mb-3">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-                <p class="form-section-title mb-0">Projects</p>
-                <a href="https://github.com/@Model.Profile.GitHubUsername" target="_blank" rel="noopener"
-                   class="text-muted" style="font-size:.78rem">@@@Model.Profile.GitHubUsername on GitHub &rarr;</a>
-            </div>
-            @if (Model.GitHubRepos == null)
-            {
-                <p class="text-muted mb-0" style="font-size:.82rem">Couldn't load repos for this username right now.</p>
-            }
-            else if (!Model.GitHubRepos.Any())
-            {
-                <p class="text-muted mb-0" style="font-size:.82rem">No public repos found for this username.</p>
-            }
-            else
-            {
-                <div class="doc-list">
-                    @foreach (var repo in Model.GitHubRepos)
-                    {
-                        <a class="doc-row" href="@repo.Url" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
-                            <div class="doc-info">
-                                <div class="doc-filename">@repo.Name</div>
-                                <div class="doc-meta">
-                                    @(string.IsNullOrWhiteSpace(repo.Description) ? "No description" : repo.Description)
-                                </div>
-                            </div>
-                            @if (!string.IsNullOrWhiteSpace(repo.Language))
-                            {
-                                <span class="active-label">@repo.Language</span>
-                            }
-                            <span class="text-muted" style="font-size:.78rem">&#9733; @repo.Stars</span>
-                        </a>
-                    }
-                </div>
-            }
-        </div>
-    }
-
-    <!-- ── Application Stats ── -->
-    <div class="form-card mb-3">
-        <p class="form-section-title">Application Stats</p>
-        <div class="row g-2 mb-2">
-            <div class="col-6 col-sm-4 col-md-2">
-                <div class="mini-stat">
-                    <div class="mini-stat-num" style="color:var(--primary)">@Model.TotalApplications</div>
-                    <div class="mini-stat-label">Total</div>
-                </div>
-            </div>
-            @foreach (var entry in Model.StatusCounts)
-            {
-                var colorClass = entry.Key switch
-                {
-                    InternTrackAI.Models.Enums.ApplicationStatus.Saved      => "mini-stat-saved",
-                    InternTrackAI.Models.Enums.ApplicationStatus.Applied    => "mini-stat-applied",
-                    InternTrackAI.Models.Enums.ApplicationStatus.Interview  => "mini-stat-interview",
-                    InternTrackAI.Models.Enums.ApplicationStatus.Offer      => "mini-stat-offer",
-                    InternTrackAI.Models.Enums.ApplicationStatus.Rejected   => "mini-stat-rejected",
-                    _ => ""
-                };
-                <div class="col-6 col-sm-4 col-md-2">
-                    <div class="mini-stat">
-                        <div class="mini-stat-num @colorClass">@entry.Value</div>
-                        <div class="mini-stat-label">@entry.Key</div>
-                    </div>
-                </div>
-            }
-            <div class="col-6 col-sm-4 col-md-2">
-                <div class="mini-stat">
-                    <div class="mini-stat-num mini-stat-offer">@Model.SuccessRate<span style="font-size:1rem;font-weight:600">%</span></div>
-                    <div class="mini-stat-label">Success Rate</div>
-                </div>
-            </div>
-        </div>
-        <p class="text-muted mb-0" style="font-size:.75rem">Success rate = Offers &divide; Total applications</p>
     </div>
 
     <!-- ── Skills ── -->
@@ -381,7 +258,7 @@
             <p class="form-section-title mb-0">Skills</p>
             <span class="save-indicator" id="skillsSaveIndicator">Saved &#10003;</span>
         </div>
-        <p class="text-muted mb-3" style="font-size:.82rem">Add your technical and professional skills. These are used as context during AI resume matching. Changes save automatically.</p>
+        <p class="form-hint mb-3">Add your technical and professional skills. These are used as context during AI resume matching. Changes save automatically.</p>
         <div class="field-skeleton-wrap" id="skillsWrap">
             <input type="hidden" id="skillsJsonInput" />
             <div class="tag-manager">
@@ -397,16 +274,16 @@
     <!-- ── Target Roles ── -->
     <div class="form-card mb-3">
         <div class="d-flex align-items-center mb-1">
-            <p class="form-section-title mb-0">Target Roles</p>
+            <p class="form-section-title mb-0">Target roles</p>
             <span class="save-indicator" id="rolesSaveIndicator">Saved &#10003;</span>
         </div>
-        <p class="text-muted mb-3" style="font-size:.82rem">Search common internship roles or type your own. These help the AI give more relevant scoring and advice. Changes save automatically.</p>
+        <p class="form-hint mb-3">Search common internship roles or type your own. These help the AI give more relevant scoring and advice. Changes save automatically.</p>
         <div class="field-skeleton-wrap" id="rolesWrap">
             <input type="hidden" id="rolesJsonInput" />
             <div class="tag-manager">
                 <div class="tag-input-row">
                     <div class="role-combobox-wrap">
-                        <input type="text" class="tag-text-input" id="rolesText" placeholder="Search or type a role..." autocomplete="off" style="max-width:220px" />
+                        <input type="text" class="tag-text-input" id="rolesText" placeholder="Search or type a role…" autocomplete="off" />
                         <ul class="role-combobox-list" id="rolesComboList"></ul>
                     </div>
                     <button type="button" class="tag-add-btn" id="rolesAdd">Add</button>
@@ -416,88 +293,109 @@
         </div>
     </div>
 
-    <!-- ── Cover Letters ── -->
-    <div class="form-card mb-3">
-        <div class="d-flex align-items-center justify-content-between mb-3">
-            <p class="form-section-title mb-0">Cover Letters</p>
-            <span class="text-muted" style="font-size:.75rem">@Model.CoverLetters.Count version(s)</span>
+    <!-- ── Resume: versions, drop zone, AI analyze, AI score ── -->
+    <div class="form-card mb-3 resume-hero-card @(Model.Resumes.Any() ? "has-resume" : "")" id="resumeHeroCard">
+        <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+            <p class="form-section-title mb-0">Resume</p>
+            <span class="form-hint mt-0">@Model.Resumes.Count version@(Model.Resumes.Count == 1 ? "" : "s")</span>
         </div>
 
-        @if (Model.CoverLetters.Any())
+        @if (Model.Resumes.Any())
         {
             <div class="doc-list mb-3">
-                @foreach (var cl in Model.CoverLetters)
+                @foreach (var r in Model.Resumes)
                 {
-                    <div class="doc-row @(cl.IsActive ? "doc-active" : "")">
-                        <span class="doc-version-badge">v@(cl.VersionNumber)</span>
+                    <div class="doc-row @(r.IsActive ? "doc-active" : "")">
+                        <span class="doc-version-badge">v@(r.VersionNumber)</span>
                         <div class="doc-info">
-                            <div class="doc-filename">@cl.OriginalFileName</div>
+                            <div class="doc-filename">@r.OriginalFileName</div>
                             <div class="doc-meta">
-                                @cl.UploadedAt.ToLocalTime().ToString("MMM d, yyyy") &middot;
-                                @((cl.FileSize / 1024.0).ToString("F0")) KB
+                                @r.UploadedAt.ToLocalTime().ToString("MMM d, yyyy") &middot;
+                                @((r.FileSize / 1024.0).ToString("F0")) KB
                             </div>
                         </div>
-                        @if (cl.IsActive)
+                        <div class="doc-actions">
+                        @if (r.IsActive)
                         {
                             <span class="active-label">Active</span>
                         }
                         else
                         {
-                            <form asp-action="SetActiveCoverLetter" method="post" class="d-inline">
+                            <form asp-action="SetActiveResume" method="post" class="d-inline">
                                 @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@cl.Id" />
-                                <button type="submit" class="btn btn-sm btn-outline-primary" style="font-size:.72rem;padding:.2rem .6rem;">Set Active</button>
+                                <input type="hidden" name="id" value="@r.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-primary doc-btn">Set active</button>
                             </form>
                         }
-                        <a asp-action="DownloadCoverLetter" asp-route-id="@cl.Id"
-                           class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:.2rem .6rem;">Download</a>
-                        <form asp-action="DeleteCoverLetter" method="post" class="d-inline"
-                              onsubmit="return confirm('Delete Cover Letter v@(cl.VersionNumber)? This cannot be undone.')">
+                        <a asp-action="DownloadResume" asp-route-id="@r.Id"
+                           class="btn btn-sm btn-outline-secondary doc-btn">Download</a>
+                        <form asp-action="DeleteResume" method="post" class="d-inline"
+                              data-confirm-title="Delete resume v@(r.VersionNumber)?" data-confirm="This permanently removes the file. This cannot be undone.">
                             @Html.AntiForgeryToken()
-                            <input type="hidden" name="id" value="@cl.Id" />
-                            <button type="submit" class="btn btn-sm btn-outline-danger" style="font-size:.72rem;padding:.2rem .6rem;">Delete</button>
+                            <input type="hidden" name="id" value="@r.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger doc-btn">Delete</button>
                         </form>
+                        </div>
                     </div>
                 }
             </div>
         }
         else
         {
-            <p class="text-muted mb-3" style="font-size:.875rem">No cover letters uploaded yet.</p>
+            <div class="doc-empty mb-3">
+                <p class="doc-empty-title">No resume yet</p>
+                <p class="doc-empty-text">Upload a PDF below, then let AI fill in your name, skills, and target roles.</p>
+            </div>
         }
 
-        <form asp-action="UploadCoverLetter" method="post" enctype="multipart/form-data">
+        <form asp-action="UploadResume" method="post" enctype="multipart/form-data" class="upload-form">
             @Html.AntiForgeryToken()
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <input type="file" name="coverLetter" accept=".pdf"
-                       class="form-control" style="width:auto;font-size:.875rem;" />
-                <button type="submit" class="btn btn-primary">Upload New Cover Letter</button>
-                <span class="text-muted" style="font-size:.75rem">PDF only &middot; Max 5 MB</span>
+            <label class="upload-zone" for="resumeInput">
+                <input type="file" name="resume" id="resumeInput" accept=".pdf" class="upload-zone-input" />
+                <span class="upload-zone-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </span>
+                <span class="upload-zone-title">Drop a PDF here or <span class="upload-zone-link">browse</span></span>
+                <span class="upload-zone-hint">PDF only &middot; max 5 MB</span>
+                <span class="upload-zone-file" hidden></span>
+            </label>
+            <div class="d-flex align-items-center gap-2 mt-2">
+                <button type="submit" class="btn btn-primary">Upload new resume</button>
             </div>
         </form>
+
+        @if (Model.Resumes.Any(r => r.IsActive))
+        {
+            <div class="mt-3 pt-3 analyze-row">
+                <button type="button" class="btn btn-primary analyze-btn" id="analyzeBtn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2l1.8 5.5L19 9l-5.2 1.5L12 16l-1.8-5.5L5 9l5.2-1.5z"/>
+                    </svg>
+                    <span id="analyzeBtnLabel">Analyze with AI</span>
+                </button>
+                <span class="form-hint mt-0">Auto-fills your name, skills, and target roles from your active resume</span>
+                <div id="analyzeError" class="match-error-banner mt-2 w-100" style="display:none"></div>
+            </div>
+        }
     </div>
 
     <!-- ── AI Resume Score ── -->
     <div class="form-card mb-3">
-        <p class="form-section-title">AI Resume Score</p>
-        <p class="text-muted mb-3" style="font-size:.82rem">
-            Score your active resume using GPT-4o mini. Get an overall quality score, strengths, and specific improvement suggestions.
-        </p>
+        <p class="form-section-title">AI resume score</p>
+        <p class="form-hint mb-3">Score your active resume with GPT-4o mini for an overall quality score, strengths, and specific improvements.</p>
 
         @if (!Model.Resumes.Any(r => r.IsActive))
         {
-            <p class="text-muted" style="font-size:.875rem">
-                Upload a resume and set it as active to enable scoring.
-            </p>
+            <p class="form-hint mb-0">Upload a resume and set it as active to enable scoring.</p>
         }
         else
         {
             <form asp-action="ScoreResume" method="post">
                 @Html.AntiForgeryToken()
                 <button type="submit" class="btn btn-primary px-4" id="scoreBtn">
-                    Score My Resume
+                    Score my resume
                 </button>
-                <span class="ms-2 text-muted" style="font-size:.78rem">Powered by GPT-4o mini</span>
+                <span class="ms-2 form-hint mt-0 d-inline-block">Powered by GPT-4o mini</span>
             </form>
 
             @if (Model.ScoreResult != null)
@@ -520,7 +418,7 @@
                             </div>
                         </div>
                         <div class="match-score-right">
-                            <p class="match-score-title">Resume Quality Score</p>
+                            <p class="match-score-title">Resume quality score</p>
                             <p class="match-summary">@Model.ScoreResult.Summary</p>
                         </div>
                     </div>
@@ -529,7 +427,7 @@
                         @if (Model.ScoreResult.Strengths.Any())
                         {
                             <div class="col-md-6">
-                                <div class="form-card">
+                                <div class="form-card form-card-inset">
                                     <p class="form-section-title section-title--strengths">Strengths</p>
                                     <ul class="match-strengths-list">
                                         @foreach (var s in Model.ScoreResult.Strengths)
@@ -541,7 +439,7 @@
                         @if (Model.ScoreResult.Improvements.Any())
                         {
                             <div class="col-md-6">
-                                <div class="form-card">
+                                <div class="form-card form-card-inset">
                                     <p class="form-section-title section-title--improvements">Improvements</p>
                                     <ul class="match-strengths-list">
                                         @foreach (var imp in Model.ScoreResult.Improvements)
@@ -560,9 +458,144 @@
         }
     </div>
 
+    <!-- ── Cover Letters ── -->
+    <div class="form-card mb-3">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <p class="form-section-title mb-0">Cover letters</p>
+            <span class="form-hint mt-0">@Model.CoverLetters.Count version@(Model.CoverLetters.Count == 1 ? "" : "s")</span>
+        </div>
+
+        @if (Model.CoverLetters.Any())
+        {
+            <div class="doc-list mb-3">
+                @foreach (var cl in Model.CoverLetters)
+                {
+                    <div class="doc-row @(cl.IsActive ? "doc-active" : "")">
+                        <span class="doc-version-badge">v@(cl.VersionNumber)</span>
+                        <div class="doc-info">
+                            <div class="doc-filename">@cl.OriginalFileName</div>
+                            <div class="doc-meta">
+                                @cl.UploadedAt.ToLocalTime().ToString("MMM d, yyyy") &middot;
+                                @((cl.FileSize / 1024.0).ToString("F0")) KB
+                            </div>
+                        </div>
+                        <div class="doc-actions">
+                        @if (cl.IsActive)
+                        {
+                            <span class="active-label">Active</span>
+                        }
+                        else
+                        {
+                            <form asp-action="SetActiveCoverLetter" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@cl.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-primary doc-btn">Set active</button>
+                            </form>
+                        }
+                        <a asp-action="DownloadCoverLetter" asp-route-id="@cl.Id"
+                           class="btn btn-sm btn-outline-secondary doc-btn">Download</a>
+                        <form asp-action="DeleteCoverLetter" method="post" class="d-inline"
+                              data-confirm-title="Delete cover letter v@(cl.VersionNumber)?" data-confirm="This permanently removes the file. This cannot be undone.">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@cl.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger doc-btn">Delete</button>
+                        </form>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="doc-empty mb-3">
+                <p class="doc-empty-title">No cover letters yet</p>
+                <p class="doc-empty-text">Upload a PDF, or generate one with the Cover Letter tool.</p>
+            </div>
+        }
+
+        <form asp-action="UploadCoverLetter" method="post" enctype="multipart/form-data" class="upload-form">
+            @Html.AntiForgeryToken()
+            <label class="upload-zone upload-zone--compact" for="coverLetterInput">
+                <input type="file" name="coverLetter" id="coverLetterInput" accept=".pdf" class="upload-zone-input" />
+                <span class="upload-zone-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </span>
+                <span class="upload-zone-title">Drop a PDF here or <span class="upload-zone-link">browse</span></span>
+                <span class="upload-zone-hint">PDF only &middot; max 5 MB</span>
+                <span class="upload-zone-file" hidden></span>
+            </label>
+            <div class="d-flex align-items-center gap-2 mt-2">
+                <button type="submit" class="btn btn-primary">Upload new cover letter</button>
+            </div>
+        </form>
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(Model.Profile.GitHubUsername))
+    {
+        <!-- ── GitHub Projects ── -->
+        <div class="form-card mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <p class="form-section-title mb-0">Projects</p>
+                <a href="https://github.com/@Model.Profile.GitHubUsername" target="_blank" rel="noopener"
+                   class="form-hint mt-0">@@@Model.Profile.GitHubUsername on GitHub &rarr;</a>
+            </div>
+            @if (Model.GitHubRepos == null)
+            {
+                <p class="form-hint mb-0">Couldn't load repos for this username right now.</p>
+            }
+            else if (!Model.GitHubRepos.Any())
+            {
+                <p class="form-hint mb-0">No public repos found for this username.</p>
+            }
+            else
+            {
+                <div class="doc-list">
+                    @foreach (var repo in Model.GitHubRepos)
+                    {
+                        <a class="doc-row doc-row-link" href="@repo.Url" target="_blank" rel="noopener">
+                            <div class="doc-info">
+                                <div class="doc-filename">@repo.Name</div>
+                                <div class="doc-meta">
+                                    @(string.IsNullOrWhiteSpace(repo.Description) ? "No description" : repo.Description)
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(repo.Language))
+                            {
+                                <span class="active-label">@repo.Language</span>
+                            }
+                            <span class="doc-stars">&#9733; @repo.Stars</span>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    }
+
 </div>
 
 @section Scripts {
+<script>
+// Upload drop zones: show the chosen filename and highlight on drag-over.
+document.querySelectorAll('.upload-zone').forEach(function (zone) {
+    var input = zone.querySelector('.upload-zone-input');
+    var fileEl = zone.querySelector('.upload-zone-file');
+    function showFile() {
+        var f = input.files && input.files[0];
+        if (fileEl) { fileEl.textContent = f ? f.name : ''; fileEl.hidden = !f; }
+        zone.classList.toggle('has-file', !!f);
+    }
+    input.addEventListener('change', showFile);
+    ['dragenter','dragover'].forEach(function (ev) { zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.add('is-dragover'); }); });
+    ['dragleave','drop'].forEach(function (ev) { zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('is-dragover'); }); });
+    zone.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) { input.files = e.dataTransfer.files; showFile(); } });
+});
+document.querySelectorAll('.file-pick-input').forEach(function (input) {
+    input.addEventListener('change', function () {
+        var label = input.closest('.file-pick')?.querySelector('.file-pick-label');
+        if (label) label.textContent = input.files[0] ? input.files[0].name : 'Choose photo';
+    });
+});
+</script>
     <script>
     (function () {
 

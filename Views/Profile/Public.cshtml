@@ -7,25 +7,25 @@
         .Take(2).Select(w => char.ToUpperInvariant(w[0])));
 }
 
-<div class="container py-4" style="max-width:700px;">
+<div class="container py-4 container-narrow public-profile">
 
-    <div class="form-card mb-3 text-center">
+    <div class="form-card mb-3 text-center public-hero">
         @if (Model.PhotoPath != null)
         {
-            <img src="@Model.PhotoPath" class="profile-avatar mb-2" alt="@Model.DisplayName" style="width:96px;height:96px;" />
+            <img src="@Model.PhotoPath" class="profile-avatar profile-avatar--lg mb-3" alt="@Model.DisplayName" />
         }
         else
         {
-            <div class="profile-avatar-placeholder mb-2 mx-auto" style="width:96px;height:96px;font-size:2rem;">@initials</div>
+            <div class="profile-avatar-placeholder profile-avatar--lg mb-3 mx-auto">@initials</div>
         }
-        <h3 class="mb-0">@Model.DisplayName</h3>
-        <p class="text-muted" style="font-size:.85rem">Career Portfolio &middot; InternTrackAI</p>
+        <h1 class="public-name mb-1">@Model.DisplayName</h1>
+        <p class="form-hint mt-0 mb-0">Career portfolio &middot; InternTrackAI</p>
     </div>
 
     @if (Model.TargetRoles.Any())
     {
         <div class="form-card mb-3">
-            <p class="form-section-title">Target Roles</p>
+            <p class="form-section-title">Target roles</p>
             <div class="tag-cloud">
                 @foreach (var role in Model.TargetRoles)
                 {
@@ -54,12 +54,12 @@
             <div class="d-flex align-items-center justify-content-between mb-2">
                 <p class="form-section-title mb-0">Projects</p>
                 <a href="https://github.com/@Model.GitHubUsername" target="_blank" rel="noopener"
-                   class="text-muted" style="font-size:.78rem">@@@Model.GitHubUsername on GitHub &rarr;</a>
+                   class="form-hint mt-0">@@@Model.GitHubUsername on GitHub &rarr;</a>
             </div>
             <div class="doc-list">
                 @foreach (var repo in Model.GitHubRepos)
                 {
-                    <a class="doc-row" href="@repo.Url" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
+                    <a class="doc-row doc-row-link" href="@repo.Url" target="_blank" rel="noopener">
                         <div class="doc-info">
                             <div class="doc-filename">@repo.Name</div>
                             <div class="doc-meta">
@@ -70,7 +70,7 @@
                         {
                             <span class="active-label">@repo.Language</span>
                         }
-                        <span class="text-muted" style="font-size:.78rem">&#9733; @repo.Stars</span>
+                        <span class="doc-stars">&#9733; @repo.Stars</span>
                     </a>
                 }
             </div>
@@ -80,19 +80,15 @@
     @if (Model.TotalApplications > 0)
     {
         <div class="form-card mb-3">
-            <p class="form-section-title">Application Stats</p>
-            <div class="row g-2">
-                <div class="col-6">
-                    <div class="mini-stat">
-                        <div class="mini-stat-num" style="color:var(--primary)">@Model.TotalApplications</div>
-                        <div class="mini-stat-label">Applications</div>
-                    </div>
+            <p class="form-section-title">Application stats</p>
+            <div class="profile-stat-strip profile-stat-strip--flat">
+                <div class="profile-stat">
+                    <span class="profile-stat-num">@Model.TotalApplications</span>
+                    <span class="profile-stat-label">Applications</span>
                 </div>
-                <div class="col-6">
-                    <div class="mini-stat">
-                        <div class="mini-stat-num mini-stat-offer">@Model.SuccessRate<span style="font-size:1rem;font-weight:600">%</span></div>
-                        <div class="mini-stat-label">Success Rate</div>
-                    </div>
+                <div class="profile-stat">
+                    <span class="profile-stat-num text-success">@Model.SuccessRate<span class="profile-stat-unit">%</span></span>
+                    <span class="profile-stat-label">Success rate</span>
                 </div>
             </div>
         </div>

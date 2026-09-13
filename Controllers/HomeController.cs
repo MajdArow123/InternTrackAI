@@ -8,6 +8,7 @@ using InternTrackAI.Models;
 using InternTrackAI.Models.Enums;
 using InternTrackAI.Models.ViewModels;
 using InternTrackAI.Services;
+using InternTrackAI.Services.Gmail;
 
 namespace InternTrackAI.Controllers;
 
@@ -22,10 +23,12 @@ public class HomeController : Controller
     private readonly ReminderService _reminders;
     private readonly UserClockProvider _clocks;
     private readonly ResumeAnalyticsService _resumeAnalytics;
+    private readonly SuggestionService _suggestions;
 
     public HomeController(ILogger<HomeController> logger, ApplicationDbContext context, ReminderService reminders,
-                          UserClockProvider clocks, ResumeAnalyticsService resumeAnalytics)
+                          UserClockProvider clocks, ResumeAnalyticsService resumeAnalytics, SuggestionService suggestions)
     {
+        _suggestions = suggestions;
         _logger = logger;
         _context = context;
         _reminders = reminders;
@@ -97,6 +100,7 @@ public class HomeController : Controller
             Attention            = attention.Take(DashboardViewModel.AttentionLimit).ToList(),
             AttentionTotal       = attention.Count,
             ResumeAnalytics      = ResumeAnalyticsService.Build(resumes, applications),
+            Suggestions          = await _suggestions.PendingAsync(uid),
             HasProfileBasics     = profile != null && !string.IsNullOrWhiteSpace(profile.FullName)
                                     && !string.IsNullOrWhiteSpace(profile.SkillsJson) && profile.SkillsJson != "[]",
             HasResume            = hasResume

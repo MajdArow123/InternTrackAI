@@ -38,6 +38,10 @@ public class DashboardViewModel
     // Rendered only when ResumeAnalytics.ShowCard (two or more resume versions).
     public InternTrackAI.Services.ResumeAnalytics ResumeAnalytics { get; set; } = new();
 
+    // "Inbox suggestions" card: pending StatusSuggestions (with Application loaded), newest email first.
+    // Rendered above Attention only when non-empty; absent entirely without a Gmail connection.
+    public List<StatusSuggestion> Suggestions { get; set; } = new();
+
     // Onboarding checklist (shown only to brand-new users with zero applications).
     public bool HasProfileBasics { get; set; }
     public bool HasResume { get; set; }

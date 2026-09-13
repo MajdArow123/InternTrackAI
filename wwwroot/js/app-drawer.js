@@ -175,7 +175,8 @@
             matchSummary: decodeURIComponent(appRow.dataset.matchSummary || ''),
             matchingSkills: parseSkillsJson(decodeURIComponent(appRow.dataset.matchingSkills || '[]')),
             missingSkills: parseSkillsJson(decodeURIComponent(appRow.dataset.missingSkills || '[]')),
-            description: decodeURIComponent(appRow.dataset.jobDescription || '')
+            description: decodeURIComponent(appRow.dataset.jobDescription || ''),
+            suggestions: parseSuggestions(appRow.dataset.suggestions)
         };
 
         // Header
@@ -207,6 +208,9 @@
         } else {
             analysisSection.hidden = true;
         }
+
+        // Inbox suggestions (Accept / Dismiss handled by suggestions.js)
+        renderSuggestions(data.suggestions);
 
         // Additional info
         document.getElementById('drawer-location').textContent = data.location || '—';
@@ -249,6 +253,75 @@
         backdrop.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
     }
+
+    // ── Inbox suggestions ──────────────────────────────
+    function parseSuggestions(raw) {
+        if (!raw) return [];
+        try { const arr = JSON.parse(decodeURIComponent(raw)); return Array.isArray(arr) ? arr : []; }
+        catch (_) { return []; }
+    }
+
+    function renderSuggestions(list) {
+        const section = document.getElementById('drawer-suggestions-section');
+        const host = document.getElementById('drawer-suggestions');
+        if (!section || !host) return;
+        if (!list || !list.length) { section.hidden = true; host.innerHTML = ''; return; }
+        host.innerHTML = list.map(function (s) {
+            const badgeClass = statusBadgeClasses[s.status] || '';
+            const icon = statusIcons[s.status] || '';
+            return '<div class="drawer-suggestion" data-suggestion-id="' + s.id + '">' +
+                '<div class="drawer-suggestion-head">' +
+                    '<span class="suggestion-arrow" aria-hidden="true">&rarr;</span>' +
+                    '<span class="status-badge ' + badgeClass + '">' + icon + ' ' + escHtml2(s.statusName) + '</span>' +
+                    '<span class="suggestion-confidence" title="Model confidence">' + escHtml2(String(s.confidence)) + '%</span>' +
+                '</div>' +
+                '<div class="suggestion-summary">' + escHtml2(s.summary) + '</div>' +
+                '<div class="suggestion-email">' + escHtml2(s.subject || '(no subject)') +
+                    (s.date ? ' <span class="attention-sep">&middot;</span> ' + escHtml2(s.date) : '') +
+                    (s.interviewAt ? ' <span class="attention-sep">&middot;</span> Interview ' + escHtml2(s.interviewAt) : '') +
+                '</div>' +
+                '<div class="drawer-suggestion-actions">' +
+                    '<button type="button" class="btn btn-sm btn-primary" data-suggestion-action="accept" data-suggestion-id="' + s.id + '">Accept</button>' +
+                    '<button type="button" class="btn btn-sm btn-outline-secondary" data-suggestion-action="dismiss" data-suggestion-id="' + s.id + '">Dismiss</button>' +
+                '</div>' +
+            '</div>';
+        }).join('');
+        section.hidden = false;
+    }
+
+    // A suggestion was accepted or dismissed (from the drawer or the dashboard): update the owning
+    // row/card's data-*, the dot, and — when accepted — the status shown everywhere on this page.
+    document.addEventListener('suggestion:resolved', function (e) {
+        const d = e.detail;
+        const row = document.querySelector('.app-row[data-app-id="' + d.applicationId + '"]');
+        if (!row) return;
+
+        const remaining = parseSuggestions(row.dataset.suggestions).filter(function (s) { return String(s.id) !== String(d.id); });
+        row.dataset.suggestions = remaining.length ? encodeURIComponent(JSON.stringify(remaining)) : '';
+        if (!remaining.length) row.querySelectorAll('[data-suggestion-dot]').forEach(function (dot) { dot.remove(); });
+
+        if (d.accepted) {
+            row.dataset.status = String(d.status);
+            if (d.interviewAt) { row.dataset.interviewAt = d.interviewAt; row.dataset.hasDates = '1'; }
+            const badge = row.querySelector('td .status-badge');   // list row only; the board moves the card instead (board.js)
+            if (badge) {
+                badge.className = 'status-badge ' + (statusBadgeClasses[d.status] || '');
+                badge.innerHTML = (statusIcons[d.status] || '') + ' <span class="row-status-name">' + escHtml2(d.statusName) + '</span>';
+            }
+        }
+
+        if (currentRow && String(currentRow.dataset.appId) === String(d.applicationId)) {
+            renderSuggestions(remaining);
+            if (d.accepted) {
+                const statusBadge = document.getElementById('drawer-status-badge');
+                statusBadge.className = 'status-badge ' + (statusBadgeClasses[d.status] || '');
+                statusBadge.innerHTML = (statusIcons[d.status] || '') + ' ' + escHtml2(d.statusName);
+                document.getElementById('drawer-status-timeline').innerHTML = buildStatusTimeline(d.status);
+                if (d.interviewAt) document.getElementById('drawer-interview').textContent = d.interviewAt;
+                loadNoteTimeline(d.applicationId);
+            }
+        }
+    });
 
     // ── Reminder values (interview / follow-up / last contact) ──
     let currentRow = null;

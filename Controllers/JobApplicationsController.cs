@@ -5,6 +5,7 @@ using InternTrackAI.Models;
 using InternTrackAI.Models.Enums;
 using InternTrackAI.Models.ViewModels;
 using InternTrackAI.Services;
+using InternTrackAI.Services.Gmail;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,12 +23,14 @@ public class JobApplicationsController : Controller
     private readonly ApplicationDbContext _context;
     private readonly ReminderService _reminders;
     private readonly UserClockProvider _clocks;
+    private readonly SuggestionService _suggestions;
 
-    public JobApplicationsController(ApplicationDbContext context, ReminderService reminders, UserClockProvider clocks)
+    public JobApplicationsController(ApplicationDbContext context, ReminderService reminders, UserClockProvider clocks, SuggestionService suggestions)
     {
-        _context   = context;
-        _reminders = reminders;
-        _clocks    = clocks;
+        _context     = context;
+        _reminders   = reminders;
+        _clocks      = clocks;
+        _suggestions = suggestions;
     }
 
     /// <summary>
@@ -157,6 +160,8 @@ public class JobApplicationsController : Controller
         ViewBag.AttentionById  = byId;
         ViewBag.AttentionCount = byId.Count;
         ViewBag.Attention      = attention;
+        // Pending inbox suggestions per application: the drawer section, the list/board dot indicators.
+        ViewBag.SuggestionsById = await _suggestions.PendingByApplicationAsync(uid);
 
         return attention ? apps.Where(a => byId.ContainsKey(a.Id)).ToList() : apps;
     }

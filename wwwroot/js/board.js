@@ -189,6 +189,22 @@
 
     // A drop ends with a mouseup on the card; swallow the click that follows so the drawer
     // doesn't open every time a card is dragged.
+    // An inbox suggestion was accepted (drawer): the card's status changed server-side, so move it
+    // to its new column here instead of reloading. Order is not persisted for this move (top of column).
+    document.addEventListener('suggestion:resolved', function (e) {
+        const d = e.detail;
+        if (!d.accepted) return;
+        const card = board.querySelector('.board-card[data-app-id="' + d.applicationId + '"]');
+        const target = bodyFor(d.statusName);
+        if (!card || !target) return;
+        const from = card.closest('.board-column-body');
+        if (from === target) return;
+        target.prepend(card);
+        refreshColumn(from);
+        refreshColumn(target);
+        announce(card.dataset.company + ' moved to ' + d.statusName + ' from an inbox suggestion.');
+    });
+
     board.addEventListener('click', function (e) {
         if (justDragged && e.target.closest('.board-card')) { e.stopPropagation(); e.preventDefault(); }
     }, true);

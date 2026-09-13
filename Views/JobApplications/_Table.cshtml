@@ -1,11 +1,16 @@
 @model IEnumerable<InternTrackAI.Models.JobApplication>
 @using InternTrackAI.Models.Enums
 @using InternTrackAI.Services
+@using InternTrackAI.Services.Gmail
 @{ var clock = await Clocks.GetAsync(); }
 @{
     bool isFiltered = ViewBag.IsFiltered == true;
     var  byId       = ViewBag.AttentionById as Dictionary<int, List<ReminderItem>>;
     var  resumes    = ViewBag.ResumeLabels as Dictionary<int, string>;
+    var  suggestionsById = ViewBag.SuggestionsById as Dictionary<int, List<InternTrackAI.Models.StatusSuggestion>>;
+    string SuggestionsJson(int id) => suggestionsById != null && suggestionsById.TryGetValue(id, out var list)
+        ? Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(list.Select(x => SuggestionService.ToClient(x, clock))))
+        : "";
 }
     @if (!Model.Any())
     {
@@ -80,6 +85,7 @@
                                 data-mode="@item.WorkMode"
                                 data-resume="@(ResumeDisplay.Label(item.ResumeVersionId, resumes) ?? "")"
                                 data-job-description="@(Uri.EscapeDataString(item.JobDescription ?? ""))"
+                                data-suggestions="@SuggestionsJson(item.Id)"
                                 class="app-row"
                                 role="button"
                                 tabindex="0">
@@ -104,7 +110,11 @@
                                 <td class="text-muted d-none d-md-table-cell">@item.WorkMode</td>
                                 <td>
                                     <span class="status-badge @StatusDisplay.BadgeClass(item.Status)">
-                                        @Html.Raw(StatusDisplay.Icon(item.Status)) @item.Status
+                                        @Html.Raw(StatusDisplay.Icon(item.Status)) <span class="row-status-name">@item.Status</span>
+                                        @if (suggestionsById != null && suggestionsById.ContainsKey(item.Id))
+                                        {
+                                            <span class="suggestion-dot" data-suggestion-dot title="New status suggestion from your inbox" aria-label="New status suggestion from your inbox"></span>
+                                        }
                                     </span>
                                 </td>
                                 <td class="text-center d-none d-sm-table-cell">

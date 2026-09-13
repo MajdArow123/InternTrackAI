@@ -115,6 +115,7 @@ builder.Services.AddSingleton<IGoogleOAuthClient, GoogleOAuthClient>();
 builder.Services.AddSingleton<IGmailClient, GmailApiClient>();
 builder.Services.AddHttpClient<IStatusClassifier, OpenAiStatusClassifier>();
 builder.Services.AddScoped<GmailSyncService>();
+builder.Services.AddScoped<SuggestionService>();   // dashboard card, drawer, board dot, navbar badge, accept/dismiss
 builder.Services.AddHostedService<GmailSyncHostedService>();   // per-user time zone (see Services/UserClock.cs)
 builder.Services.AddHttpClient<JobAnalyzerService>();
 builder.Services.AddHttpClient<ResumeMatcherService>();

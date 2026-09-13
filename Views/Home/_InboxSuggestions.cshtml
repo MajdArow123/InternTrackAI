@@ -1,0 +1,48 @@
+@model InternTrackAI.Models.ViewModels.DashboardViewModel
+@using InternTrackAI.Services.Gmail
+@{
+    var clock = await Clocks.GetAsync();
+}
+@if (Model.Suggestions.Count > 0)
+{
+    <!-- Inbox suggestions: pending StatusSuggestions from the Gmail sync. Rows resolve in place via suggestions.js. -->
+    <form hidden aria-hidden="true">@Html.AntiForgeryToken()</form>
+    <section class="attention-card suggestions-card anim-fade-up" id="inbox-suggestions" aria-labelledby="inbox-suggestions-heading">
+        <div class="card-header-clean">
+            <h5 id="inbox-suggestions-heading">Inbox suggestions <span class="attention-count" id="inbox-suggestions-count">@Model.Suggestions.Count</span></h5>
+            <span class="suggestions-card-sub">From your connected Gmail &middot; read-only</span>
+        </div>
+        <ul class="attention-list suggestion-list" id="inbox-suggestions-list">
+            @foreach (var s in Model.Suggestions)
+            {
+                var app = s.Application!;
+                <li class="suggestion-item" data-suggestion-id="@s.Id" data-app-id="@app.Id">
+                    <div class="suggestion-main">
+                        <div class="suggestion-title">
+                            <a asp-controller="JobApplications" asp-action="Edit" asp-route-id="@app.Id" class="suggestion-app">@app.CompanyName <span class="attention-sep">&mdash;</span> @app.RoleTitle</a>
+                            <span class="suggestion-arrow" aria-hidden="true">&rarr;</span>
+                            <span class="status-badge @StatusDisplay.BadgeClass(s.SuggestedStatus)">@Html.Raw(StatusDisplay.Icon(s.SuggestedStatus)) @s.SuggestedStatus</span>
+                            <span class="suggestion-confidence" title="Model confidence">@((int)Math.Round(s.Confidence * 100))%</span>
+                        </div>
+                        <div class="suggestion-summary">@s.Summary</div>
+                        <div class="suggestion-email">
+                            <span class="suggestion-subject">@(string.IsNullOrWhiteSpace(s.EmailSubject) ? "(no subject)" : s.EmailSubject)</span>
+                            @if (s.EmailDate.HasValue)
+                            {
+                                <span class="attention-sep">&middot;</span> <span class="suggestion-date">@clock.LocalDate(s.EmailDate)</span>
+                            }
+                            @if (s.InterviewAt.HasValue)
+                            {
+                                <span class="attention-sep">&middot;</span> <span class="suggestion-when">Interview @clock.LocalDateTime(s.InterviewAt)</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="attention-actions">
+                        <button type="button" class="btn btn-sm btn-primary" data-suggestion-action="accept" data-suggestion-id="@s.Id">Accept</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" data-suggestion-action="dismiss" data-suggestion-id="@s.Id">Dismiss</button>
+                    </div>
+                </li>
+            }
+        </ul>
+    </section>
+}

@@ -3947,3 +3947,58 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .connected-account-name { font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .connected-account-sub { font-size: .8667rem; color: var(--text-2); }
 .connected-account-actions { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; }
+
+/* ── Inbox suggestions (dashboard card, drawer section, dots, nav badge) ──── */
+.suggestions-card .card-header-clean { align-items: baseline; }
+.suggestions-card-sub { font-size: .8rem; color: var(--muted); }
+.suggestion-item {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .5rem .85rem;
+  padding: .7rem .9rem;
+  background: var(--surface-2);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-md);
+}
+.suggestion-main { min-width: 0; flex: 1 1 16rem; display: flex; flex-direction: column; gap: .2rem; }
+.suggestion-title { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem .5rem; min-width: 0; }
+.suggestion-app { font-weight: 600; color: var(--text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.suggestion-app:hover { color: var(--accent-text); }
+.suggestion-arrow { color: var(--muted); font-weight: 600; }
+.suggestion-confidence { font-size: .75rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.suggestion-summary { font-size: .9333rem; color: var(--text); line-height: 1.45; }
+.suggestion-email { font-size: .8rem; color: var(--text-2); overflow-wrap: anywhere; }
+.suggestion-subject { font-style: italic; }
+.suggestion-when { color: var(--accent-text); font-weight: 500; }
+
+/* Drawer */
+.drawer-suggestion-list { display: flex; flex-direction: column; gap: .6rem; }
+.drawer-suggestion {
+  padding: .7rem .85rem;
+  background: var(--surface-2);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-md);
+  display: flex; flex-direction: column; gap: .3rem;
+}
+.drawer-suggestion-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.drawer-suggestion-actions { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .25rem; }
+
+/* Dot on a status badge (list row) or company name (board card) */
+.suggestion-dot {
+  display: inline-block; width: .5rem; height: .5rem; border-radius: 50%;
+  background: var(--accent); margin-left: .35em; vertical-align: middle; flex: none;
+  box-shadow: 0 0 0 2px var(--card);
+  animation: suggestion-pulse 2.4s ease-in-out infinite;
+}
+.board-card-company .suggestion-dot { box-shadow: none; }
+@keyframes suggestion-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .45; }
+}
+@media (prefers-reduced-motion: reduce) { .suggestion-dot { animation: none; } }
+
+/* Navbar badge on the Dashboard link */
+.nav-badge {
+  display: inline-block; min-width: 1.35em; padding: .05em .4em; margin-left: .4em;
+  border-radius: var(--radius-pill);
+  background: var(--accent); color: #fff;
+  font-size: .7rem; font-weight: 700; line-height: 1.4; text-align: center; vertical-align: middle;
+}

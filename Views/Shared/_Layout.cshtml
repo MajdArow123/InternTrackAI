@@ -1,3 +1,4 @@
+@inject InternTrackAI.Services.Gmail.SuggestionService Suggestions
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,6 +23,9 @@
         bool IsActive(string c, string a = "Index") =>
             string.Equals(ctrl, c, StringComparison.OrdinalIgnoreCase) &&
             string.Equals(action, a, StringComparison.OrdinalIgnoreCase);
+        // Pending inbox suggestions → small badge on the Dashboard link (0 renders nothing).
+        var navUserId = User.Identity?.IsAuthenticated == true ? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value : null;
+        var pendingSuggestions = navUserId is null ? 0 : await Suggestions.PendingCountAsync(navUserId);
     }
 
     <header>
@@ -44,7 +48,7 @@
                         </li>
                         <li class="nav-item">
                             <a class="nav-link @(IsActive("Home","Dashboard") ? "active" : "")"
-                               asp-area="" asp-controller="Home" asp-action="Dashboard">Dashboard</a>
+                               asp-area="" asp-controller="Home" asp-action="Dashboard">Dashboard<span class="nav-badge" id="nav-suggestions-badge" data-count="@pendingSuggestions" hidden="@(pendingSuggestions == 0)" title="@pendingSuggestions inbox suggestion@(pendingSuggestions == 1 ? "" : "s")">@pendingSuggestions</span></a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link @(IsActive("JobApplications") ? "active" : "")"

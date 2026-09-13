@@ -1,16 +1,22 @@
 @model InternTrackAI.Models.JobApplication
 @using InternTrackAI.Services
+@using InternTrackAI.Services.Gmail
 @{
     // Same data-* contract as the list rows in _Table.cshtml so app-drawer.js can open the
     // detail drawer from a card. Free-text fields are URI-escaped for attribute safety.
     // Reminder state comes from ReminderService via ViewBag.AttentionById (set by the controller).
     var byId      = ViewBag.AttentionById as Dictionary<int, List<ReminderItem>>;
     var resumes   = ViewBag.ResumeLabels as Dictionary<int, string>;
+    var suggestionsById = ViewBag.SuggestionsById as Dictionary<int, List<InternTrackAI.Models.StatusSuggestion>>;
     var reminders = byId != null && byId.TryGetValue(Model.Id, out var found) ? found : new List<ReminderItem>();
     var clock     = await Clocks.GetAsync();
     var deadline  = ReminderService.DeadlineChip(Model, clock.Today);
     bool followUpDue = reminders.Any(r => r.Kind == ReminderKind.FollowUpDue);
     var interview    = reminders.FirstOrDefault(r => r.Kind == ReminderKind.Interview);
+    var suggestions  = suggestionsById != null && suggestionsById.TryGetValue(Model.Id, out var sg) ? sg : new List<InternTrackAI.Models.StatusSuggestion>();
+    var suggestionsJson = suggestions.Count > 0
+        ? Uri.EscapeDataString(System.Text.Json.JsonSerializer.Serialize(suggestions.Select(x => SuggestionService.ToClient(x, clock))))
+        : "";
 }
 <article class="board-card app-row"
          data-app-id="@Model.Id"
@@ -33,12 +39,21 @@
          data-mode="@Model.WorkMode"
          data-resume="@(ResumeDisplay.Label(Model.ResumeVersionId, resumes) ?? "")"
          data-job-description="@(Uri.EscapeDataString(Model.JobDescription ?? ""))"
+         data-suggestions="@suggestionsJson"
          role="button"
          tabindex="0"
          aria-label="@Model.CompanyName, @Model.RoleTitle">
     <div class="board-card-top">
         <div class="board-card-text">
-            <div class="board-card-company">@Model.CompanyName</div>
+            <div class="board-card-company">
+                @Model.CompanyName
+                @if (suggestions.Count > 0)
+                {
+                    var first = suggestions[0];
+                    <span class="suggestion-dot" data-suggestion-dot data-bs-toggle="tooltip" data-bs-placement="top"
+                          data-bs-title="Inbox suggests: @first.SuggestedStatus" aria-label="Inbox suggests: @first.SuggestedStatus"></span>
+                }
+            </div>
             <div class="board-card-role">@Model.RoleTitle</div>
         </div>
         @if (Model.MatchScore.HasValue)

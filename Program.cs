@@ -68,6 +68,13 @@ builder.Services.AddSingleton<UploadStorage>();
 // Removes every row and file owned by a user; shared by account deletion and the demo reset.
 builder.Services.AddScoped<UserDataPurger>();
 
+// ── Demo account reset ───────────────────────────────────────────────────────
+// DemoSeeder does the reseed; DemoResetService schedules it nightly but only arms itself when
+// Demo:AutoReset is true and Demo:Email is set (see the startup log line). POST /Admin/ResetDemo
+// runs the same reseed on demand for the Admin:Email account regardless of that flag.
+builder.Services.AddScoped<DemoSeeder>();
+builder.Services.AddHostedService<DemoResetService>();
+
 // ── Application services ────────────────────────────────────────────────────
 builder.Services.AddHttpClient<JobAnalyzerService>();
 builder.Services.AddHttpClient<ResumeMatcherService>();

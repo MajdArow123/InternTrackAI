@@ -128,6 +128,7 @@ The live instance runs on [Railway](https://railway.app), built directly from th
 - **Persistent storage** — uploaded resumes, cover letters, and profile photos are written to the directory named by `UPLOADS_PATH`, which points at a mounted Railway volume so files survive redeploys. Resumes and cover letters are never served as static files; only profile photos are public.
 - **Data Protection keys** — persisted to the database so antiforgery tokens and cookies stay valid across container restarts.
 - **Migrations** — applied automatically on startup, so deploying a new migration is just a `git push`.
+- **Demo account reset** — `DemoResetService` can wipe the demo account nightly and reseed 15 realistic applications, notes, and a saved cover letter (the profile and active resume are kept). It is off unless `Demo__AutoReset=true`. Sign in as the `Admin__Email` account and open `/Admin/ResetDemo` to run the same reseed by hand and check the result before turning the nightly job on. The startup log states whether auto-reset is enabled.
 
 To deploy your own copy: create a Railway project, add a PostgreSQL service, attach a volume (mounted at `/data`), point Railway at this repo, and set these variables on the service — `railway.toml` already configures the build and health check.
 
@@ -139,6 +140,9 @@ To deploy your own copy: create a Railway project, add a PostgreSQL service, att
 | `RateLimiting__AI__PermitLimit` | Optional (default `20`). AI requests allowed per user per window, across all AI features |
 | `RateLimiting__AI__WindowMinutes` | Optional (default `60`). Length of the rate-limit window |
 | `RateLimiting__AI__DemoPermitLimit` | Optional (default `10`). Tighter allowance for the shared demo account |
+| `Demo__AutoReset` | Optional (default `false`). When `true` (and `Demo__Email` is set) the demo account is wiped and reseeded every night |
+| `Demo__ResetTimeUtc` | Optional (default `04:00`). Time of day, UTC, for the nightly demo reset |
+| `Admin__Email` | Optional. The one account allowed to call `POST /Admin/ResetDemo` (manual reseed); unset disables the endpoint |
 
 (`DATABASE_URL` and `PORT` are injected by Railway automatically.)
 

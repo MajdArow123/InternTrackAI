@@ -1,0 +1,64 @@
+@{
+    ViewData["Title"] = "Reset Demo Account";
+    string demoEmail = ViewBag.DemoEmail ?? "(Demo:Email not configured)";
+    bool autoReset   = ViewBag.AutoReset == true;
+    string resetTime = ViewBag.ResetTime ?? "04:00";
+}
+
+<div class="container py-4 container-xnarrow">
+
+    <nav class="breadcrumb-nav" aria-label="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li>Admin</li>
+            <li>Reset demo</li>
+        </ol>
+    </nav>
+
+    <div class="page-header">
+        <div>
+            <h2>Reset demo account</h2>
+            <p class="sub">Wipe the shared demo account and reseed its sample data</p>
+        </div>
+    </div>
+
+    <div class="app-table-wrapper mb-4">
+        <div class="card-header-clean">
+            <h5>Status</h5>
+            @if (autoReset)
+            {
+                <span class="status-badge badge-offer">Nightly reset on</span>
+            }
+            else
+            {
+                <span class="status-badge badge-saved">Nightly reset off</span>
+            }
+        </div>
+        <div class="p-4">
+            <dl class="row mb-0 kv-list">
+                <dt class="col-5 text-muted fw-normal">Demo account</dt>
+                <dd class="col-7 fw-semibold">@demoEmail</dd>
+                <dt class="col-5 text-muted fw-normal">Automatic reset</dt>
+                <dd class="col-7">@(autoReset ? $"Every day at {resetTime} UTC" : "Disabled (Demo:AutoReset is false)")</dd>
+            </dl>
+        </div>
+    </div>
+
+    <div class="form-card danger-confirm-card">
+        <p class="mb-3 danger-confirm-text">
+            This deletes every application, note, generated cover letter, interview prep session, and any
+            non-active uploaded documents on the demo account, then recreates 15 sample applications, notes,
+            and one saved cover letter. The profile and the active resume are kept. This cannot be undone.
+        </p>
+        <div class="d-flex gap-2 flex-wrap">
+            <form asp-action="ResetDemo" method="post"
+                  data-confirm-title="Reset the demo account?" data-confirm="All current demo data will be replaced with the seed set." data-confirm-ok="Reset now">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="confirm" value="true" />
+                <button type="submit" class="btn btn-danger px-4">Reset demo account now</button>
+            </form>
+            <a asp-controller="Home" asp-action="Dashboard" class="btn btn-outline-secondary">Cancel</a>
+        </div>
+    </div>
+
+</div>

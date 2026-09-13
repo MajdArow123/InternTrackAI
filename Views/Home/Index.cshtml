@@ -4,6 +4,7 @@
     ViewData["HideFooter"] = true;
     bool signedIn = User.Identity?.IsAuthenticated == true;
     bool demoAvailable = InternTrackAI.Controllers.AccountController.IsDemoConfigured(Configuration);
+    bool demoResets    = InternTrackAI.Services.DemoResetService.IsEnabled(Configuration);
     const string repoUrl = "https://github.com/MajdArow123/InternTrackAI";
     const string linkedInUrl = "https://www.linkedin.com/in/majd-arow-92b97719a";
 }
@@ -35,7 +36,7 @@
         </div>
         @if (!signedIn && demoAvailable)
         {
-            <p class="lp-fine">No signup needed. The demo account is shared, so anything you add may be seen by others.</p>
+            <p class="lp-fine">No signup needed. The demo account is shared, so anything you add may be seen by others@(demoResets ? " and is wiped every night" : "").</p>
         }
         else
         {
@@ -180,7 +181,7 @@
             <h2>See it with real data.</h2>
             @if (demoAvailable)
             {
-                <p>The demo account comes with a sample profile, resume, and applications already loaded. Add, edit, and explore freely.</p>
+                <p>The demo account comes with a sample profile, resume, and applications already loaded. Add, edit, and explore freely@(demoResets ? " — everything resets nightly" : "").</p>
             }
             else
             {

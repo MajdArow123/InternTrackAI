@@ -42,6 +42,7 @@ If you'd rather sign in manually:
 **Tracking**
 
 - 📋 **Five-stage pipeline** — Saved, Applied, Interview, Offer, Rejected, with status filter pills, search, and sorting
+- 🗂️ **Kanban board** — drag cards between Saved, Applied, Interview, Offer, and Rejected columns (or move them with the keyboard); order and status save instantly, with the same filters as the list
 - 📂 **Detail drawer** — the full posting, AI analysis, key details, a status timeline, and a notes log without leaving the list
 - ✅ **Bulk actions** — select rows to change status, delete, or compare up to three applications side by side
 - 📊 **Dashboard** — headline stats, an applications-over-time chart, a pipeline funnel, top companies, follow-up reminders, and upcoming deadlines
@@ -75,6 +76,10 @@ If you'd rather sign in manually:
 | Applications | Detail Drawer |
 |---|---|
 | ![Applications](docs/screenshots/applications.png) | ![Detail Drawer](docs/screenshots/drawer.png) |
+
+| Kanban Board |
+|---|
+| ![Kanban Board](docs/screenshots/board.png) |
 
 | Add Application — AI Analysis + Resume Match |
 |---|

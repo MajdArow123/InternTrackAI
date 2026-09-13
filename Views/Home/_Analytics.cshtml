@@ -25,18 +25,25 @@
 
             <!-- Pipeline funnel -->
             <div class="analytics-card dash-pipeline">
-                <div class="analytics-card-label">Pipeline</div>
-                <div class="analytics-card-sub mb-3">Where your applications stand</div>
+                <div class="analytics-card-head">
+                    <div>
+                        <div class="analytics-card-label">Pipeline</div>
+                        <div class="analytics-card-sub mb-3">Where your applications stand</div>
+                    </div>
+                    <a asp-controller="JobApplications" asp-action="Board" class="analytics-card-link">Board &rarr;</a>
+                </div>
                 <div class="funnel">
                     @foreach (var st in pipeline)
                     {
                         var c = Model.StatusCounts.GetValueOrDefault(st, 0);
                         var pct = Model.TotalApplications > 0 ? (int)Math.Round(c * 100.0 / Model.TotalApplications) : 0;
-                        <div class="funnel-row funnel-@st.ToString().ToLower()">
+                        <a class="funnel-row funnel-@st.ToString().ToLower()"
+                           href="@Url.Action("Board", "JobApplications")#status-@st.ToString().ToLower()"
+                           aria-label="Open the board at the @st column">
                             <span class="funnel-label">@st</span>
                             <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:@(Math.Max(pct, c > 0 ? 4 : 0))%"></div></div>
                             <span class="funnel-count">@c</span>
-                        </div>
+                        </a>
                     }
                 </div>
             </div>

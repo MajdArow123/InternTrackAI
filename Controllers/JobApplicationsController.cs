@@ -300,6 +300,72 @@ public class JobApplicationsController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // ── Kanban board: move / reorder ──────────────────────
+
+    /// <summary>
+    /// Moves one application to a status column and position (Kanban drag/drop or keyboard move).
+    /// Body: <c>{ status, boardOrder }</c>. 404 when the application isn't the current user's,
+    /// 400 when the status isn't a real <see cref="ApplicationStatus"/> value.
+    /// </summary>
+    /// <returns>200 <c>{ id, status, boardOrder }</c>.</returns>
+    [HttpPost("JobApplications/{id:int}/move")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Move(int id, [FromBody] MoveRequest? req)
+    {
+        if (req is null)
+            return BadRequest(new { success = false, error = "Request body is required." });
+        if (!TryParseStatus(req.Status, out var status))
+            return BadRequest(new { success = false, error = $"'{req.Status}' is not a valid status." });
+
+        var app = await FindOwnedAsync(id);
+        if (app is null)
+            return NotFound(new { success = false, error = "Application not found." });
+
+        app.Status     = status;
+        app.BoardOrder = Math.Max(0, req.BoardOrder);
+        await _context.SaveChangesAsync();
+
+        return Ok(new { id = app.Id, status = app.Status.ToString(), boardOrder = app.BoardOrder });
+    }
+
+    /// <summary>
+    /// Persists the card order of one status column: <c>BoardOrder = index</c> for each id in
+    /// <c>ids</c>, restricted to the current user's applications that currently have that status
+    /// (other ids are ignored). Runs in a single transaction.
+    /// </summary>
+    /// <returns>200 <c>{ status, updated }</c>; 400 for an unknown status or missing ids.</returns>
+    [HttpPost("JobApplications/reorder")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Reorder([FromBody] ReorderRequest? req)
+    {
+        if (req is null || req.Ids is null)
+            return BadRequest(new { success = false, error = "Request body with ids is required." });
+        if (!TryParseStatus(req.Status, out var status))
+            return BadRequest(new { success = false, error = $"'{req.Status}' is not a valid status." });
+
+        var uid  = UserId();
+        var ids  = req.Ids.Distinct().ToArray();
+        var apps = await _context.JobApplications
+            .Where(a => a.UserId == uid && a.Status == status && ids.Contains(a.Id))
+            .ToListAsync();
+
+        await using var tx = await _context.Database.BeginTransactionAsync();
+        foreach (var app in apps)
+            app.BoardOrder = Array.IndexOf(ids, app.Id);
+        await _context.SaveChangesAsync();
+        await tx.CommitAsync();
+
+        return Ok(new { status = status.ToString(), updated = apps.Count });
+    }
+
+    /// <summary>Parses a status name (case-insensitive); rejects blanks and bare numbers like "7".</summary>
+    private static bool TryParseStatus(string? raw, out ApplicationStatus status)
+    {
+        status = default;
+        if (string.IsNullOrWhiteSpace(raw) || char.IsDigit(raw.Trim()[0])) return false;
+        return Enum.TryParse(raw.Trim(), ignoreCase: true, out status) && Enum.IsDefined(status);
+    }
+
     // ── Notes / activity timeline (drawer) ────────────────
 
     /// <summary>Returns the note timeline for an application, newest first, as JSON for the detail drawer.</summary>
@@ -430,3 +496,9 @@ public class JobApplicationsController : Controller
         return RedirectToAction(nameof(Index));
     }
 }
+
+/// <summary>Body of <see cref="JobApplicationsController.Move"/>.</summary>
+public record MoveRequest(string? Status, int BoardOrder);
+
+/// <summary>Body of <see cref="JobApplicationsController.Reorder"/>.</summary>
+public record ReorderRequest(string? Status, int[]? Ids);

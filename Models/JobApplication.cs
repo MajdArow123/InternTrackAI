@@ -71,4 +71,8 @@ public class JobApplication
     // Skills the job description requires that the AI did not find in the resume.
     // Same JSON-column rationale as MatchingSkillsJson.
     public string? MissingSkillsJson { get; set; }
+
+    // Position of the card within its status column on the Kanban board (0-based). Rows that
+    // were never dragged keep the default 0 and fall back to newest-applied-first ordering.
+    public int BoardOrder { get; set; }
 }

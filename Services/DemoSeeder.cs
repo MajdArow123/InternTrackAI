@@ -3,6 +3,7 @@ using InternTrackAI.Data;
 using InternTrackAI.Models;
 using InternTrackAI.Models.Enums;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 
 namespace InternTrackAI.Services;
 
@@ -18,7 +19,9 @@ public sealed record DemoResetResult(bool UserFound, string? Email, int Applicat
 /// uploaded are removed (the <em>active</em> resume and cover letter, plus the profile itself, are
 /// kept so the sample resume keeps powering match scores), then a fixed set of 15 applications
 /// spanning every status, match tier, and Attention category (overdue, deadline soon, follow-up
-/// due, upcoming interview) is recreated along with a few notes and one saved letter.
+/// due, upcoming interview) is recreated along with a few notes and one saved letter. Two resume
+/// versions are guaranteed ("Backend focus", the active one, and "General") and the applications
+/// are split between them so the dashboard's Resume performance card shows a real comparison.
 /// Used by <see cref="DemoResetService"/> nightly and by <c>POST /Admin/ResetDemo</c> on demand.
 /// </summary>
 public class DemoSeeder
@@ -26,15 +29,17 @@ public class DemoSeeder
     private readonly ApplicationDbContext _db;
     private readonly UserManager<IdentityUser> _users;
     private readonly UserDataPurger _purger;
+    private readonly UploadStorage _uploads;
     private readonly IConfiguration _config;
     private readonly ILogger<DemoSeeder> _logger;
 
     public DemoSeeder(ApplicationDbContext db, UserManager<IdentityUser> users, UserDataPurger purger,
-                      IConfiguration config, ILogger<DemoSeeder> logger)
+                      UploadStorage uploads, IConfiguration config, ILogger<DemoSeeder> logger)
     {
         _db = db;
         _users = users;
         _purger = purger;
+        _uploads = uploads;
         _config = config;
         _logger = logger;
     }
@@ -60,7 +65,10 @@ public class DemoSeeder
 
         await _purger.PurgeAsync(user.Id, keepProfile: true, keepActiveDocuments: true);
 
+        var (primary, secondary) = await EnsureResumesAsync(user.Id, ct);
+
         var apps = BuildApplications(user.Id, DateTime.UtcNow.Date);
+        AssignResumes(apps, primary.Id, secondary.Id);
         _db.JobApplications.AddRange(apps);
         await _db.SaveChangesAsync(ct);
 
@@ -71,10 +79,104 @@ public class DemoSeeder
         await _db.SaveChangesAsync(ct);
 
         sw.Stop();
-        _logger.LogInformation("Demo reset finished for user {UserId}: {Apps} applications, {Notes} notes, {Letters} cover letter(s) in {Ms} ms.",
-            user.Id, apps.Count, notes.Count, letters.Count, sw.ElapsedMilliseconds);
+        _logger.LogInformation("Demo reset finished for user {UserId}: {Apps} applications, {Notes} notes, {Letters} cover letter(s), resumes {Primary}/{Secondary} in {Ms} ms.",
+            user.Id, apps.Count, notes.Count, letters.Count, primary.Id, secondary.Id, sw.ElapsedMilliseconds);
 
         return new DemoResetResult(true, email, apps.Count, notes.Count, letters.Count, sw.Elapsed);
+    }
+
+    // ── Resume versions ──────────────────────────────────────────────────────
+
+    public const string PrimaryResumeLabel   = "Backend focus";   // the active resume, the one that "works"
+    public const string SecondaryResumeLabel = "General";         // the older, weaker one (low-confidence row)
+
+    /// <summary>Companies whose applications were "sent with" the secondary resume; everything else uses the primary.</summary>
+    public static readonly string[] SecondaryResumeCompanies = { "Duolingo", "Snowflake", "Palantir" };
+
+    /// <summary>
+    /// After the purge only the active resume (if any) is left. Keep it as the primary version
+    /// (labelled unless the admin already named it) and add a second version by copying its file,
+    /// so each row has its own PDF and deleting one never breaks the other. A demo account that has
+    /// never uploaded a resume gets a small generated placeholder PDF so downloads still work.
+    /// </summary>
+    private async Task<(ResumeVersion Primary, ResumeVersion Secondary)> EnsureResumesAsync(string userId, CancellationToken ct)
+    {
+        var existing = await _db.ResumeVersions.Where(r => r.UserId == userId).OrderBy(r => r.Id).ToListAsync(ct);
+        var primary  = existing.FirstOrDefault(r => r.IsActive) ?? existing.FirstOrDefault();
+
+        if (primary is null)
+        {
+            primary = await WriteResumeAsync(userId, "Demo_Resume.pdf", PlaceholderPdf("InternTrackAI demo resume"), version: 1, PrimaryResumeLabel);
+            _db.ResumeVersions.Add(primary);
+        }
+        primary.IsActive = true;
+        primary.Label ??= PrimaryResumeLabel;
+
+        var secondary = existing.FirstOrDefault(r => r.Id != primary.Id);
+        if (secondary is null)
+        {
+            var source = _uploads.Resolve(primary.StoredPath);
+            var bytes  = File.Exists(source) ? await File.ReadAllBytesAsync(source, ct) : PlaceholderPdf("InternTrackAI demo resume (general)");
+            secondary  = await WriteResumeAsync(userId, "Demo_Resume_general.pdf", bytes, version: primary.VersionNumber + 1, SecondaryResumeLabel);
+            _db.ResumeVersions.Add(secondary);
+        }
+        secondary.IsActive = false;
+        secondary.Label  ??= SecondaryResumeLabel;
+
+        await _db.SaveChangesAsync(ct);
+        return (primary, secondary);
+    }
+
+    private async Task<ResumeVersion> WriteResumeAsync(string userId, string originalName, byte[] bytes, int version, string label)
+    {
+        var dir    = _uploads.GetUserDirectory("resumes", userId);
+        var stored = $"{Guid.NewGuid():N}.pdf";
+        await File.WriteAllBytesAsync(Path.Combine(dir, stored), bytes);
+        return new ResumeVersion
+        {
+            UserId           = userId,
+            VersionNumber    = version,
+            OriginalFileName = originalName,
+            StoredPath       = UploadStorage.MakeStoredPath("resumes", userId, stored),
+            FileSize         = bytes.Length,
+            Label            = label,
+            UploadedAt       = DateTime.UtcNow.AddDays(-60)
+        };
+    }
+
+    /// <summary>Links every seeded application to a resume: the three <see cref="SecondaryResumeCompanies"/> to the secondary, the rest (Saved included) to the primary.</summary>
+    public static void AssignResumes(IEnumerable<JobApplication> apps, int primaryId, int secondaryId)
+    {
+        foreach (var app in apps)
+            app.ResumeVersionId = SecondaryResumeCompanies.Contains(app.CompanyName) ? secondaryId : primaryId;
+    }
+
+    /// <summary>A one-page, single-line PDF with a correct xref table (no packages needed).</summary>
+    public static byte[] PlaceholderPdf(string text)
+    {
+        var safe    = text.Replace("\\", "\\\\").Replace("(", "\\(").Replace(")", "\\)");
+        var content = $"BT /F1 18 Tf 72 720 Td ({safe}) Tj ET";
+        var objects = new[]
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+            $"<< /Length {content.Length} >>\nstream\n{content}\nendstream",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+        };
+
+        var sb = new System.Text.StringBuilder("%PDF-1.4\n");
+        var offsets = new List<int>();
+        for (var i = 0; i < objects.Length; i++)
+        {
+            offsets.Add(sb.Length);
+            sb.Append($"{i + 1} 0 obj\n{objects[i]}\nendobj\n");
+        }
+        var xref = sb.Length;
+        sb.Append($"xref\n0 {objects.Length + 1}\n0000000000 65535 f \n");
+        foreach (var o in offsets) sb.Append($"{o:D10} 00000 n \n");
+        sb.Append($"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        return System.Text.Encoding.ASCII.GetBytes(sb.ToString());
     }
 
     // ── Seed data ────────────────────────────────────────────────────────────

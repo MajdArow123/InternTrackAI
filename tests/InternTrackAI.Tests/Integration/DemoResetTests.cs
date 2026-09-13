@@ -72,11 +72,24 @@ public class DemoResetTests
             Assert.True(letter.IsActive);
             Assert.Contains(demoApps, a => a.Id == letter.JobApplicationId);
 
-            // Profile and the active resume survive; the visitor's extra resume version is gone.
+            // Profile and the active resume survive; the visitor's extra resume version is gone and the
+            // seeder's own second version ("General") takes its place, with the applications split between them.
             Assert.Equal("Demo Person", (await db.UserProfiles.SingleAsync(p => p.UserId == demoId)).FullName);
-            var resumes = await db.ResumeVersions.Where(r => r.UserId == demoId).ToListAsync();
-            Assert.Single(resumes);
-            Assert.True(resumes[0].IsActive);
+            var resumes = await db.ResumeVersions.Where(r => r.UserId == demoId).OrderBy(r => r.Id).ToListAsync();
+            Assert.Equal(2, resumes.Count);
+            Assert.DoesNotContain(resumes, r => r.OriginalFileName == "visitor.pdf");
+            var primary   = Assert.Single(resumes, r => r.IsActive);
+            var secondary = Assert.Single(resumes, r => !r.IsActive);
+            Assert.Equal("r.pdf", primary.OriginalFileName);
+            Assert.Equal(DemoSeeder.PrimaryResumeLabel,   primary.Label);
+            Assert.Equal(DemoSeeder.SecondaryResumeLabel, secondary.Label);
+            Assert.Equal(3,  demoApps.Count(a => a.ResumeVersionId == secondary.Id));
+            Assert.Equal(12, demoApps.Count(a => a.ResumeVersionId == primary.Id));
+
+            var analytics = ResumeAnalyticsService.Build(resumes, demoApps);
+            Assert.True(analytics.ShowCard);
+            Assert.Equal($"{DemoSeeder.PrimaryResumeLabel} has the best response rate so far (63% across 8 applications).", analytics.Takeaway);
+            Assert.True(analytics.ByResumeId[secondary.Id].LowConfidence);
 
             // Other users are untouched.
             Assert.Single(await db.JobApplications.Where(a => a.UserId == otherId).ToListAsync());

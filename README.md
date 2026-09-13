@@ -46,6 +46,7 @@ If you'd rather sign in manually:
 - 📂 **Detail drawer** — the full posting, AI analysis, key details, a status timeline, and a notes log without leaving the list
 - ✅ **Bulk actions** — select rows to change status, delete, or compare up to three applications side by side
 - 📊 **Dashboard** — headline stats, an applications-over-time chart, a pipeline funnel, top companies, and an **Attention** card
+- 📈 **Resume performance** — every application records which resume version it was sent with (defaults to the active resume, changeable on Create/Edit), and the dashboard compares versions side by side: applications sent, response rate (Interview or Offer), interviews, offers and average match score, with a computed one-line takeaway such as *"Backend focus has the best response rate so far (63% across 8 applications)"*. Rows with fewer than 5 applications are greyed as low confidence; resumes can be named inline on the profile, where each one also shows its sent count and response rate
 - 🔔 **Follow-up reminders and deadline tracking** — one rule set (`ReminderService`) flags applications that are overdue (deadline passed, still Saved), due soon (deadline within 7 days), waiting on a reply (Applied for longer than your follow-up window, 3–30 days, set on the profile), or have an interview in the next 14 days. They show up on the dashboard with *Mark contacted* / *Snooze 3 days* buttons, as chips on the board, in the drawer, and behind a **Needs attention** filter on the list
 - 📅 **Calendar export** — a private iCalendar feed URL (subscribe from Google Calendar or Apple Calendar; regenerate it any time) with every deadline, interview, and follow-up date, plus a one-click *Add to calendar* file for a single application
 - 🌍 **Per-user time zone** — pick your IANA zone on the profile page; interview times, follow-up dates, note timestamps and every "N days" reminder are entered and shown in that zone while storage stays UTC, and the calendar feed emits interviews as local time with `TZID` + `VTIMEZONE` so Google and Apple Calendar show the right hour
@@ -88,6 +89,10 @@ If you'd rather sign in manually:
 | Attention card — overdue, deadline soon, follow-up due, upcoming interview |
 |---|
 | ![Attention card](docs/screenshots/attention.png) |
+
+| Resume performance — which resume version gets responses |
+|---|
+| ![Resume performance card](docs/screenshots/resume_performance.png) |
 
 | Add Application — AI Analysis + Resume Match |
 |---|
@@ -147,7 +152,7 @@ The live instance runs on [Railway](https://railway.app), built directly from th
 - **Migrations** — applied automatically on startup, so deploying a new migration is just a `git push`.
 - **Health check** — `GET /health` returns `{"status":"Healthy"}` (HTTP 200) when the database answers and 503 otherwise. `railway.toml` already sets `healthcheckPath = "/health"`; if you configure the service by hand, set **Settings → Deploy → Healthcheck Path** to `/health`.
 - **Logging** — Serilog writes structured lines to the console (which Railway captures): one line per request with method, path, status, duration, and user id. No bodies, headers, cookies, or secrets are logged. Override levels with a `Serilog__MinimumLevel__Default` variable if needed.
-- **Demo account reset** — `DemoResetService` can wipe the demo account nightly and reseed 15 realistic applications, notes, and a saved cover letter (the profile and active resume are kept). It is off unless `Demo__AutoReset=true`. Sign in as the `Admin__Email` account and open `/Admin/ResetDemo` to run the same reseed by hand and check the result before turning the nightly job on. The startup log states whether auto-reset is enabled.
+- **Demo account reset** — `DemoResetService` can wipe the demo account nightly and reseed 15 realistic applications, notes, and a saved cover letter (the profile and active resume are kept; a second labelled resume version is added and the applications are split between the two so the Resume performance card shows a comparison). It is off unless `Demo__AutoReset=true`. Sign in as the `Admin__Email` account and open `/Admin/ResetDemo` to run the same reseed by hand and check the result before turning the nightly job on. The startup log states whether auto-reset is enabled.
 
 To deploy your own copy: create a Railway project, add a PostgreSQL service, attach a volume (mounted at `/data`), point Railway at this repo, and set these variables on the service — `railway.toml` already configures the build and health check.
 

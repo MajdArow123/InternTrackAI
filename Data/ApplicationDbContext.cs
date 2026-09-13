@@ -24,6 +24,19 @@ public class ApplicationDbContext : IdentityDbContext, IDataProtectionKeyContext
     // Persists Data Protection keys to DB so they survive container restarts and redeployments.
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
 
+    protected override void OnModelCreating(ModelBuilder builder)
+    {
+        base.OnModelCreating(builder);
+
+        // Notes belong to exactly one application and have no life of their own: deleting the
+        // application (single or bulk) must take its notes with it, on SQLite and PostgreSQL alike.
+        builder.Entity<ApplicationNote>()
+            .HasOne(n => n.JobApplication)
+            .WithMany()
+            .HasForeignKey(n => n.JobApplicationId)
+            .OnDelete(DeleteBehavior.Cascade);
+    }
+
     // PostgreSQL's "timestamp with time zone" columns reject DateTime.Kind=Unspecified
     // (which is what model binding produces from <input type="date">). Force UTC on the
     // way in and out so this holds regardless of provider.

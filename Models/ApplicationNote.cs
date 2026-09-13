@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace InternTrackAI.Models;
 
@@ -22,4 +23,9 @@ public class ApplicationNote
     public string Text { get; set; } = string.Empty;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // Owning application. The FK cascades (see ApplicationDbContext.OnModelCreating), so
+    // deleting an application removes its notes at the database level.
+    [ForeignKey(nameof(JobApplicationId))]
+    public JobApplication? JobApplication { get; set; }
 }

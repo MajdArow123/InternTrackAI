@@ -3898,3 +3898,4 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .filter-pill-attention .filter-pill-dot { background: var(--warning); }
 .drawer-reminder-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
 .reminder-days-input { max-width: 6.5rem; }
+.calendar-howto { padding-left: 1.1rem; font-size: .8667rem; color: var(--text-2); display: flex; flex-direction: column; gap: .25rem; }

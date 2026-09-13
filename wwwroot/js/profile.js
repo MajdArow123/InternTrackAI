@@ -294,6 +294,38 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
                 .catch(() => { reminderBtn.disabled = false; showAppToast('error', 'Could not save — try again.'); });
         });
 
+        // ── Calendar feed link ───────────────────────────
+        const calendarInput     = document.getElementById('calendarFeedInput');
+        const copyCalendarBtn   = document.getElementById('copyCalendarBtn');
+        const regenCalendarBtn  = document.getElementById('regenCalendarBtn');
+        const calendarIndicator = document.getElementById('calendarIndicator');
+
+        copyCalendarBtn?.addEventListener('click', () => {
+            if (!calendarInput.value) return;
+            navigator.clipboard.writeText(calendarInput.value).then(() => {
+                calendarIndicator.textContent = 'Copied \u2713';
+                flashSaveIndicator(calendarIndicator);
+            });
+        });
+
+        regenCalendarBtn?.addEventListener('click', () => {
+            appConfirm({
+                title: 'Regenerate calendar link?',
+                text: 'Calendars subscribed with the current link will stop updating until you add the new one.',
+                okLabel: 'Regenerate'
+            }).then(ok => {
+                if (!ok) return;
+                postForm('/Profile/RegenerateCalendarToken', {})
+                    .then(res => {
+                        if (!res.success) return;
+                        calendarInput.value = res.url;
+                        calendarIndicator.textContent = 'New link ready \u2713';
+                        flashSaveIndicator(calendarIndicator);
+                        showAppToast('success', 'Calendar link regenerated. Re-subscribe with the new URL.');
+                    });
+            });
+        });
+
         // ── Public Profile Link ──────────────────────────
         const publicToggle  = document.getElementById('publicProfileToggle');
         const publicLinkRow = document.getElementById('publicLinkRow');

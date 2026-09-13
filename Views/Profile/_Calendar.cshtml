@@ -1,0 +1,17 @@
+@model InternTrackAI.Models.ViewModels.ProfileViewModel
+    <!-- ── Calendar feed ── -->
+    <div class="form-card mb-3">
+        <p class="form-section-title mb-1">Calendar feed</p>
+        <p class="form-hint mb-3">Subscribe once and every deadline, interview, and follow-up date shows up in your calendar and stays in sync. Anyone with this link can see those dates, so treat it like a password.</p>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <input type="text" class="form-control public-link-input" id="calendarFeedInput" readonly aria-label="Calendar feed URL"
+                   value="@Model.CalendarFeedUrl" />
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="copyCalendarBtn">Copy</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="regenCalendarBtn">Regenerate link</button>
+            <span class="save-indicator" id="calendarIndicator">Copied &#10003;</span>
+        </div>
+        <ul class="calendar-howto mt-3 mb-0">
+            <li><strong>Google Calendar:</strong> Other calendars <span aria-hidden="true">&rarr;</span> <em>From URL</em>, paste the link.</li>
+            <li><strong>Apple Calendar:</strong> File <span aria-hidden="true">&rarr;</span> <em>New Calendar Subscription</em>, paste the link.</li>
+        </ul>
+    </div>

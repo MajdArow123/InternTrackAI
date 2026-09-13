@@ -56,6 +56,7 @@ public class ProfileController : Controller
     [HttpGet]
     public async Task<IActionResult> Index()
     {
+        await EnsureCalendarTokenAsync(UserId());
         var vm = await BuildViewModelAsync();
         return View(vm);
     }
@@ -189,6 +190,33 @@ public class ProfileController : Controller
         await _db.SaveChangesAsync();
         return Json(new { success = true });
     }
+
+    // ── POST /Profile/RegenerateCalendarToken ────────────
+
+    /// <summary>Rotates the calendar-feed token; the previous feed URL stops working immediately.</summary>
+    /// <returns>JSON <c>{ success, url }</c>.</returns>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> RegenerateCalendarToken()
+    {
+        var profile = await GetOrCreateProfileAsync(UserId());
+        profile.CalendarToken = CalendarController.NewToken();
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, url = CalendarFeedUrl(profile.CalendarToken) });
+    }
+
+    /// <summary>Issues the feed token the first time the profile page is opened.</summary>
+    private async Task EnsureCalendarTokenAsync(string userId)
+    {
+        var profile = await GetOrCreateProfileAsync(userId);
+        if (string.IsNullOrEmpty(profile.CalendarToken))
+        {
+            profile.CalendarToken = CalendarController.NewToken();
+            await _db.SaveChangesAsync();
+        }
+    }
+
+    private string? CalendarFeedUrl(string? token) =>
+        string.IsNullOrEmpty(token) ? null : Url.Action("Feed", "Calendar", new { token }, Request.Scheme);
 
     // ── POST /Profile/SaveReminderSettings ───────────────
 
@@ -661,7 +689,8 @@ public class ProfileController : Controller
             ApplicationsThisMonth  = appsThisMonth,
             UpcomingDeadlines7Days = upcomingDeadlines7,
             RecentMatchedApps      = recentMatched,
-            GitHubRepos            = githubRepos
+            GitHubRepos            = githubRepos,
+            CalendarFeedUrl        = CalendarFeedUrl(profile.CalendarToken)
         };
     }
 

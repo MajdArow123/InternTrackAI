@@ -36,4 +36,8 @@ public class ProfileViewModel
 
     // Null if no GitHub username is set, or if the API call failed/rate-limited.
     public List<GitHubRepoDto>? GitHubRepos { get; set; }
+
+    // Absolute URL of the user's iCalendar feed (GET /Calendar/feed.ics?token=…); null only if
+    // no token has been issued yet (ProfileController.Index issues one before rendering).
+    public string? CalendarFeedUrl { get; set; }
 }

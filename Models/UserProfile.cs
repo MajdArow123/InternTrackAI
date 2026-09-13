@@ -41,4 +41,9 @@ public class UserProfile
     // Days after applying (or after the last contact) before an application in Applied shows up
     // as "follow-up due". Editable on the profile page within ReminderService.Min/MaxFollowUpAfterDays.
     public int FollowUpAfterDays { get; set; } = 7;
+
+    // Secret for the anonymous iCalendar feed (GET /Calendar/feed.ics?token=…): 32 random bytes,
+    // Base64Url-encoded. Null until the user first opens the profile page; "Regenerate link"
+    // replaces it, which invalidates any calendar subscription using the old URL.
+    public string? CalendarToken { get; set; }
 }

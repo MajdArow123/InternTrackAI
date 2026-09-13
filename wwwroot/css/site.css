@@ -3567,7 +3567,7 @@ html[data-theme="dark"] .skeleton-line {
 
 /* ── Profile: searchable target-role combobox (Section 1c) ──────────────── */
 
-.role-combobox-wrap { position: relative; flex: 0 1 260px; }
+.role-combobox-wrap { position: relative; flex: 0 0 auto; display: inline-block; }
 
 .role-combobox-list {
   position: absolute;

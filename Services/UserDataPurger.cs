@@ -52,6 +52,9 @@ public class UserDataPurger
 
         if (!keepProfile)
         {
+            // Account deletion: drop the Gmail link too (the row only ever held encrypted tokens).
+            await _db.GmailConnections.Where(c => c.UserId == userId).ExecuteDeleteAsync();
+
             var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId);
             if (profile != null)
             {

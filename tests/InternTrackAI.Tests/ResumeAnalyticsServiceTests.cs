@@ -108,15 +108,27 @@ public class ResumeAnalyticsServiceTests
     }
 
     [Fact]
-    public void Rows_are_sorted_by_response_rate_then_sent()
+    public void Confident_rows_come_first_by_rate_then_low_confidence_rows_by_rate()
     {
-        var apps = Many(ApplicationStatus.Applied, 1, 4).Concat(Many(ApplicationStatus.Interview, 1, 1))   // 20%
-            .Concat(Many(ApplicationStatus.Applied, 2, 1)).Concat(Many(ApplicationStatus.Offer, 2, 1))      // 50%
-            .Concat(Many(ApplicationStatus.Applied, 3, 6));                                                  // 0%
+        var apps = Many(ApplicationStatus.Applied, 1, 4).Concat(Many(ApplicationStatus.Interview, 1, 1))   // 5 sent, 20%  (confident)
+            .Concat(Many(ApplicationStatus.Applied, 2, 1)).Concat(Many(ApplicationStatus.Offer, 2, 1))      // 2 sent, 50%  (low confidence)
+            .Concat(Many(ApplicationStatus.Applied, 3, 6))                                                   // 6 sent, 0%   (confident)
+            .Concat(Many(ApplicationStatus.Offer, 4, 1)).Concat(Many(ApplicationStatus.Applied, 4, 3));     // 4 sent, 25%  (low confidence)
 
-        var ids = ResumeAnalyticsService.Build(new[] { Resume(1, 1), Resume(2, 2), Resume(3, 3) }, apps).Rows.Select(r => r.ResumeVersionId).ToList();
+        var ids = ResumeAnalyticsService.Build(new[] { Resume(1, 1), Resume(2, 2), Resume(3, 3), Resume(4, 4) }, apps).Rows.Select(r => r.ResumeVersionId).ToList();
 
-        Assert.Equal(new int?[] { 2, 1, 3 }, ids);
+        Assert.Equal(new int?[] { 1, 3, 2, 4 }, ids);
+    }
+
+    [Fact]
+    public void Within_the_same_confidence_band_ties_on_rate_are_broken_by_sent()
+    {
+        var apps = Many(ApplicationStatus.Applied, 1, 5).Concat(Many(ApplicationStatus.Interview, 1, 5))   // 10 sent, 50%
+            .Concat(Many(ApplicationStatus.Applied, 2, 3)).Concat(Many(ApplicationStatus.Interview, 2, 3)); // 6 sent, 50%
+
+        var ids = ResumeAnalyticsService.Build(new[] { Resume(1, 1), Resume(2, 2) }, apps).Rows.Select(r => r.ResumeVersionId).ToList();
+
+        Assert.Equal(new int?[] { 1, 2 }, ids);
     }
 
     // ── Low confidence ───────────────────────────────────

@@ -5,6 +5,7 @@ using InternTrackAI.Models;
 using InternTrackAI.Models.Enums;
 using InternTrackAI.Models.ViewModels;
 using InternTrackAI.Services;
+using InternTrackAI.Services.Gmail;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -29,6 +30,7 @@ public class ProfileController : Controller
     private readonly ProfileExtractorService _extractor;
     private readonly GitHubService _github;
     private readonly UserClockProvider _clocks;
+    private readonly IConfiguration _config;
     private readonly ILogger<ProfileController> _logger;
 
     public ProfileController(
@@ -40,9 +42,11 @@ public class ProfileController : Controller
         ProfileExtractorService extractor,
         GitHubService github,
         UserClockProvider clocks,
+        IConfiguration config,
         ILogger<ProfileController> logger)
     {
         _clocks = clocks;
+        _config = config;
         _db = db;
         _userManager = userManager;
         _uploads = uploads;
@@ -705,8 +709,15 @@ public class ProfileController : Controller
         if (!string.IsNullOrWhiteSpace(profile.GitHubUsername))
             githubRepos = await _github.GetPublicReposAsync(profile.GitHubUsername);
 
+        var gmailConfigured = GmailIntegration.IsConfigured(_config);
+        var gmail = gmailConfigured
+            ? await _db.GmailConnections.AsNoTracking().FirstOrDefaultAsync(c => c.UserId == userId)
+            : null;
+
         return new ProfileViewModel
         {
+            GmailConfigured = gmailConfigured,
+            GmailConnection = gmail,
             ResumeStats   = ResumeAnalyticsService.Build(resumes, apps).ByResumeId,
             Profile       = profile,
             Email         = user?.Email,

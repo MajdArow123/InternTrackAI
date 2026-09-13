@@ -34,7 +34,10 @@ public sealed record ResumeStats(
 /// <summary>Everything the dashboard card and the profile list need, computed once per page.</summary>
 public sealed class ResumeAnalytics
 {
-    /// <summary>Rows sorted by response rate (desc), then applications sent (desc), then newest version first.</summary>
+    /// <summary>
+    /// Rows with a meaningful sample (<see cref="ResumeAnalyticsService.MinimumSample"/>+ sent) first, sorted by
+    /// response rate (desc); low-confidence rows follow, also by rate (desc). Ties: more sent, then newest version.
+    /// </summary>
     public List<ResumeStats> Rows { get; init; } = new();
 
     /// <summary>The one-line, non-AI summary shown above the table.</summary>
@@ -94,8 +97,10 @@ public class ResumeAnalyticsService
         if (unlinked.Count > 0)
             rows.Add(Row(null, NoResumeLabel, 0, false, unlinked));
 
+        // Confident rows (5+ sent) first so a 100% rate from two applications never tops the table.
         rows = rows
-            .OrderByDescending(r => r.ResponseRate)
+            .OrderBy(r => r.LowConfidence ? 1 : 0)
+            .ThenByDescending(r => r.ResponseRate)
             .ThenByDescending(r => r.Sent)
             .ThenByDescending(r => r.VersionNumber)
             .ToList();

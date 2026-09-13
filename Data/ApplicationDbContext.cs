@@ -20,6 +20,7 @@ public class ApplicationDbContext : IdentityDbContext, IDataProtectionKeyContext
     public DbSet<GeneratedCoverLetter> GeneratedCoverLetters { get; set; }
     public DbSet<InterviewPrepSession> InterviewPrepSessions { get; set; }
     public DbSet<ApplicationNote> ApplicationNotes { get; set; }
+    public DbSet<GmailConnection> GmailConnections { get; set; }
 
     // Persists Data Protection keys to DB so they survive container restarts and redeployments.
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
@@ -43,6 +44,11 @@ public class ApplicationDbContext : IdentityDbContext, IDataProtectionKeyContext
             .WithMany()
             .HasForeignKey(a => a.ResumeVersionId)
             .OnDelete(DeleteBehavior.SetNull);
+
+        // One Gmail account per user; the tokens in this row are Data Protection ciphertext.
+        builder.Entity<GmailConnection>()
+            .HasIndex(c => c.UserId)
+            .IsUnique();
     }
 
     // PostgreSQL's "timestamp with time zone" columns reject DateTime.Kind=Unspecified

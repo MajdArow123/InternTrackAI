@@ -1,0 +1,46 @@
+@model InternTrackAI.Models.ViewModels.ProfileViewModel
+@if (Model.GmailConfigured)
+{
+    var clock = await Clocks.GetAsync();
+    var gmail = Model.GmailConnection;
+    <!-- ── Connected accounts (Gmail) ── rendered only when Google OAuth is configured -->
+    <div class="form-card mb-3" id="connectedAccountsCard">
+        <p class="form-section-title mb-1">Connected accounts</p>
+        @if (gmail is null)
+        {
+            <p class="form-hint mb-3" id="gmailDisconnectedHint">Reads emails from companies you&rsquo;ve applied to and suggests status updates. Read-only. Never sends anything.</p>
+            <div class="connected-account connected-account--off">
+                <span class="connected-account-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                </span>
+                <div class="connected-account-text">
+                    <div class="connected-account-name">Gmail</div>
+                    <div class="connected-account-sub">Not connected</div>
+                </div>
+                <a asp-controller="Integrations" asp-action="Connect" class="btn btn-primary btn-sm" id="gmailConnectBtn">Connect Gmail</a>
+            </div>
+        }
+        else
+        {
+            <p class="form-hint mb-3">Only <code>gmail.readonly</code> is granted. Email bodies are never stored; disconnecting revokes the access token with Google.</p>
+            <div class="connected-account connected-account--on">
+                <span class="connected-account-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                </span>
+                <div class="connected-account-text">
+                    <div class="connected-account-name" id="gmailAddress">@gmail.GmailAddress</div>
+                    <div class="connected-account-sub" id="gmailLastSynced">
+                        @(gmail.LastSyncedAt.HasValue ? $"Last synced {clock.LocalDateTime(gmail.LastSyncedAt)}" : "Not synced yet")
+                    </div>
+                </div>
+                <div class="connected-account-actions">
+                    <form asp-controller="Integrations" asp-action="Disconnect" method="post" class="d-inline"
+                          data-confirm="InternTrackAI will revoke its access to @gmail.GmailAddress and stop suggesting status updates from your inbox."
+                          data-confirm-title="Disconnect Gmail?" data-confirm-ok="Disconnect">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" id="gmailDisconnectBtn">Disconnect</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+}

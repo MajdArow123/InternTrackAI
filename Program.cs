@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using InternTrackAI.Data;
 using InternTrackAI.Services;
+using InternTrackAI.Services.Gmail;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Serilog;
@@ -101,7 +102,17 @@ builder.Services.AddHostedService<DemoResetService>();
 builder.Services.AddScoped<ReminderService>();
 builder.Services.AddScoped<ResumeAnalyticsService>();   // "Resume performance" card + profile stats
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddScoped<UserClockProvider>();   // per-user time zone (see Services/UserClock.cs)
+builder.Services.AddScoped<UserClockProvider>();
+
+// ── Gmail integration (optional) ─────────────────────────────────────────────
+// Google:ClientId / Google:ClientSecret switch the whole feature on. Without them every Gmail
+// element is hidden, the Integrations endpoints answer 404 and the background sync stays idle.
+// Tokens are stored encrypted (GmailTokenProtector); only the gmail.readonly scope is requested.
+builder.Services.Configure<GoogleOptions>(builder.Configuration.GetSection(GoogleOptions.SectionName));
+builder.Services.Configure<GmailOptions>(builder.Configuration.GetSection(GmailOptions.SectionName));
+builder.Services.AddSingleton<GmailTokenProtector>();
+builder.Services.AddSingleton<IGoogleOAuthClient, GoogleOAuthClient>();
+builder.Services.AddSingleton<IGmailClient, GmailApiClient>();   // per-user time zone (see Services/UserClock.cs)
 builder.Services.AddHttpClient<JobAnalyzerService>();
 builder.Services.AddHttpClient<ResumeMatcherService>();
 builder.Services.AddHttpClient<ResumeScoreService>();

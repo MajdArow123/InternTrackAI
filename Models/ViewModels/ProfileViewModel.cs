@@ -43,4 +43,9 @@ public class ProfileViewModel
     // Absolute URL of the user's iCalendar feed (GET /Calendar/feed.ics?token=…); null only if
     // no token has been issued yet (ProfileController.Index issues one before rendering).
     public string? CalendarFeedUrl { get; set; }
+
+    // ── Connected accounts (Gmail) ──
+    // GmailConfigured is false when Google:ClientId/ClientSecret are absent: the card is not rendered at all.
+    public bool GmailConfigured { get; set; }
+    public GmailConnection? GmailConnection { get; set; }
 }

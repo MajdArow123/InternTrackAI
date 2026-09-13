@@ -47,7 +47,8 @@
     <!-- Any antiforgery input works for app-drawer.js / board.js fetch() calls. -->
     <form id="board-token-form" hidden>@Html.AntiForgeryToken()</form>
 
-    <div class="board" id="board" role="list" aria-label="Applications by status">
+    <p class="visually-hidden" id="board-kbd-help">Focus a card and press Space to pick it up, arrow keys to move it within or between columns, Space to drop, Escape to cancel.</p>
+    <div class="board" id="board" role="list" aria-label="Applications by status" aria-describedby="board-kbd-help">
         @foreach (var st in JobApplicationsController.PipelineOrder)
         {
             var cards = byStatus.TryGetValue(st, out var list) ? list : new List<InternTrackAI.Models.JobApplication>();
@@ -74,6 +75,8 @@
 <partial name="_Drawer" />
 
 @section Scripts {
+    @* SortableJS 1.15.6 (MIT), vendored like jsPDF/Chart.js — no CDN. Update by replacing the file. *@
+    <script src="~/lib/sortablejs/Sortable.min.js"></script>
     <script src="~/js/app-drawer.js" asp-append-version="true"></script>
     <script src="~/js/board.js" asp-append-version="true"></script>
 }

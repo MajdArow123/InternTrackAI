@@ -3730,3 +3730,23 @@ code { color: var(--accent-text); background: var(--accent-soft); padding: .1em 
   font-size: .875rem;
 }
 .board-column-body.is-empty .board-empty { display: block; }
+
+/* Drag-and-drop states (SortableJS fallback mode + keyboard lift) */
+.board-card--ghost {
+  opacity: .45;
+  background: var(--surface-3);
+  border: 1.5px dashed var(--border-strong);
+  box-shadow: none;
+}
+.board-card--ghost > * { visibility: hidden; }
+.board-card--drag,
+.board-card--lifted {
+  transform: rotate(2deg) scale(1.02);
+  box-shadow: var(--shadow-lg);
+  cursor: grabbing;
+  z-index: 50;
+}
+.board-card--lifted { box-shadow: var(--focus-ring), var(--shadow-lg); }
+.board-card--chosen { cursor: grabbing; }
+body.board-dragging { user-select: none; -webkit-user-select: none; cursor: grabbing; }
+body.board-dragging .board-column-body { min-height: 120px; }

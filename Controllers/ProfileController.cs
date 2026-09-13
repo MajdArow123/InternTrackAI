@@ -8,6 +8,7 @@ using InternTrackAI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternTrackAI.Controllers;
@@ -279,6 +280,7 @@ public class ProfileController : Controller
     /// false if no active resume exists yet (nothing to analyze).
     /// </returns>
     [HttpPost, ValidateAntiForgeryToken]
+    [EnableRateLimiting(AiRateLimiting.PolicyName)]
     public async Task<IActionResult> AnalyzeResume()
     {
         var userId = UserId();
@@ -426,6 +428,7 @@ public class ProfileController : Controller
     /// attached rather than redirecting, so the page doesn't need a second round-trip to show it.
     /// </summary>
     [HttpPost, ValidateAntiForgeryToken]
+    [EnableRateLimiting(AiRateLimiting.PolicyName)]
     public async Task<IActionResult> ScoreResume()
     {
         var userId = UserId();
@@ -486,6 +489,7 @@ public class ProfileController : Controller
     /// PascalCase C# names — the calling JavaScript must read them as camelCase.
     /// </returns>
     [HttpPost, IgnoreAntiforgeryToken] // API endpoint called via AJAX from authenticated Create page
+    [EnableRateLimiting(AiRateLimiting.PolicyName)]
     public async Task<IActionResult> AutoMatch([FromBody] AutoMatchRequest? request)
     {
         if (string.IsNullOrWhiteSpace(request?.JobDescription))

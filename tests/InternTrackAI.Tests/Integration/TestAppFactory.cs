@@ -21,7 +21,7 @@ public class TestAppFactory : WebApplicationFactory<Program>
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        _connection.Open();
+        if (_connection.State != System.Data.ConnectionState.Open) _connection.Open();
 
         builder.UseEnvironment("Testing");
         // appsettings.json is gitignored, so CI has no connection string; Program.cs requires one

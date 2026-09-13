@@ -66,6 +66,7 @@
                 });
 
                 const data = await resp.json();
+                if (resp.status === 429 && data.error) showAppToast('error', data.error);
 
                 if (data.success) {
                     autofill('CompanyName',   data.companyName);
@@ -248,6 +249,7 @@
                     body: JSON.stringify({ jobDescription })
                 });
                 const d = await resp.json();
+                if (resp.status === 429 && d.error) showAppToast('error', d.error);
                 console.log('AutoMatch response:', JSON.stringify(d));
 
                 // No active resume on file — point the user to the Profile page

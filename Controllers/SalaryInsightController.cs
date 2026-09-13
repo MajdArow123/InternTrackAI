@@ -1,6 +1,7 @@
 using InternTrackAI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace InternTrackAI.Controllers;
 
@@ -25,6 +26,7 @@ public class SalaryInsightController : Controller
     /// </summary>
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(AiRateLimiting.PolicyName)]
     public async Task<IActionResult> Estimate([FromBody] SalaryInsightRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Role) || string.IsNullOrWhiteSpace(req.Company))

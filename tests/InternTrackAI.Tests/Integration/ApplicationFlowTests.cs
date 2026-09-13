@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text.RegularExpressions;
 using InternTrackAI.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -16,18 +15,6 @@ public class ApplicationFlowTests : IClassFixture<TestAppFactory>
 
     private HttpClient NewClient() =>
         _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
-
-    private static readonly Regex TokenRx = new("name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"", RegexOptions.Compiled);
-
-    private static async Task<string> GetAntiforgeryTokenAsync(HttpClient client, string url)
-    {
-        var res = await client.GetAsync(url);
-        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
-        var html = await res.Content.ReadAsStringAsync();
-        var m = TokenRx.Match(html);
-        Assert.True(m.Success, $"No antiforgery token found on {url}");
-        return m.Groups[1].Value;
-    }
 
     [Fact]
     public async Task Applications_page_requires_sign_in()
@@ -47,7 +34,7 @@ public class ApplicationFlowTests : IClassFixture<TestAppFactory>
         const string password = "Integration-Pass-1!";
 
         // ── Register through the real Identity page (sets the auth cookie) ──
-        var regToken = await GetAntiforgeryTokenAsync(client, "/Identity/Account/Register");
+        var regToken = await Http.GetAntiforgeryTokenAsync(client, "/Identity/Account/Register");
         var reg = await client.PostAsync("/Identity/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["Input.Email"]            = email,
@@ -60,7 +47,7 @@ public class ApplicationFlowTests : IClassFixture<TestAppFactory>
         Assert.Equal("/", reg.Headers.Location!.ToString());
 
         // ── Create an application ──
-        var createToken = await GetAntiforgeryTokenAsync(client, "/JobApplications/Create");
+        var createToken = await Http.GetAntiforgeryTokenAsync(client, "/JobApplications/Create");
         var create = await client.PostAsync("/JobApplications/Create", new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["CompanyName"] = "Integration Co",
@@ -104,7 +91,7 @@ public class ApplicationFlowTests : IClassFixture<TestAppFactory>
         }
 
         var client = NewClient();
-        var token = await GetAntiforgeryTokenAsync(client, "/Identity/Account/Register");
+        var token = await Http.GetAntiforgeryTokenAsync(client, "/Identity/Account/Register");
         var email = $"b-{Guid.NewGuid():N}@example.test";
         await client.PostAsync("/Identity/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
         {

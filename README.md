@@ -136,6 +136,9 @@ To deploy your own copy: create a Railway project, add a PostgreSQL service, att
 | `OpenAI__ApiKey` | OpenAI API key for all AI features |
 | `UPLOADS_PATH` | Upload root on the volume, e.g. `/data/uploads` |
 | `Demo__Email` / `Demo__Password` | Optional. Credentials of the account behind the **Try the live demo** button; leave unset to hide it |
+| `RateLimiting__AI__PermitLimit` | Optional (default `20`). AI requests allowed per user per window, across all AI features |
+| `RateLimiting__AI__WindowMinutes` | Optional (default `60`). Length of the rate-limit window |
+| `RateLimiting__AI__DemoPermitLimit` | Optional (default `10`). Tighter allowance for the shared demo account |
 
 (`DATABASE_URL` and `PORT` are injected by Railway automatically.)
 

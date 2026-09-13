@@ -82,6 +82,11 @@ builder.Services.AddHttpClient("UrlFetcher")
     .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddControllersWithViews();
 
+// ── Rate limiting for the OpenAI-backed endpoints ────────────────────────────
+// One fixed-window bucket per user shared by every action tagged [EnableRateLimiting("ai")];
+// limits come from the RateLimiting:AI section (see AiRateLimitOptions for defaults).
+builder.Services.AddAiRateLimiting(builder.Configuration);
+
 // By default, Data Protection keys live in memory/on local disk and are lost whenever
 // the container restarts or redeploys, which silently invalidates every existing
 // antiforgery token and auth cookie (forcing all logged-in users to sign in again).
@@ -149,7 +154,11 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath  = "/uploads/photos"
 });
 app.UseRouting();
+app.UseAuthentication();
 app.UseAuthorization();
+// After authorization so the limiter can key on the signed-in user; only endpoints that
+// opt in with [EnableRateLimiting("ai")] are affected.
+app.UseRateLimiter();
 app.MapStaticAssets();
 
 app.MapControllerRoute(

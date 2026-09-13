@@ -1,6 +1,7 @@
 using InternTrackAI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace InternTrackAI.Controllers;
 
@@ -33,6 +34,7 @@ public class AnalyzerController : Controller
                               // state-changing writes of its own (it only returns extracted text), so
                               // skipping the antiforgery check avoids needing to thread the token through
                               // the AJAX call.
+    [EnableRateLimiting(AiRateLimiting.PolicyName)]
     public async Task<IActionResult> Analyze([FromBody] AnalyzeRequest request)
     {
         if (string.IsNullOrWhiteSpace(request?.JobDescription))

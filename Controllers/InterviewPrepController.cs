@@ -6,6 +6,7 @@ using InternTrackAI.Models.ViewModels;
 using InternTrackAI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternTrackAI.Controllers;
@@ -85,6 +86,7 @@ public class InterviewPrepController : Controller
     /// </returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(AiRateLimiting.PolicyName)]
     public async Task<IActionResult> Generate([FromBody] GeneratePrepRequest req)
     {
         var uid = UserId();
@@ -163,6 +165,7 @@ public class InterviewPrepController : Controller
     /// answered, and the candidate's answer text.</param>
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(AiRateLimiting.PolicyName)]
     public async Task<IActionResult> CritiqueAnswer([FromBody] CritiqueAnswerRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Answer))

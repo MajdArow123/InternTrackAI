@@ -35,6 +35,7 @@
                     body: JSON.stringify({ role, company, location, workMode })
                 });
                 const data = await resp.json();
+                if (resp.status === 429 && data.error) showAppToast('error', data.error);
 
                 if (!data.success) {
                     errorEl.textContent = data.error || 'Estimate failed. Please try again.';

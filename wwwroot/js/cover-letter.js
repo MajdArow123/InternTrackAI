@@ -50,6 +50,7 @@
                 });
 
                 const data = await resp.json();
+                if (resp.status === 429 && data.error) showAppToast('error', data.error);
 
                 if (!data.success) {
                     showError(data.error || 'Generation failed. Please try again.');
@@ -118,6 +119,7 @@
                 });
 
                 const data = await resp.json();
+                if (resp.status === 429 && data.error) showAppToast('error', data.error);
 
                 if (!data.success) {
                     improveError.textContent = data.error || 'Improvement failed. Please try again.';

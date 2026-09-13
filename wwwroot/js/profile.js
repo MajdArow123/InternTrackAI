@@ -44,7 +44,10 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
         function postForm(url, fields) {
             const body = new URLSearchParams({ __RequestVerificationToken: antiForgeryToken, ...fields });
             return fetch(url, { method: 'POST', body, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                .then(r => r.json());
+                .then(r => r.json().then(data => {
+                    if (r.status === 429 && data.error) showAppToast('error', data.error);
+                    return data;
+                }));
         }
 
         function flashSaveIndicator(el) {

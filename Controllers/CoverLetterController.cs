@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using InternTrackAI.Data;
 using InternTrackAI.Models;
@@ -79,6 +80,7 @@ public class CoverLetterController : Controller
     /// <returns>JSON with the generated content on success, or an error message on failure.</returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(AiRateLimiting.PolicyName)]
     public async Task<IActionResult> GenerateAjax([FromBody] GenerateRequest req)
     {
         var uid = UserId();
@@ -150,6 +152,7 @@ public class CoverLetterController : Controller
     /// context, and free-text improvement instructions.</param>
     [HttpPost]
     [ValidateAntiForgeryToken]
+    [EnableRateLimiting(AiRateLimiting.PolicyName)]
     public async Task<IActionResult> ImproveAjax([FromBody] ImproveRequest req)
     {
         if (string.IsNullOrWhiteSpace(req.Content))

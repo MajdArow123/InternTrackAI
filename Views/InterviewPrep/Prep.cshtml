@@ -163,6 +163,7 @@
             });
 
             const data = await resp.json();
+            if (resp.status === 429 && data.error) showAppToast('error', data.error);
 
             if (!data.success) {
                 errorBanner.textContent = data.error || 'Generation failed. Please try again.';
@@ -282,7 +283,7 @@
                 },
                 body: JSON.stringify({ appId, question, answer })
             })
-            .then(r => r.json())
+            .then(r => r.json().then(data => { if (r.status === 429 && data.error) showAppToast('error', data.error); return data; }))
             .then(data => {
                 if (!data.success) {
                     error.textContent = data.error || 'Feedback failed. Please try again.';

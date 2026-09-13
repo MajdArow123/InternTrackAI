@@ -106,7 +106,7 @@
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <input type="file" name="resume" accept=".pdf"
                        class="form-control" style="width:auto;font-size:.875rem;" />
-                <button type="submit" class="btn btn-dark">Upload New Resume</button>
+                <button type="submit" class="btn btn-primary">Upload New Resume</button>
                 <span class="text-muted" style="font-size:.75rem">PDF only &middot; Max 5 MB</span>
             </div>
         </form>
@@ -268,7 +268,7 @@
                 </div>
             </div>
             <div class="mt-3 d-flex align-items-center">
-                <button type="submit" class="btn btn-dark px-4" id="saveInfoBtn">Save Info</button>
+                <button type="submit" class="btn btn-primary px-4" id="saveInfoBtn">Save Info</button>
                 <span class="save-indicator" id="infoSaveIndicator">Saved &#10003;</span>
             </div>
         </form>
@@ -471,7 +471,7 @@
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <input type="file" name="coverLetter" accept=".pdf"
                        class="form-control" style="width:auto;font-size:.875rem;" />
-                <button type="submit" class="btn btn-dark">Upload New Cover Letter</button>
+                <button type="submit" class="btn btn-primary">Upload New Cover Letter</button>
                 <span class="text-muted" style="font-size:.75rem">PDF only &middot; Max 5 MB</span>
             </div>
         </form>
@@ -494,7 +494,7 @@
         {
             <form asp-action="ScoreResume" method="post">
                 @Html.AntiForgeryToken()
-                <button type="submit" class="btn btn-dark px-4" id="scoreBtn">
+                <button type="submit" class="btn btn-primary px-4" id="scoreBtn">
                     Score My Resume
                 </button>
                 <span class="ms-2 text-muted" style="font-size:.78rem">Powered by GPT-4o mini</span>

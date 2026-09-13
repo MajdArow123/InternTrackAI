@@ -82,7 +82,7 @@
         <div class="d-flex gap-2">
             <button type="button" class="btn btn-outline-secondary btn-sm" id="import-csv-btn">Import CSV</button>
             <a asp-action="Export" class="btn btn-outline-secondary btn-sm">Export CSV</a>
-            <a asp-action="Create" class="btn btn-dark">+ Add Application</a>
+            <a asp-action="Create" class="btn btn-primary">+ Add Application</a>
         </div>
     </div>
 
@@ -151,7 +151,7 @@
             </select>
         </div>
         <div class="d-flex gap-2 align-self-end">
-            <button type="submit" class="btn btn-dark btn-sm filter-apply-btn">Filter</button>
+            <button type="submit" class="btn btn-primary btn-sm filter-apply-btn">Filter</button>
             @if (isFiltered)
             {
                 <a asp-action="Index" class="btn btn-outline-secondary btn-sm filter-apply-btn">Clear</a>
@@ -189,7 +189,7 @@
                 {
                     <p class="empty-state-title">No applications yet</p>
                     <p class="empty-state-desc">Start tracking your internship search by logging your first application.</p>
-                    <a asp-action="Create" class="btn btn-dark btn-sm">Add Your First Application</a>
+                    <a asp-action="Create" class="btn btn-primary btn-sm">Add Your First Application</a>
                 }
             </div>
         </div>
@@ -335,7 +335,7 @@
             <input type="file" name="file" accept=".csv" class="form-control mb-3" required />
             <div class="d-flex justify-content-end gap-2">
                 <button type="button" class="btn btn-outline-secondary btn-sm" id="import-cancel">Cancel</button>
-                <button type="submit" class="btn btn-dark btn-sm">Import</button>
+                <button type="submit" class="btn btn-primary btn-sm">Import</button>
             </div>
         </form>
     </div>
@@ -427,7 +427,7 @@
                 <form id="drawer-note-form" class="drawer-note-form">
                     <textarea id="drawer-note-input" class="drawer-note-input" rows="2"
                               placeholder="Add a note about this application..." maxlength="2000"></textarea>
-                    <button type="submit" class="btn btn-dark btn-sm drawer-note-submit">Add Note</button>
+                    <button type="submit" class="btn btn-primary btn-sm drawer-note-submit">Add Note</button>
                 </form>
                 <div id="drawer-note-timeline" class="drawer-note-timeline">
                     <p class="drawer-note-empty">No notes yet.</p>

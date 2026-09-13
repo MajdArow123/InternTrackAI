@@ -64,7 +64,7 @@
 
         @Html.AntiForgeryToken()
         <div class="d-flex align-items-center gap-3">
-            <button type="button" class="btn btn-dark px-4" id="generateBtn">
+            <button type="button" class="btn btn-primary px-4" id="generateBtn">
                 @(Model.Session is null ? "Generate Interview Prep" : "Regenerate")
             </button>
             <span class="text-muted" style="font-size:.78rem">Powered by GPT-4o mini</span>
@@ -114,7 +114,7 @@
                                     <div class="prep-practice-box" hidden>
                                         <textarea class="prep-answer-input" rows="4" placeholder="Type your answer..."></textarea>
                                         <div class="d-flex justify-content-end mt-2">
-                                            <button type="button" class="btn btn-dark btn-sm prep-feedback-btn">Get Feedback</button>
+                                            <button type="button" class="btn btn-primary btn-sm prep-feedback-btn">Get Feedback</button>
                                         </div>
                                         <div class="prep-feedback-result" hidden></div>
                                         <div class="match-error-banner prep-feedback-error mt-2" hidden></div>
@@ -209,7 +209,7 @@
                     <div class="prep-practice-box" hidden>
                         <textarea class="prep-answer-input" rows="4" placeholder="Type your answer..."></textarea>
                         <div class="d-flex justify-content-end mt-2">
-                            <button type="button" class="btn btn-dark btn-sm prep-feedback-btn">Get Feedback</button>
+                            <button type="button" class="btn btn-primary btn-sm prep-feedback-btn">Get Feedback</button>
                         </div>
                         <div class="prep-feedback-result" hidden></div>
                         <div class="match-error-banner prep-feedback-error mt-2" hidden></div>

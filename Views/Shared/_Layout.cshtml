@@ -25,7 +25,7 @@
     }
 
     <header>
-        <nav class="navbar navbar-expand-sm site-nav">
+        <nav class="navbar navbar-expand-md site-nav">
             <div class="container">
                 <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
                     <span class="brand-dot"></span>
@@ -36,8 +36,8 @@
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
                 </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between align-items-center">
-                    <ul class="navbar-nav flex-grow-1 gap-1 ms-2">
+                <div class="navbar-collapse collapse d-md-inline-flex justify-content-between align-items-center">
+                    <ul class="navbar-nav flex-grow-1 gap-1 ms-md-2">
                         <li class="nav-item">
                             <a class="nav-link @(IsActive("Home","Index") ? "active" : "")"
                                asp-area="" asp-controller="Home" asp-action="Index">Home</a>
@@ -59,7 +59,7 @@
                                asp-controller="Profile" asp-action="Index">Profile</a>
                         </li>
                     </ul>
-                    <div class="d-flex align-items-center gap-2">
+                    <div class="d-flex align-items-center gap-2 nav-actions">
                         <button id="theme-toggle" class="dark-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
                             <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
@@ -75,14 +75,14 @@
         </nav>
     </header>
 
-    <main role="main" class="anim-fade-up" style="animation-duration:.4s;animation-delay:.05s">
+    <main role="main" class="anim-fade-up" style="animation-duration:.35s">
         @RenderBody()
     </main>
 
     <footer class="site-footer">
-        <div class="container">
-            &copy; 2026 InternTrackAI &mdash; built for students.
-            <span class="kbd-hint-footer">Press <kbd class="kbd-inline">?</kbd> for keyboard shortcuts</span>
+        <div class="container d-flex flex-wrap justify-content-center align-items-center gap-2">
+            <span>&copy; 2026 InternTrackAI &middot; built for students.</span>
+            <span class="kbd-hint-footer d-none d-sm-inline">Press <kbd class="kbd-inline">?</kbd> for keyboard shortcuts</span>
         </div>
     </footer>
 

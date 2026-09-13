@@ -124,6 +124,17 @@
                     <input asp-for="FollowUpAt" class="form-control" type="date" />
                     <div class="form-hint mt-1">The follow-up reminder stays quiet until this date.</div>
                 </div>
+                <div class="col-sm-6">
+                    <label asp-for="ResumeVersionId" class="form-label">Resume used <span class="text-muted fw-normal">(optional)</span></label>
+                    <select asp-for="ResumeVersionId" class="form-select" id="resumeVersionSelect">
+                        <option value="">None</option>
+                        @foreach (var r in (ViewBag.ResumeOptions as IEnumerable<InternTrackAI.Models.ResumeVersion>) ?? Enumerable.Empty<InternTrackAI.Models.ResumeVersion>())
+                        {
+                            <option value="@r.Id">v@(r.VersionNumber) &middot; @r.DisplayName@(r.IsActive ? " (active)" : "")</option>
+                        }
+                    </select>
+                    <div class="form-hint mt-1">Which resume version this application was sent with. Drives the resume performance card on the dashboard.</div>
+                </div>
                 <div class="col-12">
                     <div class="salary-insight-card mt-1" id="salaryInsightCard" hidden></div>
                     <div class="match-error-banner mt-2" id="salaryInsightError" hidden></div>

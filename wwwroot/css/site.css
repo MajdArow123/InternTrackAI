@@ -1228,6 +1228,13 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
 .doc-info { flex: 1; min-width: 160px; }
 .doc-filename { font-size: .9333rem; font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .doc-meta { font-size: .8rem; color: var(--muted); margin-top: .1rem; }
+.doc-label-row { display: flex; align-items: center; gap: .35rem; }
+.doc-label-edit { border: 0; background: transparent; color: var(--muted); padding: .1rem .25rem; border-radius: 6px; display: inline-flex; opacity: 0; transition: opacity var(--duration), color var(--duration); }
+.doc-row:hover .doc-label-edit, .doc-label-edit:focus-visible { opacity: 1; }
+.doc-label-edit:hover { color: var(--accent-text); background: var(--accent-soft); }
+.doc-label-input { max-width: 260px; font-size: .8667rem; }
+.doc-stat { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+.row-resume { font-size: .78rem; margin-top: .1rem; }
 .doc-actions { display: flex; align-items: center; gap: .35rem; flex-shrink: 0; flex-wrap: wrap; margin-left: auto; }
 .doc-btn { font-size: .8rem; padding: .3rem .7rem; }
 .doc-stars { font-size: .8667rem; color: var(--muted); white-space: nowrap; }

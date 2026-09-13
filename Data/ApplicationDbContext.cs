@@ -35,6 +35,14 @@ public class ApplicationDbContext : IdentityDbContext, IDataProtectionKeyContext
             .WithMany()
             .HasForeignKey(n => n.JobApplicationId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // An application remembers which resume version it was sent with. Deleting that resume must
+        // never delete the application — the link is cleared instead (the app then shows "No resume").
+        builder.Entity<JobApplication>()
+            .HasOne(a => a.ResumeVersion)
+            .WithMany()
+            .HasForeignKey(a => a.ResumeVersionId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 
     // PostgreSQL's "timestamp with time zone" columns reject DateTime.Kind=Unspecified

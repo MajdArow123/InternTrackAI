@@ -163,6 +163,7 @@
             location: appRow.dataset.location,
             salary: appRow.dataset.salary,
             mode: appRow.dataset.mode,
+            resume: appRow.dataset.resume,
             status: statusNum,
             deadline: appRow.dataset.deadline,
             interviewAt: appRow.dataset.interviewAt,
@@ -211,6 +212,7 @@
         document.getElementById('drawer-location').textContent = data.location || '—';
         document.getElementById('drawer-mode').textContent = data.mode || '—';
         document.getElementById('drawer-salary').textContent = data.salary || '—';
+        document.getElementById('drawer-resume').textContent = data.resume || '—';
         document.getElementById('drawer-deadline').textContent = data.deadline || '—';
         setReminderValues(data);
         currentRow = appRow;

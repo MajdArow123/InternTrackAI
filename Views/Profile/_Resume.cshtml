@@ -9,14 +9,22 @@
 
         @if (Model.Resumes.Any())
         {
+            <form id="resumeRenameForm" hidden>@Html.AntiForgeryToken()</form>
             <div class="doc-list mb-3">
                 @foreach (var r in Model.Resumes)
                 {
                     <div class="doc-row @(r.IsActive ? "doc-active" : "")">
                         <span class="doc-version-badge">v@(r.VersionNumber)</span>
                         <div class="doc-info">
-                            <div class="doc-filename">@r.OriginalFileName</div>
+                            <div class="doc-filename doc-label-row" data-resume-id="@r.Id">
+                                <span class="doc-label" data-resume-label>@r.DisplayName</span>
+                                <button type="button" class="doc-label-edit" data-resume-rename aria-label="Rename resume v@(r.VersionNumber)" title="Rename">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                                </button>
+                                <input type="text" class="form-control form-control-sm doc-label-input" maxlength="60" value="@(r.Label ?? "")" placeholder="@System.IO.Path.GetFileNameWithoutExtension(r.OriginalFileName)" aria-label="Resume name" hidden />
+                            </div>
                             <div class="doc-meta">
+                                @r.OriginalFileName &middot;
                                 @clock.LocalDate(r.UploadedAt) &middot;
                                 @((r.FileSize / 1024.0).ToString("F0")) KB
                             </div>

@@ -80,6 +80,7 @@ public class JobApplicationsController : Controller
         var apps = await FilteredQuery(uid, search, status, workMode, sortBy).ToListAsync();
         apps = await ApplyAttentionAsync(uid, apps, attention);
         await SetFilterViewBagAsync(uid, search, status, workMode, sortBy, attention);
+        ViewBag.ResumeLabels = await ResumeLabelsAsync(uid);
 
         return View(apps);
     }
@@ -99,6 +100,7 @@ public class JobApplicationsController : Controller
         var apps = await FilteredQuery(uid, search, status, workMode, sortBy).ToListAsync();
         apps = await ApplyAttentionAsync(uid, apps, attention);
         await SetFilterViewBagAsync(uid, search, status, workMode, sortBy, attention);
+        ViewBag.ResumeLabels = await ResumeLabelsAsync(uid);
 
         var ordered = apps
             .OrderBy(a => a.BoardOrder)
@@ -192,7 +194,7 @@ public class JobApplicationsController : Controller
     /// </summary>
     /// <param name="status">Optional status to pre-select (the board's per-column "+" button).</param>
     /// <param name="prefill">Optional bookmarklet capture fields (url, title, company, role, location, salary, deadline, workMode).</param>
-    public IActionResult Create(ApplicationStatus? status, [FromQuery] CapturePrefill? prefill)
+    public async Task<IActionResult> Create(ApplicationStatus? status, [FromQuery] CapturePrefill? prefill)
     {
         var app = new JobApplication { Status = status ?? default };
         if (prefill is { HasAny: true })
@@ -200,6 +202,10 @@ public class JobApplicationsController : Controller
             prefill.ApplyTo(app);
             ViewBag.CapturedFrom = prefill.Host;
         }
+
+        // "Resume used" starts on the active resume (the one AI matching used); the user can override.
+        var resumes = await SetResumeOptionsAsync(UserId());
+        app.ResumeVersionId = resumes.FirstOrDefault(r => r.IsActive)?.Id;
         return View(app);
     }
 
@@ -220,6 +226,8 @@ public class JobApplicationsController : Controller
         var uid = UserId();
         jobApplication.UserId = uid;
         ModelState.Remove(nameof(jobApplication.UserId));
+        var resumes = await SetResumeOptionsAsync(uid);
+        KeepOwnedResume(jobApplication, resumes);
 
         if (!ModelState.IsValid)
             return View(jobApplication);
@@ -253,6 +261,7 @@ public class JobApplicationsController : Controller
         var app = await FindOwnedAsync(id);
         if (app is null) return NotFound();
         UtcToForm(app, await _clocks.GetAsync());   // the entity is not saved on GET, so this only affects the form
+        await SetResumeOptionsAsync(UserId());
         return View(app);
     }
 
@@ -277,6 +286,7 @@ public class JobApplicationsController : Controller
 
         jobApplication.UserId = uid;
         ModelState.Remove(nameof(jobApplication.UserId));
+        KeepOwnedResume(jobApplication, await SetResumeOptionsAsync(uid));
 
         if (!ModelState.IsValid)
             return View(jobApplication);
@@ -345,6 +355,33 @@ public class JobApplicationsController : Controller
     {
         var uid = UserId();
         return _context.JobApplications.FirstOrDefaultAsync(a => a.Id == id && a.UserId == uid);
+    }
+
+    // ── Resume used ───────────────────────────────────────
+
+    /// <summary>The user's resume versions, newest first, exposed to the Create/Edit forms as <c>ViewBag.ResumeOptions</c>.</summary>
+    private async Task<List<ResumeVersion>> SetResumeOptionsAsync(string uid)
+    {
+        var resumes = await _context.ResumeVersions.AsNoTracking()
+            .Where(r => r.UserId == uid)
+            .OrderByDescending(r => r.VersionNumber)
+            .ToListAsync();
+        ViewBag.ResumeOptions = resumes;
+        return resumes;
+    }
+
+    /// <summary>A posted resume id that isn't one of the user's own versions is dropped (treated as "None").</summary>
+    private static void KeepOwnedResume(JobApplication app, List<ResumeVersion> owned)
+    {
+        if (app.ResumeVersionId.HasValue && owned.All(r => r.Id != app.ResumeVersionId.Value))
+            app.ResumeVersionId = null;
+    }
+
+    /// <summary>Id → display name for every resume the user has, so list rows and the drawer can name the one used.</summary>
+    private async Task<Dictionary<int, string>> ResumeLabelsAsync(string uid)
+    {
+        var resumes = await _context.ResumeVersions.AsNoTracking().Where(r => r.UserId == uid).ToListAsync();
+        return resumes.ToDictionary(r => r.Id, r => r.DisplayName);
     }
 
     // ── Bulk Delete ───────────────────────────────────────
@@ -662,6 +699,14 @@ public class JobApplicationsController : Controller
 
         if (result.Applications.Count > 0)
         {
+            // Imported rows are treated like any new application: linked to the active resume.
+            var activeResumeId = await _context.ResumeVersions
+                .Where(r => r.UserId == uid && r.IsActive)
+                .Select(r => (int?)r.Id)
+                .FirstOrDefaultAsync();
+            foreach (var app in result.Applications)
+                app.ResumeVersionId = activeResumeId;
+
             _context.JobApplications.AddRange(result.Applications);
             await _context.SaveChangesAsync();
         }

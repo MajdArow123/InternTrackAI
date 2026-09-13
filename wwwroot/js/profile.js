@@ -362,4 +362,52 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
         });
 
     })();
+
+// ── Resume labels: click the pencil, type a name, Enter/blur saves, Esc cancels ──
+(function () {
+    const token = document.querySelector('#resumeRenameForm input[name="__RequestVerificationToken"]')?.value || '';
+    document.querySelectorAll('.doc-label-row[data-resume-id]').forEach(function (row) {
+        const id    = row.dataset.resumeId;
+        const label = row.querySelector('[data-resume-label]');
+        const btn   = row.querySelector('[data-resume-rename]');
+        const input = row.querySelector('.doc-label-input');
+        if (!label || !btn || !input) return;
+        let saving = false;
+
+        function open() {
+            label.hidden = true; btn.hidden = true; input.hidden = false;
+            input.focus(); input.select();
+        }
+        function close() {
+            input.hidden = true; label.hidden = false; btn.hidden = false;
+        }
+        function save() {
+            if (saving) return;
+            saving = true;
+            const body = new URLSearchParams({ __RequestVerificationToken: token, id: id, label: input.value });
+            fetch('/Profile/RenameResume', { method: 'POST', body: body, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d && d.success) {
+                        label.textContent = d.label;
+                        input.value = input.value.trim();
+                        if (typeof showAppToast === 'function') showAppToast('success', 'Resume renamed.');
+                    } else if (typeof showAppToast === 'function') {
+                        showAppToast('error', (d && d.error) || 'Could not rename the resume.');
+                    }
+                })
+                .catch(function () { if (typeof showAppToast === 'function') showAppToast('error', 'Could not rename the resume.'); })
+                .finally(function () { saving = false; close(); });
+        }
+
+        btn.addEventListener('click', open);
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); save(); }
+            if (e.key === 'Escape') { e.preventDefault(); input.value = input.dataset.last || input.value; close(); }
+        });
+        input.addEventListener('focus', function () { input.dataset.last = input.value; });
+        input.addEventListener('blur', function () { if (!input.hidden) save(); });
+    });
+})();
+
 })();

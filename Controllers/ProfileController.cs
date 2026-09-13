@@ -427,6 +427,29 @@ public class ProfileController : Controller
         return RedirectToAction(nameof(Index));
     }
 
+    // ── POST /Profile/RenameResume (AJAX) ────────────────
+
+    /// <summary>
+    /// Sets or clears the optional label on one resume version (inline edit on the profile's resume
+    /// list). A blank label reverts to the file name. Returns JSON <c>{ success, label }</c> where
+    /// <c>label</c> is what the UI should now show.
+    /// </summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> RenameResume(int id, string? label)
+    {
+        var userId = UserId();
+        var resume = await _db.ResumeVersions.FirstOrDefaultAsync(r => r.Id == id && r.UserId == userId);
+        if (resume == null) return NotFound(new { success = false, error = "Resume not found." });
+
+        label = string.IsNullOrWhiteSpace(label) ? null : label.Trim();
+        if (label is { Length: > 60 })
+            return BadRequest(new { success = false, error = "Keep the name under 60 characters." });
+
+        resume.Label = label;
+        await _db.SaveChangesAsync();
+        return Json(new { success = true, label = resume.DisplayName });
+    }
+
     // ── POST /Profile/DeleteResume ───────────────────────
 
     /// <summary>Deletes a resume version (file + DB row) and renumbers the remaining versions so they stay contiguous.</summary>

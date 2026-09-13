@@ -22,12 +22,14 @@ public class CoverLetterController : Controller
     private readonly ApplicationDbContext _db;
     private readonly CoverLetterGeneratorService _generator;
     private readonly UploadStorage _uploads;
+    private readonly UserClockProvider _clocks;
 
-    public CoverLetterController(ApplicationDbContext db, CoverLetterGeneratorService generator, UploadStorage uploads)
+    public CoverLetterController(ApplicationDbContext db, CoverLetterGeneratorService generator, UploadStorage uploads, UserClockProvider clocks)
     {
         _db        = db;
         _generator = generator;
         _uploads   = uploads;
+        _clocks    = clocks;
     }
 
     /// <summary>Resolves the current signed-in user's id from the auth claims.</summary>
@@ -140,7 +142,8 @@ public class CoverLetterController : Controller
         var (success, content, error) = await _generator.GenerateAsync(
             company, role, jobDescription,
             resumeText, fullName, skills, targetRoles,
-            req.ExtraNotes ?? "");
+            req.ExtraNotes ?? "",
+            localToday: (await _clocks.GetAsync()).Today);
 
         if (!success)
             return Json(new { success = false, error });

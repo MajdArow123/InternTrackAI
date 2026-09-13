@@ -1,3 +1,6 @@
+using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
+
 namespace InternTrackAI.Models;
 
 /// <summary>
@@ -21,4 +24,16 @@ public class ResumeVersion
     // Only one version per user should be true at a time; enforced in application code
     // when a new version is set active, not via a DB constraint.
     public bool IsActive { get; set; }
+
+    // Optional user-facing name ("Backend v2", "Data science"), editable inline on the profile.
+    // Null means "use the file name" — see <see cref="DisplayName"/>. Applications link to a
+    // version through JobApplication.ResumeVersionId so the dashboard can compare response rates.
+    [StringLength(60)]
+    public string? Label { get; set; }
+
+    /// <summary>What the UI calls this version: the label if set, otherwise the file name without ".pdf".</summary>
+    [NotMapped]
+    public string DisplayName => string.IsNullOrWhiteSpace(Label)
+        ? Path.GetFileNameWithoutExtension(OriginalFileName)
+        : Label.Trim();
 }

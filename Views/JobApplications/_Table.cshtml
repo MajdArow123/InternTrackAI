@@ -5,6 +5,7 @@
 @{
     bool isFiltered = ViewBag.IsFiltered == true;
     var  byId       = ViewBag.AttentionById as Dictionary<int, List<ReminderItem>>;
+    var  resumes    = ViewBag.ResumeLabels as Dictionary<int, string>;
 }
     @if (!Model.Any())
     {
@@ -77,6 +78,7 @@
                                 data-follow-up-due="@(byId != null && byId.TryGetValue(item.Id, out var rs) && rs.Any(r => r.Kind == ReminderKind.FollowUpDue) ? "1" : "")"
                                 data-has-dates="@(item.Deadline.HasValue || item.InterviewAt.HasValue || item.FollowUpAt.HasValue ? "1" : "")"
                                 data-mode="@item.WorkMode"
+                                data-resume="@(ResumeDisplay.Label(item.ResumeVersionId, resumes) ?? "")"
                                 data-job-description="@(Uri.EscapeDataString(item.JobDescription ?? ""))"
                                 class="app-row"
                                 role="button"
@@ -91,7 +93,13 @@
                                         <span class="company-name">@item.CompanyName</span>
                                     </div>
                                 </td>
-                                <td class="role-name">@item.RoleTitle</td>
+                                <td class="role-name">
+                                    @item.RoleTitle
+                                    @if (ResumeDisplay.Label(item.ResumeVersionId, resumes) is string resumeName)
+                                    {
+                                        <div class="row-resume text-muted">@resumeName</div>
+                                    }
+                                </td>
                                 <td class="text-muted d-none d-md-table-cell">@(item.Location ?? "—")</td>
                                 <td class="text-muted d-none d-md-table-cell">@item.WorkMode</td>
                                 <td>

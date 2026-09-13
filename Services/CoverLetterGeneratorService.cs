@@ -43,7 +43,7 @@ public class CoverLetterGeneratorService
     public async Task<(bool Success, string Content, string? Error)> GenerateAsync(
         string company, string role, string jobDescription,
         string resumeText, string fullName, string skills,
-        string targetRoles, string extraNotes)
+        string targetRoles, string extraNotes, DateTime? localToday = null)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
             return (false, "", "OpenAI API key is not configured. Run: dotnet user-secrets set \"OpenAI:ApiKey\" \"sk-...\"");
@@ -56,7 +56,8 @@ public class CoverLetterGeneratorService
             "Write polished, specific cover letters that reference real details from the job description and resume. " +
             "Never use placeholder text. Use formal but natural language. Return plain text only — no markdown.";
 
-        var today = DateTime.Now.ToString("MMMM d, yyyy");
+        // The letter is dated in the user's own zone (UserClock.Today), not the server's.
+        var today = (localToday ?? DateTime.UtcNow).ToString("MMMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture);
         var name  = string.IsNullOrWhiteSpace(fullName) ? "the applicant" : fullName;
 
         var userPrompt = $"""

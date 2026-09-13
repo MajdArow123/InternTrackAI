@@ -5,6 +5,7 @@
     // detail drawer from a card. Free-text fields are URI-escaped for attribute safety.
     // Reminder state comes from ReminderService via ViewBag.AttentionById (set by the controller).
     var byId      = ViewBag.AttentionById as Dictionary<int, List<ReminderItem>>;
+    var resumes   = ViewBag.ResumeLabels as Dictionary<int, string>;
     var reminders = byId != null && byId.TryGetValue(Model.Id, out var found) ? found : new List<ReminderItem>();
     var clock     = await Clocks.GetAsync();
     var deadline  = ReminderService.DeadlineChip(Model, clock.Today);
@@ -30,6 +31,7 @@
          data-follow-up-due="@(followUpDue ? "1" : "")"
          data-has-dates="@(Model.Deadline.HasValue || Model.InterviewAt.HasValue || Model.FollowUpAt.HasValue ? "1" : "")"
          data-mode="@Model.WorkMode"
+         data-resume="@(ResumeDisplay.Label(Model.ResumeVersionId, resumes) ?? "")"
          data-job-description="@(Uri.EscapeDataString(Model.JobDescription ?? ""))"
          role="button"
          tabindex="0"

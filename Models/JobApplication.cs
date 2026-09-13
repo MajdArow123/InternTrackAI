@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 using InternTrackAI.Models.Enums;
 
 namespace InternTrackAI.Models;
@@ -91,4 +92,15 @@ public class JobApplication
 
     // When the user last reached out ("Mark contacted"), UTC. Restarts the follow-up clock.
     public DateTime? LastContactAt { get; set; }
+
+    // ── Resume used ──
+
+    // Which resume version this application was sent with (see Services/ResumeAnalyticsService.cs).
+    // Defaults to the user's active resume when the application is created and can be changed on
+    // Edit. Nullable with ON DELETE SET NULL (ApplicationDbContext.OnModelCreating): deleting a
+    // resume never deletes an application, the link just goes away.
+    public int? ResumeVersionId { get; set; }
+
+    [ForeignKey(nameof(ResumeVersionId))]
+    public ResumeVersion? ResumeVersion { get; set; }
 }

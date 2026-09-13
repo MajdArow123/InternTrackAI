@@ -47,6 +47,7 @@ If you'd rather sign in manually:
 - ✅ **Bulk actions** — select rows to change status, delete, or compare up to three applications side by side
 - 📊 **Dashboard** — headline stats, an applications-over-time chart, a pipeline funnel, top companies, follow-up reminders, and upcoming deadlines
 - 🔁 **CSV import and export** — move your data in and out in one click
+- 🔖 **Save from anywhere bookmarklet** — drag a button to your bookmarks bar, click it on any job posting (LinkedIn, Indeed, Glassdoor, company career pages), and a new tab opens with the Add Application form pre-filled by the AI analyzer; if a posting can't be read (login-walled pages), the form still opens with the link and title filled in
 
 **Profile and account**
 
@@ -92,6 +93,10 @@ If you'd rather sign in manually:
 | Dark Mode | Profile |
 |---|---|
 | ![Dark Mode](docs/screenshots/dark_mode.png) | ![Profile](docs/screenshots/profile.png) |
+
+| Save-from-anywhere bookmarklet |
+|:--:|
+| ![Bookmarklet install page](docs/screenshots/bookmarklet.png) |
 
 ## 💻 How to Run Locally
 
@@ -150,6 +155,7 @@ To deploy your own copy: create a Railway project, add a PostgreSQL service, att
 | `Demo__AutoReset` | Optional (default `false`). When `true` (and `Demo__Email` is set) the demo account is wiped and reseeded every night |
 | `Demo__ResetTimeUtc` | Optional (default `04:00`). Time of day, UTC, for the nightly demo reset |
 | `Admin__Email` | Optional. The one account allowed to call `POST /Admin/ResetDemo` (manual reseed); unset disables the endpoint |
+| `Capture__AnalyzeTimeoutSeconds` | Optional (default `15`). How long the bookmarklet's `/Capture` endpoint waits for the AI analyzer before falling back to manual entry |
 
 (`DATABASE_URL` and `PORT` are injected by Railway automatically.)
 

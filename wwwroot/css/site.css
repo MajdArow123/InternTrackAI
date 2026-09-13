@@ -1759,6 +1759,7 @@ html[data-theme="dark"] .tag-text-input { background: var(--surface-3); }
   gap: .65rem;
   font-size: .9333rem;
   font-weight: 500;
+  width: max-content; /* otherwise a left:50% box only gets half the viewport and long messages wrap into a narrow column on phones */
   max-width: min(420px, calc(100vw - 2rem));
   opacity: 0;
   transform: translate(-50%, -.75rem) scale(.98);

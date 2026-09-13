@@ -20,11 +20,13 @@ public class CoverLetterController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly CoverLetterGeneratorService _generator;
+    private readonly UploadStorage _uploads;
 
-    public CoverLetterController(ApplicationDbContext db, CoverLetterGeneratorService generator)
+    public CoverLetterController(ApplicationDbContext db, CoverLetterGeneratorService generator, UploadStorage uploads)
     {
         _db        = db;
         _generator = generator;
+        _uploads   = uploads;
     }
 
     /// <summary>Resolves the current signed-in user's id from the auth claims.</summary>
@@ -92,11 +94,11 @@ public class CoverLetterController : Controller
         var activeResume = await _db.ResumeVersions
             .FirstOrDefaultAsync(r => r.UserId == uid && r.IsActive);
 
-        if (activeResume != null && System.IO.File.Exists(activeResume.StoredPath))
+        if (activeResume != null && _uploads.Exists(activeResume.StoredPath))
         {
             try
             {
-                await using var fs = System.IO.File.OpenRead(activeResume.StoredPath);
+                await using var fs = System.IO.File.OpenRead(_uploads.Resolve(activeResume.StoredPath));
                 resumeText = ResumeMatcherService.ExtractPdfText(fs);
             }
             catch { /* generate without resume text if extraction fails */ }

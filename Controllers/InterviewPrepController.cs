@@ -20,11 +20,13 @@ public class InterviewPrepController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly InterviewPrepService _service;
+    private readonly UploadStorage _uploads;
 
-    public InterviewPrepController(ApplicationDbContext db, InterviewPrepService service)
+    public InterviewPrepController(ApplicationDbContext db, InterviewPrepService service, UploadStorage uploads)
     {
         _db      = db;
         _service = service;
+        _uploads = uploads;
     }
 
     /// <summary>Resolves the current signed-in user's id from the auth claims.</summary>
@@ -95,11 +97,11 @@ public class InterviewPrepController : Controller
         var resumeText   = "";
         var activeResume = await _db.ResumeVersions
             .FirstOrDefaultAsync(r => r.UserId == uid && r.IsActive);
-        if (activeResume != null && System.IO.File.Exists(activeResume.StoredPath))
+        if (activeResume != null && _uploads.Exists(activeResume.StoredPath))
         {
             try
             {
-                await using var fs = System.IO.File.OpenRead(activeResume.StoredPath);
+                await using var fs = System.IO.File.OpenRead(_uploads.Resolve(activeResume.StoredPath));
                 resumeText = ResumeMatcherService.ExtractPdfText(fs);
             }
             catch { }

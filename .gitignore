@@ -13,7 +13,7 @@ app.db
 *.db-shm
 *.db-wal
 
-## User uploads (ephemeral on Railway — use object storage for persistence)
+## User uploads (local default root; production uses a Railway volume via UPLOADS_PATH)
 uploads/
 
 ## macOS

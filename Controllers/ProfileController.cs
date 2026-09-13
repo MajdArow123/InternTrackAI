@@ -22,7 +22,7 @@ public class ProfileController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly UserManager<IdentityUser> _userManager;
-    private readonly IWebHostEnvironment _env;
+    private readonly UploadStorage _uploads;
     private readonly ResumeScoreService _scorer;
     private readonly ResumeMatcherService _matcher;
     private readonly ProfileExtractorService _extractor;
@@ -32,7 +32,7 @@ public class ProfileController : Controller
     public ProfileController(
         ApplicationDbContext db,
         UserManager<IdentityUser> userManager,
-        IWebHostEnvironment env,
+        UploadStorage uploads,
         ResumeScoreService scorer,
         ResumeMatcherService matcher,
         ProfileExtractorService extractor,
@@ -41,7 +41,7 @@ public class ProfileController : Controller
     {
         _db = db;
         _userManager = userManager;
-        _env = env;
+        _uploads = uploads;
         _scorer = scorer;
         _matcher = matcher;
         _extractor = extractor;
@@ -204,8 +204,7 @@ public class ProfileController : Controller
         }
 
         var userId = UserId();
-        var dir = Path.Combine(_env.WebRootPath, "uploads", "photos");
-        Directory.CreateDirectory(dir);
+        var dir = _uploads.PhotosDirectory;
 
         // Delete old photo
         var profile = await GetOrCreateProfileAsync(userId);
@@ -287,7 +286,7 @@ public class ProfileController : Controller
         if (activeResume == null)
             return Json(new { success = false, hasResume = false });
 
-        var filePath = Path.Combine(_env.ContentRootPath, activeResume.StoredPath);
+        var filePath = _uploads.Resolve(activeResume.StoredPath);
         if (!System.IO.File.Exists(filePath))
             return Json(new { success = false, hasResume = false, error = "Resume file not found. Try uploading it again." });
 
@@ -439,7 +438,7 @@ public class ProfileController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        var filePath = Path.Combine(_env.ContentRootPath, activeResume.StoredPath);
+        var filePath = _uploads.Resolve(activeResume.StoredPath);
         if (!System.IO.File.Exists(filePath))
         {
             TempData["ScoreError"] = "Resume file not found. Try uploading it again.";
@@ -501,7 +500,7 @@ public class ProfileController : Controller
         if (activeResume == null)
             return Json(new { hasResume = false });
 
-        var filePath = Path.Combine(_env.ContentRootPath, activeResume.StoredPath);
+        var filePath = _uploads.Resolve(activeResume.StoredPath);
         if (!System.IO.File.Exists(filePath))
             return Json(new { hasResume = false });
 
@@ -669,15 +668,14 @@ public class ProfileController : Controller
 
         var userId = UserId();
         var subDir = isResume ? "resumes" : "coverletters";
-        var dir = Path.Combine(_env.ContentRootPath, "uploads", subDir, userId);
-        Directory.CreateDirectory(dir);
+        var dir = _uploads.GetUserDirectory(subDir, userId);
 
         var stored = $"{Guid.NewGuid():N}.pdf";
         var fullPath = Path.Combine(dir, stored);
         await using var fs = System.IO.File.Create(fullPath);
         await file.CopyToAsync(fs);
 
-        var relativePath = Path.Combine("uploads", subDir, userId, stored);
+        var relativePath = UploadStorage.MakeStoredPath(subDir, userId, stored);
 
         var safeOriginalName = SanitizeFileName(file.FileName);
 
@@ -732,23 +730,19 @@ public class ProfileController : Controller
     }
 
     /// <summary>
-    /// Serves a stored PDF as a physical file response. Files live outside wwwroot
-    /// (under uploads/) so they aren't reachable as static files — this method is the
-    /// only path that exposes them, and it's only called after an ownership check.
+    /// Serves a stored PDF as a physical file response. Documents live under the uploads
+    /// root (see <see cref="UploadStorage"/>) and are never mapped as static files — this
+    /// method is the only path that exposes them, and it's only called after an ownership check.
     /// </summary>
     private IActionResult ServeFile(string storedPath, string originalName)
     {
-        var fullPath = Path.Combine(_env.ContentRootPath, storedPath);
+        var fullPath = _uploads.Resolve(storedPath);
         if (!System.IO.File.Exists(fullPath)) return NotFound();
         return PhysicalFile(fullPath, "application/pdf", originalName);
     }
 
     /// <summary>Deletes a stored file from disk if it exists; no-ops otherwise.</summary>
-    private void DeleteFile(string storedPath)
-    {
-        var fullPath = Path.Combine(_env.ContentRootPath, storedPath);
-        if (System.IO.File.Exists(fullPath)) System.IO.File.Delete(fullPath);
-    }
+    private void DeleteFile(string storedPath) => _uploads.Delete(storedPath);
 
     /// <summary>Deserializes a JSON string array (skills or target roles), tolerating null/malformed input.</summary>
     private static List<string> ParseTagJson(string? json)

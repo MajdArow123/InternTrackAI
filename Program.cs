@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using InternTrackAI.Data;
@@ -58,6 +59,11 @@ builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.Requ
 
 // Email service for password reset tokens
 builder.Services.AddScoped<IEmailSender, ConsoleEmailSender>();
+
+// ── Upload storage ───────────────────────────────────────────────────────────
+// Resolves the on-disk root for user uploads from UPLOADS_PATH (defaults to ./uploads).
+// Singleton so the root is computed and created once at startup.
+builder.Services.AddSingleton<UploadStorage>();
 
 // ── Application services ────────────────────────────────────────────────────
 builder.Services.AddHttpClient<JobAnalyzerService>();
@@ -129,6 +135,16 @@ if (app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 
 app.UseStaticFiles();
+
+// Serve profile photos from the uploads root (which may be a mounted volume outside wwwroot)
+// at the same /uploads/photos/... URL the views already use. Only the photos subfolder is
+// exposed — resumes and cover letters stay private and go through ProfileController.
+var uploads = app.Services.GetRequiredService<UploadStorage>();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(uploads.PhotosDirectory),
+    RequestPath  = "/uploads/photos"
+});
 app.UseRouting();
 app.UseAuthorization();
 app.MapStaticAssets();

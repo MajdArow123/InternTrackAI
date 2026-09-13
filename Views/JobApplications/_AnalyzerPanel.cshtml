@@ -1,0 +1,35 @@
+    <!-- AI Analyzer Panel -->
+    <div class="analyzer-card" id="analyzerCard">
+        <div class="analyzer-header" id="analyzerToggle">
+            <div class="analyzer-header-left">
+                <div class="analyzer-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 4.6L18.5 9.5l-4.7 1.9L12 16l-1.8-4.6L5.5 9.5l4.7-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>
+                </div>
+                <div>
+                    <h6>AI Job Analyzer</h6>
+                    <p>Paste a job description or a job posting URL to auto-fill the form</p>
+                </div>
+            </div>
+            <button type="button" class="analyzer-toggle-btn" id="analyzerToggleBtn">
+                Open Analyzer
+            </button>
+        </div>
+
+        <div class="analyzer-body" id="analyzerBody">
+            <textarea class="analyzer-textarea" id="analyzerTextarea"
+                      placeholder="Paste a job posting URL (e.g. https://jobs.lever.co/...) or the full job description text — company, role, requirements, salary, location.&#10;&#10;The AI will extract key details and fill the form automatically." rows="6"></textarea>
+
+            <div class="d-flex align-items-center gap-2 mt-2">
+                <button type="button" class="btn btn-primary analyzer-submit" id="analyzeBtn">
+                    Analyze with AI
+                </button>
+                <span class="analyzer-model-tag">GPT-4o mini</span>
+            </div>
+
+            <div class="analyzer-result" id="analyzerResult" hidden></div>
+            <div class="analyzer-error"  id="analyzerError"  hidden></div>
+            <div id="inlineMatchWrap" hidden>
+                <div class="inline-match-card" id="inlineMatchCard"></div>
+            </div>
+        </div>
+    </div>

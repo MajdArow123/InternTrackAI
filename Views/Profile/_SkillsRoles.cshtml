@@ -1,0 +1,41 @@
+@model InternTrackAI.Models.ViewModels.ProfileViewModel
+    <!-- ── Skills ── -->
+    <div class="form-card mb-3">
+        <div class="d-flex align-items-center mb-1">
+            <p class="form-section-title mb-0">Skills</p>
+            <span class="save-indicator" id="skillsSaveIndicator">Saved &#10003;</span>
+        </div>
+        <p class="form-hint mb-3">Add your technical and professional skills. These are used as context during AI resume matching. Changes save automatically.</p>
+        <div class="field-skeleton-wrap" id="skillsWrap">
+            <input type="hidden" id="skillsJsonInput" value="@System.Text.Json.JsonSerializer.Serialize(Model.Skills)" />
+            <div class="tag-manager">
+                <div class="tag-input-row">
+                    <input type="text" class="tag-text-input" id="skillsText" placeholder="e.g. Python" />
+                    <button type="button" class="tag-add-btn" id="skillsAdd">Add</button>
+                </div>
+                <div class="tag-cloud" id="skillsCloud"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Target Roles ── -->
+    <div class="form-card mb-3">
+        <div class="d-flex align-items-center mb-1">
+            <p class="form-section-title mb-0">Target roles</p>
+            <span class="save-indicator" id="rolesSaveIndicator">Saved &#10003;</span>
+        </div>
+        <p class="form-hint mb-3">Search common internship roles or type your own. These help the AI give more relevant scoring and advice. Changes save automatically.</p>
+        <div class="field-skeleton-wrap" id="rolesWrap">
+            <input type="hidden" id="rolesJsonInput" value="@System.Text.Json.JsonSerializer.Serialize(Model.TargetRoles)" />
+            <div class="tag-manager">
+                <div class="tag-input-row">
+                    <div class="role-combobox-wrap">
+                        <input type="text" class="tag-text-input" id="rolesText" placeholder="Search or type a role…" autocomplete="off" />
+                        <ul class="role-combobox-list" id="rolesComboList"></ul>
+                    </div>
+                    <button type="button" class="tag-add-btn" id="rolesAdd">Add</button>
+                </div>
+                <div class="tag-cloud" id="rolesCloud"></div>
+            </div>
+        </div>
+    </div>

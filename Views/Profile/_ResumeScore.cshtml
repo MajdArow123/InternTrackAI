@@ -1,0 +1,92 @@
+@model InternTrackAI.Models.ViewModels.ProfileViewModel
+@using System.Globalization
+@{
+    // Score ring vars
+    const double Circ = 339.29;
+    int scoreDashOff = (int)Circ;
+    string scoreColor = "maybe";
+    if (Model.ScoreResult?.Success == true)
+    {
+        scoreDashOff = (int)(Circ * (1.0 - Model.ScoreResult.Score / 100.0));
+        scoreColor   = Model.ScoreResult.Score >= 70 ? "apply" : Model.ScoreResult.Score >= 40 ? "maybe" : "noapply";
+    }
+    string CircStr = Circ.ToString("F2", CultureInfo.InvariantCulture);
+}
+    <!-- ── AI Resume Score ── -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">AI resume score</p>
+        <p class="form-hint mb-3">Score your active resume with GPT-4o mini for an overall quality score, strengths, and specific improvements.</p>
+
+        @if (!Model.Resumes.Any(r => r.IsActive))
+        {
+            <p class="form-hint mb-0">Upload a resume and set it as active to enable scoring.</p>
+        }
+        else
+        {
+            <form asp-action="ScoreResume" method="post">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary px-4" id="scoreBtn">
+                    Score my resume
+                </button>
+                <span class="ms-2 form-hint mt-0 d-inline-block">Powered by GPT-4o mini</span>
+            </form>
+
+            @if (Model.ScoreResult != null)
+            {
+                if (Model.ScoreResult.Success)
+                {
+                    <div class="match-score-card mt-3">
+                        <div class="match-score-left">
+                            <div class="score-ring-wrap">
+                                <svg class="score-svg" viewBox="0 0 140 140">
+                                    <circle class="score-track" cx="70" cy="70" r="54" />
+                                    <circle class="score-fill score-fill--@scoreColor"
+                                            cx="70" cy="70" r="54"
+                                            style="--ring-offset:@scoreDashOff;stroke-dasharray:@CircStr" />
+                                </svg>
+                                <div class="score-label">
+                                    <span class="score-number">@Model.ScoreResult.Score</span>
+                                    <span class="score-unit">%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="match-score-right">
+                            <p class="match-score-title">Resume quality score</p>
+                            <p class="match-summary">@Model.ScoreResult.Summary</p>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-0">
+                        @if (Model.ScoreResult.Strengths.Any())
+                        {
+                            <div class="col-md-6">
+                                <div class="form-card form-card-inset">
+                                    <p class="form-section-title section-title--strengths">Strengths</p>
+                                    <ul class="match-strengths-list">
+                                        @foreach (var s in Model.ScoreResult.Strengths)
+                                        { <li>@s</li> }
+                                    </ul>
+                                </div>
+                            </div>
+                        }
+                        @if (Model.ScoreResult.Improvements.Any())
+                        {
+                            <div class="col-md-6">
+                                <div class="form-card form-card-inset">
+                                    <p class="form-section-title section-title--improvements">Improvements</p>
+                                    <ul class="match-strengths-list">
+                                        @foreach (var imp in Model.ScoreResult.Improvements)
+                                        { <li>@imp</li> }
+                                    </ul>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="match-error-banner mt-3">@Model.ScoreResult.Error</div>
+                }
+            }
+        }
+    </div>

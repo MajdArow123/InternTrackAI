@@ -1,0 +1,111 @@
+@model InternTrackAI.Models.ViewModels.DashboardViewModel
+@using InternTrackAI.Models.Enums
+@{
+    int maxCompanyCount = Model.TopCompanies.Any() ? Model.TopCompanies.Max(kv => kv.Value) : 1;
+}
+    <!-- Analytics grid -->
+    @if (Model.TotalApplications > 0)
+    {
+        var pipeline = new[] { ApplicationStatus.Saved, ApplicationStatus.Applied, ApplicationStatus.Interview, ApplicationStatus.Offer, ApplicationStatus.Rejected };
+        <div class="dash-grid anim-fade-up anim-d4">
+
+            <!-- Applications over time (Chart.js) -->
+            <div class="analytics-card dash-chart">
+                <div class="analytics-card-head">
+                    <div>
+                        <div class="analytics-card-label">Applications over time</div>
+                        <div class="analytics-card-sub">Submitted per month, last 6 months</div>
+                    </div>
+                    <span class="chart-legend"><span class="chart-legend-swatch"></span>Applications</span>
+                </div>
+                <div class="chart-wrap">
+                    <canvas id="appsOverTimeChart" role="img" aria-label="Applications submitted per month, last 6 months"></canvas>
+                </div>
+            </div>
+
+            <!-- Pipeline funnel -->
+            <div class="analytics-card dash-pipeline">
+                <div class="analytics-card-label">Pipeline</div>
+                <div class="analytics-card-sub mb-3">Where your applications stand</div>
+                <div class="funnel">
+                    @foreach (var st in pipeline)
+                    {
+                        var c = Model.StatusCounts.GetValueOrDefault(st, 0);
+                        var pct = Model.TotalApplications > 0 ? (int)Math.Round(c * 100.0 / Model.TotalApplications) : 0;
+                        <div class="funnel-row funnel-@st.ToString().ToLower()">
+                            <span class="funnel-label">@st</span>
+                            <div class="funnel-bar-wrap"><div class="funnel-bar" style="width:@(Math.Max(pct, c > 0 ? 4 : 0))%"></div></div>
+                            <span class="funnel-count">@c</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Success rate -->
+            <div class="analytics-card dash-success">
+                <div class="analytics-card-label">Success rate</div>
+                <div class="analytics-card-value @(Model.SuccessRate >= 10 ? "value-success" : "")">
+                    @Model.SuccessRate<span class="analytics-card-unit">%</span>
+                </div>
+                <div class="analytics-card-sub">
+                    @Model.StatusCounts.GetValueOrDefault(ApplicationStatus.Offer, 0) offer@(Model.StatusCounts.GetValueOrDefault(ApplicationStatus.Offer, 0) == 1 ? "" : "s") from @Model.TotalApplications application@(Model.TotalApplications == 1 ? "" : "s")
+                </div>
+            </div>
+
+            <!-- Top companies -->
+            <div class="analytics-card dash-companies">
+                <div class="analytics-card-label">Top companies</div>
+                @if (Model.TopCompanies.Any())
+                {
+                    <div class="top-companies-list mt-2">
+                        @foreach (var kv in Model.TopCompanies)
+                        {
+                            var pct = maxCompanyCount > 0 ? (int)(kv.Value * 100.0 / maxCompanyCount) : 0;
+                            <div class="top-company-row">
+                                <span class="top-company-name">@kv.Key</span>
+                                <div class="top-company-bar-wrap">
+                                    <div class="top-company-bar" style="width:@pct%"></div>
+                                </div>
+                                <span class="top-company-count">@kv.Value</span>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="analytics-card-sub">No companies yet.</div>
+                }
+            </div>
+
+            <!-- Quick actions -->
+            <div class="analytics-card dash-actions">
+                <div class="analytics-card-label">Quick actions</div>
+                <div class="quick-actions mt-2">
+                    <a asp-controller="JobApplications" asp-action="Create" class="quick-action">
+                        <span class="quick-action-icon quick-action-icon--accent">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        </span>
+                        <span>Add application</span>
+                    </a>
+                    <a asp-controller="CoverLetter" asp-action="Generate" class="quick-action">
+                        <span class="quick-action-icon quick-action-icon--purple">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                        </span>
+                        <span>Write a cover letter</span>
+                    </a>
+                    <a asp-controller="Profile" asp-action="Index" class="quick-action">
+                        <span class="quick-action-icon quick-action-icon--success">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                        </span>
+                        <span>Update profile &amp; resume</span>
+                    </a>
+                    <a asp-controller="JobApplications" asp-action="Index" class="quick-action">
+                        <span class="quick-action-icon quick-action-icon--warning">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                        </span>
+                        <span>View all applications</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    }

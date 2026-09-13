@@ -1,0 +1,88 @@
+@model InternTrackAI.Models.ViewModels.CoverLetterGeneratorViewModel
+    <!-- ── Saved Cover Letters ── -->
+    <div class="form-card">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <p class="form-section-title mb-0">Saved cover letters</p>
+            @if (Model.SavedLetters.Any())
+            {
+                <span class="form-hint mt-0">@Model.SavedLetters.Count saved</span>
+            }
+        </div>
+
+        @if (!Model.SavedLetters.Any())
+        {
+            <div class="doc-empty">
+                <p class="doc-empty-title">No saved cover letters yet</p>
+                <p class="doc-empty-text">Generate a cover letter above and click Save to profile.</p>
+            </div>
+        }
+        else
+        {
+            <div class="doc-list">
+                @foreach (var letter in Model.SavedLetters)
+                {
+                    <div class="doc-row @(letter.IsActive ? "doc-active" : "")">
+                        <span class="doc-version-badge">v@(letter.VersionNumber)</span>
+
+                        <div class="doc-info">
+                            <div class="doc-filename">
+                                @if (!string.IsNullOrEmpty(letter.CompanyName))
+                                {
+                                    @letter.CompanyName
+                                    if (!string.IsNullOrEmpty(letter.RoleTitle))
+                                    {
+                                        <span class="text-muted"> &mdash; @letter.RoleTitle</span>
+                                    }
+                                }
+                                else
+                                {
+                                    <span class="text-muted">No application linked</span>
+                                }
+                            </div>
+                            <div class="doc-meta">
+                                @letter.GeneratedAt.ToLocalTime().ToString("MMM d, yyyy 'at' h:mm tt")
+                                &middot; @WordCount(letter.Content) words
+                            </div>
+                        </div>
+
+                        <div class="doc-actions">
+                        @if (letter.IsActive)
+                        {
+                            <span class="active-label">Active</span>
+                        }
+                        else
+                        {
+                            <form asp-action="SetActive" method="post" class="d-inline">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@letter.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-primary doc-btn">Set active</button>
+                            </form>
+                        }
+
+                        <button type="button" class="btn btn-sm btn-outline-secondary doc-btn"
+                                data-load-letter="@letter.Id">Load</button>
+
+                        <a asp-action="Download" asp-route-id="@letter.Id"
+                           class="btn btn-sm btn-outline-secondary doc-btn">Download</a>
+
+                        <form asp-action="Delete" method="post" class="d-inline"
+                              data-confirm-title="Delete cover letter v@(letter.VersionNumber)?" data-confirm="This permanently removes the saved letter. This cannot be undone.">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="id" value="@letter.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger doc-btn">Delete</button>
+                        </form>
+                        </div>
+                    </div>
+
+                    @* Hidden content for Load button *@
+                    <textarea hidden id="cl-content-@letter.Id" style="display:none">@letter.Content</textarea>
+                }
+            </div>
+        }
+    </div>
+
+@functions {
+    static int WordCount(string text) =>
+        string.IsNullOrWhiteSpace(text) ? 0 :
+        text.Split(new[] { ' ', '\n', '\r', '\t' }, StringSplitOptions.RemoveEmptyEntries).Length;
+}

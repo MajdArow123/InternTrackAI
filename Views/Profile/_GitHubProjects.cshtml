@@ -1,0 +1,41 @@
+@model InternTrackAI.Models.ViewModels.ProfileViewModel
+    @if (!string.IsNullOrWhiteSpace(Model.Profile.GitHubUsername))
+    {
+        <!-- ── GitHub Projects ── -->
+        <div class="form-card mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+                <p class="form-section-title mb-0">Projects</p>
+                <a href="https://github.com/@Model.Profile.GitHubUsername" target="_blank" rel="noopener"
+                   class="form-hint mt-0">@@@Model.Profile.GitHubUsername on GitHub &rarr;</a>
+            </div>
+            @if (Model.GitHubRepos == null)
+            {
+                <p class="form-hint mb-0">Couldn't load repos for this username right now.</p>
+            }
+            else if (!Model.GitHubRepos.Any())
+            {
+                <p class="form-hint mb-0">No public repos found for this username.</p>
+            }
+            else
+            {
+                <div class="doc-list">
+                    @foreach (var repo in Model.GitHubRepos)
+                    {
+                        <a class="doc-row doc-row-link" href="@repo.Url" target="_blank" rel="noopener">
+                            <div class="doc-info">
+                                <div class="doc-filename">@repo.Name</div>
+                                <div class="doc-meta">
+                                    @(string.IsNullOrWhiteSpace(repo.Description) ? "No description" : repo.Description)
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrWhiteSpace(repo.Language))
+                            {
+                                <span class="active-label">@repo.Language</span>
+                            }
+                            <span class="doc-stars">&#9733; @repo.Stars</span>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    }

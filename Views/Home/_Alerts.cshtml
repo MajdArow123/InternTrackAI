@@ -1,0 +1,33 @@
+@model InternTrackAI.Models.ViewModels.DashboardViewModel
+@using InternTrackAI.Models.Enums
+    <!-- Deadline & follow-up alerts -->
+    @if (Model.UpcomingDeadlines.Any() || Model.FollowUpSuggestions.Any())
+    {
+        <div class="alert-section">
+            @if (Model.UpcomingDeadlines.Any())
+            {
+                <div class="alert-card alert-card--amber mb-2">
+                    <div class="alert-card-title">
+                        @Model.UpcomingDeadlines.Count deadline@(Model.UpcomingDeadlines.Count == 1 ? "" : "s") in the next 3 days
+                    </div>
+                    @foreach (var app in Model.UpcomingDeadlines)
+                    {
+                        var daysLeft = (app.Deadline!.Value.Date - DateTime.UtcNow.Date).Days;
+                        var urgency  = daysLeft == 0 ? "Today" : daysLeft == 1 ? "Tomorrow" : $"In {daysLeft} days";
+                        <div class="alert-item">@app.CompanyName &mdash; @app.RoleTitle &mdash; @urgency</div>
+                    }
+                </div>
+            }
+            @if (Model.FollowUpSuggestions.Any())
+            {
+                <div class="alert-card alert-card--blue">
+                    <div class="alert-card-title">Follow-up opportunities</div>
+                    @foreach (var app in Model.FollowUpSuggestions)
+                    {
+                        var days = (DateTime.UtcNow.Date - app.DateApplied!.Value.Date).Days;
+                        <div class="alert-item">@app.CompanyName &mdash; @app.RoleTitle &mdash; applied @days days ago</div>
+                    }
+                </div>
+            }
+        </div>
+    }

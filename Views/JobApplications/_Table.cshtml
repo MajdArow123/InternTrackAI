@@ -1,0 +1,128 @@
+@model IEnumerable<InternTrackAI.Models.JobApplication>
+@using InternTrackAI.Models.Enums
+@{
+    bool isFiltered = ViewBag.IsFiltered == true;
+}
+    @if (!Model.Any())
+    {
+        <div class="app-table-wrapper">
+            <div class="empty-state-illustrated">
+                <svg class="empty-illustration" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="25" y="22" width="70" height="68" rx="6" class="empty-illu-bg" fill="rgba(10,132,255,.10)"/>
+                    <rect x="35" y="14" width="50" height="10" rx="5" class="empty-illu-top" fill="rgba(10,132,255,.35)"/>
+                    <line x1="40" y1="48" x2="80" y2="48" class="empty-illu-line" stroke="rgba(10,132,255,.35)" stroke-width="3.5" stroke-linecap="round"/>
+                    <line x1="40" y1="60" x2="72" y2="60" class="empty-illu-line" stroke="rgba(10,132,255,.35)" stroke-width="3.5" stroke-linecap="round"/>
+                    <line x1="40" y1="72" x2="62" y2="72" class="empty-illu-line" stroke="rgba(10,132,255,.18)" stroke-width="3.5" stroke-linecap="round"/>
+                </svg>
+                @if (isFiltered)
+                {
+                    <p class="empty-state-title">No matching applications</p>
+                    <p class="empty-state-desc">Try adjusting the search or status filter, or clear all filters.</p>
+                    <a asp-action="Index" class="btn btn-outline-secondary btn-sm">Clear filters</a>
+                }
+                else
+                {
+                    <p class="empty-state-title">No applications yet</p>
+                    <p class="empty-state-desc">Start tracking your internship search by logging your first application.</p>
+                    <a asp-action="Create" class="btn btn-primary btn-sm">Add your first application</a>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="app-table-wrapper app-table-sticky">
+            <div class="table-responsive">
+                <table class="table" id="apps-table">
+                    <thead>
+                        <tr>
+                            <th class="ps-3 col-check">
+                                <input type="checkbox" id="select-all-check" class="form-check-input" aria-label="Select all" />
+                            </th>
+                            <th class="ps-2">Company</th>
+                            <th>Role</th>
+                            <th class="d-none d-md-table-cell">Location</th>
+                            <th class="d-none d-md-table-cell">Mode</th>
+                            <th>Status</th>
+                            <th class="text-center d-none d-sm-table-cell col-match">Match</th>
+                            <th class="d-none d-sm-table-cell">Deadline</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <!-- Long/free-text fields (summary, skills JSON, job description) are passed through
+                                 Uri.EscapeDataString so quotes, newlines, and HTML-like characters in AI-generated
+                                 or user-pasted text can't break out of the data-* attribute. The drawer JS reverses
+                                 this with decodeURIComponent before rendering, then HTML-escapes again on display. -->
+                            <tr data-app-id="@item.Id"
+                                data-company="@item.CompanyName"
+                                data-role="@item.RoleTitle"
+                                data-location="@(item.Location ?? "")"
+                                data-salary="@(item.Salary ?? "")"
+                                data-match-score="@(item.MatchScore?.ToString() ?? "")"
+                                data-match-rec="@(item.MatchRecommendation ?? "")"
+                                data-match-summary="@(Uri.EscapeDataString(item.MatchSummary ?? ""))"
+                                data-matching-skills="@(Uri.EscapeDataString(item.MatchingSkillsJson ?? "[]"))"
+                                data-missing-skills="@(Uri.EscapeDataString(item.MissingSkillsJson ?? "[]"))"
+                                data-status="@((int)item.Status)"
+                                data-deadline="@(item.Deadline.HasValue ? item.Deadline.Value.ToString("MMM d, yyyy") : "")"
+                                data-mode="@item.WorkMode"
+                                data-job-description="@(Uri.EscapeDataString(item.JobDescription ?? ""))"
+                                class="app-row"
+                                role="button"
+                                tabindex="0">
+                                <td class="ps-3 col-check">
+                                    <input type="checkbox" class="form-check-input row-check"
+                                           value="@item.Id" aria-label="Select @item.CompanyName" />
+                                </td>
+                                <td class="ps-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="company-avatar">@StatusDisplay.Initials(item.CompanyName)</span>
+                                        <span class="company-name">@item.CompanyName</span>
+                                    </div>
+                                </td>
+                                <td class="role-name">@item.RoleTitle</td>
+                                <td class="text-muted d-none d-md-table-cell">@(item.Location ?? "—")</td>
+                                <td class="text-muted d-none d-md-table-cell">@item.WorkMode</td>
+                                <td>
+                                    <span class="status-badge @StatusDisplay.BadgeClass(item.Status)">
+                                        @Html.Raw(StatusDisplay.Icon(item.Status)) @item.Status
+                                    </span>
+                                </td>
+                                <td class="text-center d-none d-sm-table-cell">
+                                    @if (item.MatchScore.HasValue)
+                                    {
+                                        var action = StatusDisplay.MatchTooltip(item.MatchScore.Value);
+                                        var tooltip = $"{item.MatchScore}% Match · {action}";
+                                        <span class="match-ring match-ring--sm match-ring--tier-@StatusDisplay.MatchTier(item.MatchScore.Value)"
+                                              style="--p:@item.MatchScore"
+                                              data-bs-toggle="tooltip"
+                                              data-bs-placement="top"
+                                              data-bs-title="@tooltip"
+                                              aria-label="@tooltip"><span>@item.MatchScore</span></span>
+                                    }
+                                </td>
+                                <td class="text-muted d-none d-sm-table-cell">
+                                    @(item.Deadline.HasValue ? item.Deadline.Value.ToString("MMM d, yyyy") : "—")
+                                </td>
+                                <td class="text-end pe-3">
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <a asp-controller="CoverLetter" asp-action="Generate"
+                                           asp-route-appId="@item.Id"
+                                           class="btn btn-sm btn-outline-primary row-action-btn">Cover Letter</a>
+                                        <a asp-controller="InterviewPrep" asp-action="Prep"
+                                           asp-route-appId="@item.Id"
+                                           class="btn btn-sm btn-outline-primary row-action-btn">Interview Prep</a>
+                                        <a asp-action="Edit" asp-route-id="@item.Id"
+                                           class="btn btn-sm btn-outline-secondary row-action-btn">Edit</a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }

@@ -1,0 +1,90 @@
+<!-- ── Application Detail Drawer ── -->
+<div id="app-drawer-backdrop" class="app-drawer-backdrop" aria-hidden="true"></div>
+<div id="app-drawer" class="app-drawer" aria-hidden="true" role="dialog" aria-label="Application details">
+    <div class="app-drawer-content">
+        <!-- Drag handle (mobile only) -->
+        <div class="app-drawer-handle" id="drawer-handle">
+            <span class="app-drawer-handle-bar"></span>
+        </div>
+        <!-- Header -->
+        <div class="app-drawer-header">
+            <div class="app-drawer-header-main">
+                <span id="drawer-avatar" class="company-avatar app-drawer-avatar">CO</span>
+                <div class="app-drawer-header-text">
+                    <h2 id="drawer-role" class="app-drawer-title">Role Title</h2>
+                    <p id="drawer-company" class="app-drawer-company">Company Name</p>
+                </div>
+                <span id="drawer-status-badge" class="status-badge"></span>
+            </div>
+            <button class="app-drawer-close" id="drawer-close" aria-label="Close">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="app-drawer-body">
+            <!-- Job Description Section -->
+            <section class="drawer-section">
+                <h3 class="drawer-section-title">Job Description</h3>
+                <div class="drawer-description-box">
+                    <p id="drawer-description" class="drawer-text">Loading…</p>
+                </div>
+            </section>
+
+            <!-- AI Analysis Section -->
+            <section id="drawer-analysis-section" class="drawer-section" hidden>
+                <h3 class="drawer-section-title">AI Analysis</h3>
+                <div class="match-result-card" id="drawer-match-card"></div>
+            </section>
+
+            <!-- Additional Info -->
+            <section class="drawer-section">
+                <div class="drawer-info-grid">
+                    <div class="drawer-info-item">
+                        <span class="drawer-info-label">Location</span>
+                        <span id="drawer-location" class="drawer-info-value">Toronto, ON</span>
+                    </div>
+                    <div class="drawer-info-item">
+                        <span class="drawer-info-label">Work Mode</span>
+                        <span id="drawer-mode" class="drawer-info-value">Remote</span>
+                    </div>
+                    <div class="drawer-info-item">
+                        <span class="drawer-info-label">Salary</span>
+                        <span id="drawer-salary" class="drawer-info-value">$22-26/hour</span>
+                    </div>
+                    <div class="drawer-info-item">
+                        <span class="drawer-info-label">Deadline</span>
+                        <span id="drawer-deadline" class="drawer-info-value">Jul 30, 2026</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Status Progress Timeline -->
+            <section class="drawer-section">
+                <h3 class="drawer-section-title">Status Progress</h3>
+                <div class="status-timeline" id="drawer-status-timeline"></div>
+            </section>
+
+            <!-- Notes / Activity Timeline -->
+            <section class="drawer-section">
+                <h3 class="drawer-section-title">Notes</h3>
+                <form id="drawer-note-form" class="drawer-note-form">
+                    <textarea id="drawer-note-input" class="drawer-note-input" rows="2"
+                              placeholder="Add a note about this application…" maxlength="2000" aria-label="New note"></textarea>
+                    <button type="submit" class="btn btn-primary btn-sm drawer-note-submit">Add note</button>
+                </form>
+                <div id="drawer-note-timeline" class="drawer-note-timeline">
+                    <p class="drawer-note-empty">No notes yet.</p>
+                </div>
+            </section>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="app-drawer-footer">
+            <button id="drawer-edit-btn" class="btn btn-primary" data-app-id="">Edit</button>
+            <button id="drawer-cover-letter-btn" class="btn btn-outline-primary" data-app-id="">Cover Letter</button>
+            <button id="drawer-interview-btn" class="btn btn-outline-primary" data-app-id="">Interview Prep</button>
+            <button id="drawer-close-btn" class="btn btn-outline-secondary ms-auto">Close</button>
+        </div>
+    </div>
+</div>

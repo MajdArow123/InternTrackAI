@@ -1,0 +1,22 @@
+@model InternTrackAI.Models.ViewModels.DashboardViewModel
+@using InternTrackAI.Models.Enums
+    <!-- Stat cards (4-up) -->
+    @{
+        var headlineStatuses = new[] { ApplicationStatus.Applied, ApplicationStatus.Interview, ApplicationStatus.Offer };
+    }
+    <div class="stats-grid stats-grid-4 mb-4">
+        <div class="stat-card stat-card-total anim-fade-up anim-d1">
+            <div class="stat-number" data-count="@Model.TotalApplications">@Model.TotalApplications</div>
+            <div class="stat-label">Total applications</div>
+        </div>
+        @{int delay = 2;}
+        @foreach (var status in headlineStatuses)
+        {
+            var count = Model.StatusCounts.GetValueOrDefault(status, 0);
+            <div class="stat-card stat-card-@status.ToString().ToLower() anim-fade-up anim-d@(delay)">
+                <div class="stat-number" data-count="@count">@count</div>
+                <div class="stat-label">@status</div>
+            </div>
+            delay = Math.Min(delay + 1, 6);
+        }
+    </div>

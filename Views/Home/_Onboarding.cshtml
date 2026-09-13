@@ -1,0 +1,32 @@
+@model InternTrackAI.Models.ViewModels.DashboardViewModel
+@using InternTrackAI.Models.Enums
+    <!-- New-user onboarding checklist -->
+    @if (Model.TotalApplications == 0)
+    {
+        <div class="onboarding-banner anim-fade-up anim-d1" id="onboardingBanner">
+            <div class="onboarding-header">
+                <div>
+                    <h6>Welcome to InternTrackAI</h6>
+                    <p>Three quick steps to get the most out of your internship search.</p>
+                </div>
+                <button type="button" class="onboarding-close" id="onboardingClose" aria-label="Dismiss">&times;</button>
+            </div>
+            <div class="onboarding-checklist">
+                <a asp-controller="Profile" asp-action="Index" class="onboarding-step @(Model.HasProfileBasics ? "is-done" : "")">
+                    <span class="onboarding-step-icon">@(Model.HasProfileBasics ? "✓" : "1")</span>
+                    <span class="onboarding-step-text">Complete your profile (name &amp; skills)</span>
+                    <span class="onboarding-step-arrow" aria-hidden="true">›</span>
+                </a>
+                <a asp-controller="Profile" asp-action="Index" class="onboarding-step @(Model.HasResume ? "is-done" : "")">
+                    <span class="onboarding-step-icon">@(Model.HasResume ? "✓" : "2")</span>
+                    <span class="onboarding-step-text">Upload your resume for AI matching</span>
+                    <span class="onboarding-step-arrow" aria-hidden="true">›</span>
+                </a>
+                <a asp-controller="JobApplications" asp-action="Create" class="onboarding-step">
+                    <span class="onboarding-step-icon">3</span>
+                    <span class="onboarding-step-text">Add your first application</span>
+                    <span class="onboarding-step-arrow" aria-hidden="true">›</span>
+                </a>
+            </div>
+        </div>
+    }

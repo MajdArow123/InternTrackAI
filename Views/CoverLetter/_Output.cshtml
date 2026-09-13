@@ -1,0 +1,45 @@
+@model InternTrackAI.Models.ViewModels.CoverLetterGeneratorViewModel
+    <!-- ── Output Section ── -->
+    <div id="outputSection" hidden>
+        <div class="form-card mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+                <p class="form-section-title mb-0">Generated cover letter</p>
+                <span class="word-count" id="wordCountDisplay"></span>
+            </div>
+            <p class="form-hint mt-0 mb-3" id="outputMeta"></p>
+
+            <textarea class="form-control cl-output" id="coverLetterOutput"
+                      rows="22" spellcheck="true"></textarea>
+
+            <div class="d-flex gap-2 flex-wrap mt-3">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="copyBtn">
+                    Copy to clipboard
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="downloadPdfBtn">
+                    Download as PDF
+                </button>
+                <form asp-action="Save" method="post" id="saveForm" class="d-inline">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="applicationId" id="saveAppId" />
+                    <input type="hidden" name="content"       id="saveContent" />
+                    <input type="hidden" name="company"       id="saveCompany" />
+                    <input type="hidden" name="role"          id="saveRole" />
+                    <button type="submit" class="btn btn-primary btn-sm">Save to profile</button>
+                </form>
+            </div>
+            <div id="copyConfirm" class="form-hint mt-2" hidden>Copied to clipboard.</div>
+
+            <!-- ── Improve with AI ── -->
+            <div class="cl-improve-box mt-3">
+                <p class="form-section-title form-section-title--sm mb-2">Improve with AI</p>
+                <div class="d-flex gap-2 flex-wrap">
+                    <input type="text" class="form-control flex-grow-1 improve-input" id="improveInstructions"
+                           placeholder="e.g. Make it more concise and confident" aria-label="Improvement instructions">
+                    <button type="button" class="btn btn-outline-primary" id="improveBtn">
+                        Improve letter
+                    </button>
+                </div>
+                <div class="match-error-banner mt-2" id="improveError" hidden></div>
+            </div>
+        </div>
+    </div>

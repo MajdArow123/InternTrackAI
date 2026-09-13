@@ -1,0 +1,46 @@
+@model InternTrackAI.Models.ViewModels.CoverLetterGeneratorViewModel
+    <!-- ── Generation Form ── -->
+    <div class="form-card mb-3">
+        <p class="form-section-title">Generate a cover letter</p>
+
+        <div class="mb-3">
+            <label class="form-label" for="appSelect">Job application</label>
+            <select class="form-select" id="appSelect">
+                <option value="">No application selected</option>
+                @foreach (var app in Model.Applications)
+                {
+                    if (Model.SelectedApplicationId == app.Id)
+                    {
+                        <option value="@app.Id" data-company="@app.CompanyName" data-role="@app.RoleTitle" selected>
+                            @app.CompanyName &mdash; @app.RoleTitle
+                        </option>
+                    }
+                    else
+                    {
+                        <option value="@app.Id" data-company="@app.CompanyName" data-role="@app.RoleTitle">
+                            @app.CompanyName &mdash; @app.RoleTitle
+                        </option>
+                    }
+                }
+            </select>
+            <div class="form-text">The AI will use this application's job description and your active resume.</div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" for="extraNotes">
+                Extra notes
+                <span class="text-muted fw-normal">(optional)</span>
+            </label>
+            <textarea class="form-control" id="extraNotes" rows="3"
+                      placeholder="e.g. Mention I am available to start immediately. Emphasize my Python and data analysis experience. Keep it under 350 words."></textarea>
+        </div>
+
+        <div class="d-flex align-items-center gap-3">
+            <button type="button" class="btn btn-primary px-4" id="generateBtn">
+                Generate cover letter
+            </button>
+            <span class="form-hint mt-0">Powered by GPT-4o mini</span>
+        </div>
+
+        <div class="match-error-banner mt-3" id="generateError" hidden></div>
+    </div>

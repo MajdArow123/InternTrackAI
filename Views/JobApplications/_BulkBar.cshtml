@@ -1,0 +1,46 @@
+@using InternTrackAI.Models.Enums
+    <!-- ── Hidden bulk action forms ── -->
+    <form id="bulk-delete-form" method="post" asp-action="BulkDelete">
+        @Html.AntiForgeryToken()
+    </form>
+    <form id="bulk-status-form" method="post" asp-action="BulkStatus">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="newStatus" id="bulk-status-value" />
+    </form>
+
+<!-- ── Bulk Action Bar ── -->
+<div id="bulk-bar" class="bulk-bar" role="region" aria-label="Bulk actions">
+    <div class="bulk-bar-inner">
+        <span id="bulk-count" class="bulk-count">0 selected</span>
+        <div class="bulk-actions">
+            <button type="button" class="btn btn-sm btn-outline-light" id="compare-btn" style="display:none">
+                Compare
+            </button>
+            <div class="d-flex align-items-center gap-2 bulk-status-group">
+                <select id="bulk-status-select" class="form-select form-select-sm bulk-status-select" aria-label="Change status">
+                    <option value="">Change status to…</option>
+                    @foreach (var st in Enum.GetValues<ApplicationStatus>())
+                    {
+                        <option value="@st">@st</option>
+                    }
+                </select>
+                <button type="button" class="btn btn-sm btn-outline-light" id="bulk-status-btn">Apply</button>
+            </div>
+            <button type="button" class="btn btn-sm btn-danger" id="bulk-delete-btn">Delete</button>
+            <button type="button" class="btn btn-sm btn-link bulk-deselect-link" id="bulk-deselect-btn" aria-label="Deselect all">Deselect</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Job Comparison Modal ── -->
+<div id="compare-overlay" class="compare-modal-overlay" aria-hidden="true" role="dialog" aria-label="Compare applications">
+    <div class="compare-modal">
+        <div class="compare-modal-header">
+            <span class="compare-modal-title">Side-by-Side Comparison</span>
+            <button class="compare-modal-close" id="compare-close" aria-label="Close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+        <div id="compare-content"></div>
+    </div>
+</div>

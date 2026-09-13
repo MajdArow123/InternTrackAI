@@ -1,0 +1,67 @@
+@model InternTrackAI.Models.ViewModels.DashboardViewModel
+@using InternTrackAI.Models.Enums
+    <!-- Recent applications -->
+    <div class="app-table-wrapper anim-fade-up anim-d4">
+        <div class="card-header-clean">
+            <h5>Recent Applications</h5>
+            <a asp-controller="JobApplications" asp-action="Index" class="btn btn-sm btn-outline-secondary">View all</a>
+        </div>
+
+        @if (!Model.RecentApplications.Any())
+        {
+            <div class="empty-state-illustrated">
+                <svg class="empty-illustration" viewBox="0 0 120 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="25" y="22" width="70" height="68" rx="6" class="empty-illu-bg" fill="rgba(10,132,255,.10)"/>
+                    <rect x="40" y="14" width="40" height="16" rx="5" class="empty-illu-top" fill="rgba(10,132,255,.35)"/>
+                    <rect x="35" y="14" width="50" height="10" rx="5" fill="rgba(10,132,255,.35)"/>
+                    <line x1="40" y1="48" x2="80" y2="48" class="empty-illu-line" stroke="rgba(10,132,255,.35)" stroke-width="3.5" stroke-linecap="round"/>
+                    <line x1="40" y1="60" x2="72" y2="60" class="empty-illu-line" stroke="rgba(10,132,255,.35)" stroke-width="3.5" stroke-linecap="round"/>
+                    <line x1="40" y1="72" x2="62" y2="72" class="empty-illu-line" stroke="rgba(10,132,255,.18)" stroke-width="3.5" stroke-linecap="round"/>
+                </svg>
+                <p class="empty-state-title">No applications yet</p>
+                <p class="empty-state-desc">Start tracking your internship search and see your progress here.</p>
+                <a asp-controller="JobApplications" asp-action="Create" class="btn btn-primary btn-sm">
+                    Add your first one
+                </a>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Company</th>
+                            <th>Role</th>
+                            <th class="d-none d-md-table-cell">Mode</th>
+                            <th>Status</th>
+                            <th class="d-none d-sm-table-cell">Deadline</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var app in Model.RecentApplications)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="company-avatar">@StatusDisplay.Initials(app.CompanyName)</span>
+                                        <span class="company-name">@app.CompanyName</span>
+                                    </div>
+                                </td>
+                                <td class="role-name">@app.RoleTitle</td>
+                                <td class="text-muted d-none d-md-table-cell">@app.WorkMode</td>
+                                <td>
+                                    <span class="status-badge @StatusDisplay.BadgeClass(app.Status)">
+                                        @Html.Raw(StatusDisplay.Icon(app.Status)) @app.Status
+                                    </span>
+                                </td>
+                                <td class="text-muted d-none d-sm-table-cell">
+                                    @(app.Deadline.HasValue ? app.Deadline.Value.ToString("MMM d, yyyy") : "—")
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>

@@ -2026,6 +2026,66 @@ html[data-theme="dark"] .bulk-bar { background: rgba(44,44,46,.9); }
   color: var(--warning-text);
 }
 
+/* ── Bookmarklet install page (Profile/Bookmarklet) ───────────── */
+.bm-drop-zone {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem 1.25rem;
+  padding: 1.5rem 1.25rem;
+  margin: .25rem 0 1rem;
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+}
+.bookmarklet-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .7rem 1.35rem;
+  font-size: 1rem;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-drag: element;
+  box-shadow: 0 6px 18px rgba(10,132,255,.28);
+}
+.bookmarklet-btn:active, .bookmarklet-btn.is-dragging { cursor: grabbing; transform: scale(.98); }
+.bm-drop-hint {
+  display: inline-flex; align-items: center; gap: .4rem;
+  color: var(--muted); font-size: .8667rem; font-weight: 500;
+}
+.bm-bar-tip .kbd { margin: 0 .1rem; }
+
+.bm-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1rem; }
+.bm-step { display: flex; gap: .85rem; align-items: flex-start; }
+.bm-step .onboarding-step-icon { margin-top: .1rem; }
+.bm-step-title { font-weight: 600; color: var(--text); font-size: .9333rem; }
+.bm-step-text  { color: var(--muted); font-size: .8667rem; line-height: 1.5; }
+
+.bm-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .8rem;
+  line-height: 1.5;
+  resize: vertical;
+  word-break: break-all;
+  background: var(--surface-2);
+}
+.bm-note { color: var(--text); font-size: .9333rem; line-height: 1.55; }
+.bm-note code {
+  font-size: .85em;
+  background: var(--surface-2);
+  padding: .1em .4em;
+  border-radius: 6px;
+  color: var(--accent-text);
+  word-break: break-all;
+}
+.quick-action-hint { color: var(--muted-2); font-size: .8rem; font-weight: 400; margin-left: .3rem; }
+
+@media (max-width: 480px) {
+  .bm-drop-zone { padding: 1.1rem 1rem; }
+  .bookmarklet-btn { width: 100%; justify-content: center; }
+}
+
 /* Create page banner shown when the form was pre-filled by the bookmarklet (/Capture). */
 .capture-banner {
   display: flex;

@@ -60,6 +60,21 @@ public class ProfileController : Controller
         return View(vm);
     }
 
+    // ── GET /Profile/Bookmarklet ─────────────────────────
+
+    /// <summary>
+    /// Install page for the "Save to InternTrackAI" bookmarklet. The bookmark code is generated
+    /// from this request's scheme and host (see <see cref="BookmarkletViewModel"/>) so it targets
+    /// the origin the user is actually on; behind Railway's proxy the forwarded-headers middleware
+    /// has already restored the public https scheme by the time this runs.
+    /// </summary>
+    [HttpGet]
+    public IActionResult Bookmarklet()
+    {
+        var baseUrl = $"{Request.Scheme}://{Request.Host.ToUriComponent()}{Request.PathBase.ToUriComponent()}";
+        return View(new BookmarkletViewModel { BaseUrl = baseUrl });
+    }
+
     // ── POST /Profile/TogglePublic ───────────────────────
 
     /// <summary>

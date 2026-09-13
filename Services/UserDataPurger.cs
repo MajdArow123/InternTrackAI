@@ -31,6 +31,7 @@ public class UserDataPurger
     public async Task PurgeAsync(string userId, bool keepProfile = false, bool keepActiveDocuments = false)
     {
         // Child rows first so no FK constraint trips on providers that enforce them (Postgres).
+        await _db.StatusSuggestions.Where(s => s.UserId == userId).ExecuteDeleteAsync();
         await _db.ApplicationNotes.Where(n => n.UserId == userId).ExecuteDeleteAsync();
         await _db.InterviewPrepSessions.Where(s => s.UserId == userId).ExecuteDeleteAsync();
         await _db.GeneratedCoverLetters.Where(c => c.UserId == userId).ExecuteDeleteAsync();

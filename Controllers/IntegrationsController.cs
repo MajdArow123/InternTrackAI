@@ -32,17 +32,19 @@ public class IntegrationsController : Controller
     private readonly IConfiguration _config;
     private readonly IGoogleOAuthClient _oauth;
     private readonly IGmailClient _gmail;
+    private readonly GmailSyncService _sync;
     private readonly GmailTokenProtector _tokens;
     private readonly IDataProtector _stateProtector;
     private readonly ILogger<IntegrationsController> _logger;
 
-    public IntegrationsController(ApplicationDbContext db, IConfiguration config, IGoogleOAuthClient oauth, IGmailClient gmail,
+    public IntegrationsController(ApplicationDbContext db, IConfiguration config, IGoogleOAuthClient oauth, IGmailClient gmail, GmailSyncService sync,
                                   GmailTokenProtector tokens, IDataProtectionProvider dataProtection, ILogger<IntegrationsController> logger)
     {
         _db = db;
         _config = config;
         _oauth = oauth;
         _gmail = gmail;
+        _sync = sync;
         _tokens = tokens;
         _stateProtector = dataProtection.CreateProtector("InternTrackAI.GmailOAuthState.v1");
         _logger = logger;
@@ -152,6 +154,19 @@ public class IntegrationsController : Controller
         return BackToProfile("success", $"Gmail connected: {connection.GmailAddress}.");
     }
 
+    // ── POST /Integrations/Gmail/Sync ────────────────────
+
+    /// <summary>"Sync now": runs one sync for the signed-in user and reports the counts as a toast.</summary>
+    [HttpPost("Sync"), ValidateAntiForgeryToken]
+    public async Task<IActionResult> Sync()
+    {
+        if (!Enabled) return NotFound();
+
+        var result = await _sync.SyncAsync(UserId(), HttpContext.RequestAborted);
+        var type   = !result.Connected ? "info" : result.Error is not null ? "error" : result.Suggestions > 0 ? "success" : "info";
+        return BackToProfile(type, result.Message);
+    }
+
     // ── POST /Integrations/Gmail/Disconnect ──────────────
 
     /// <summary>Revokes the grant with Google (best effort) and deletes the user's connection and pending suggestions.</summary>
@@ -176,6 +191,8 @@ public class IntegrationsController : Controller
             }
         }
 
+        // Pending proposals from that inbox go too; accepted/dismissed ones stay as history on the application.
+        await _db.StatusSuggestions.Where(s => s.UserId == userId && s.Status == Models.Enums.SuggestionState.Pending).ExecuteDeleteAsync();
         _db.GmailConnections.Remove(connection);
         await _db.SaveChangesAsync();
         _logger.LogInformation("Gmail disconnected for user {UserId}.", userId);

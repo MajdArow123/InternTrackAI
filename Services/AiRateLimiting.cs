@@ -26,11 +26,67 @@ public class AiRateLimitOptions
 }
 
 /// <summary>
+/// The per-user AI bucket itself, shared by the HTTP policy below and by code that calls OpenAI
+/// outside a request (the Gmail sync). One fixed-window limiter per user id; a demo user gets the
+/// tighter <see cref="AiRateLimitOptions.DemoPermitLimit"/>. Registered as a singleton.
+/// </summary>
+public sealed class AiUsageLimiter : IDisposable
+{
+    private readonly PartitionedRateLimiter<(string Key, int Limit)> _limiter;
+    private readonly IOptionsMonitor<AiRateLimitOptions> _options;
+
+    public AiUsageLimiter(IOptionsMonitor<AiRateLimitOptions> options)
+    {
+        _options = options;
+        _limiter = PartitionedRateLimiter.Create<(string Key, int Limit), string>(resource =>
+            RateLimitPartition.GetFixedWindowLimiter(resource.Key, _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit       = Math.Max(1, resource.Limit),
+                Window            = TimeSpan.FromMinutes(Math.Max(1, _options.CurrentValue.WindowMinutes)),
+                QueueLimit        = 0,
+                AutoReplenishment = true
+            }));
+    }
+
+    public int LimitFor(bool isDemo) => isDemo ? _options.CurrentValue.DemoPermitLimit : _options.CurrentValue.PermitLimit;
+
+    public int WindowMinutes => _options.CurrentValue.WindowMinutes;
+
+    /// <summary>Takes one permit from the user's bucket; check <see cref="RateLimitLease.IsAcquired"/>.</summary>
+    public RateLimitLease TryAcquire(string userKey, bool isDemo) => _limiter.AttemptAcquire((userKey, LimitFor(isDemo)), 1);
+
+    /// <summary>A <see cref="RateLimiter"/> view over one user's bucket for the ASP.NET policy (disposal there never disposes the bucket).</summary>
+    public RateLimiter ForUser(string userKey, bool isDemo) => new PartitionView(_limiter, (userKey, LimitFor(isDemo)));
+
+    public void Dispose() => _limiter.Dispose();
+
+    private sealed class PartitionView : RateLimiter
+    {
+        private readonly PartitionedRateLimiter<(string Key, int Limit)> _owner;
+        private readonly (string Key, int Limit) _resource;
+
+        public PartitionView(PartitionedRateLimiter<(string Key, int Limit)> owner, (string Key, int Limit) resource)
+        {
+            _owner = owner;
+            _resource = resource;
+        }
+
+        // Never reported idle, so the framework never disposes and recreates the view mid-window.
+        public override TimeSpan? IdleDuration => null;
+        public override RateLimiterStatistics? GetStatistics() => _owner.GetStatistics(_resource);
+        protected override RateLimitLease AttemptAcquireCore(int permitCount) => _owner.AttemptAcquire(_resource, permitCount);
+        protected override ValueTask<RateLimitLease> AcquireAsyncCore(int permitCount, CancellationToken cancellationToken) => _owner.AcquireAsync(_resource, permitCount, cancellationToken);
+    }
+}
+
+/// <summary>
 /// Wires ASP.NET Core's built-in rate limiter with a single named policy, <see cref="PolicyName"/>,
 /// partitioned by the signed-in user's id (falling back to the client IP for anonymous callers,
-/// which the [Authorize] filters normally turn away first). Rejections are answered with a friendly
-/// payload instead of a bare 429: JSON <c>{ success:false, error }</c> for fetch() callers, or a
-/// redirect back to the referring page with an error toast for plain form posts.
+/// which the [Authorize] filters normally turn away first). The partitions are views over
+/// <see cref="AiUsageLimiter"/>, so background AI calls for the same user draw from the same bucket.
+/// Rejections are answered with a friendly payload instead of a bare 429: JSON
+/// <c>{ success:false, error }</c> for fetch() callers, or a redirect back to the referring page
+/// with an error toast for plain form posts.
 /// </summary>
 public static class AiRateLimiting
 {
@@ -39,6 +95,7 @@ public static class AiRateLimiting
     public static IServiceCollection AddAiRateLimiting(this IServiceCollection services, IConfiguration config)
     {
         services.Configure<AiRateLimitOptions>(config.GetSection(AiRateLimitOptions.SectionName));
+        services.AddSingleton<AiUsageLimiter>();
 
         services.AddRateLimiter(options =>
         {
@@ -46,18 +103,12 @@ public static class AiRateLimiting
 
             options.AddPolicy(PolicyName, httpContext =>
             {
-                var opts   = httpContext.RequestServices.GetRequiredService<IOptions<AiRateLimitOptions>>().Value;
-                var userId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-                var key    = userId ?? ("ip:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"));
-                var limit  = IsDemoUser(httpContext, config) ? opts.DemoPermitLimit : opts.PermitLimit;
+                var limiter = httpContext.RequestServices.GetRequiredService<AiUsageLimiter>();
+                var userId  = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+                var key     = userId ?? ("ip:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"));
+                var isDemo  = IsDemoUser(httpContext, config);
 
-                return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit          = Math.Max(1, limit),
-                    Window               = TimeSpan.FromMinutes(Math.Max(1, opts.WindowMinutes)),
-                    QueueLimit           = 0,
-                    AutoReplenishment    = true
-                });
+                return RateLimitPartition.Get(key, _ => limiter.ForUser(key, isDemo));
             });
 
             options.OnRejected = async (context, cancellationToken) =>
@@ -117,11 +168,14 @@ public static class AiRateLimiting
         return msg;
     }
 
-    private static bool IsDemoUser(HttpContext http, IConfiguration config)
+    private static bool IsDemoUser(HttpContext http, IConfiguration config) =>
+        IsDemoEmail(http.User.FindFirstValue(ClaimTypes.Email) ?? http.User.Identity?.Name, config);
+
+    /// <summary>True when <paramref name="email"/> is the configured shared demo account.</summary>
+    public static bool IsDemoEmail(string? email, IConfiguration config)
     {
         var demoEmail = config["Demo:Email"];
-        if (string.IsNullOrWhiteSpace(demoEmail)) return false;
-        var email = http.User.FindFirstValue(ClaimTypes.Email) ?? http.User.Identity?.Name;
+        if (string.IsNullOrWhiteSpace(demoEmail) || string.IsNullOrWhiteSpace(email)) return false;
         return string.Equals(email, demoEmail, StringComparison.OrdinalIgnoreCase);
     }
 

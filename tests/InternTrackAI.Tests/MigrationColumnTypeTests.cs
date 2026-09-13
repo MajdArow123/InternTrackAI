@@ -125,6 +125,7 @@ public class MigrationColumnTypeTests
     /// <summary>Tables added after FixPostgreSqlAutoIncrement must declare their own identity, or inserts fail with 23502 on Postgres.</summary>
     [Theory]
     [InlineData("GmailConnections")]
+    [InlineData("StatusSuggestions")]
     public void New_tables_get_an_identity_key_on_PostgreSQL(string table)
     {
         var (_, sql) = Replay();

@@ -74,14 +74,35 @@ public sealed class FakeGmailClient : IGmailClient
     }
 }
 
+/// <summary>Scripted classifier: answers from a queue keyed by subject, records every input. Never calls OpenAI.</summary>
+public sealed class FakeStatusClassifier : IStatusClassifier
+{
+    public Func<ClassifierInput, StatusClassification?> Script { get; set; } = _ => null;
+    public List<ClassifierInput> Inputs { get; } = new();
+
+    public Task<StatusClassification?> ClassifyAsync(ClassifierInput input, CancellationToken ct = default)
+    {
+        Inputs.Add(input);
+        return Task.FromResult(Script(input));
+    }
+}
+
 /// <summary>Boots the app with Google configured and both Google-facing clients replaced by the fakes above.</summary>
 public static class GmailTestHost
 {
     public static (TestAppFactory Parent, WebApplicationFactory<Program> Factory, FakeGoogleOAuthClient OAuth, FakeGmailClient Gmail) Boot(
         bool configured = true, params (string Key, string Value)[] settings)
     {
+        var (parent, factory, oauth, gmail, _) = BootWithClassifier(configured, settings);
+        return (parent, factory, oauth, gmail);
+    }
+
+    public static (TestAppFactory Parent, WebApplicationFactory<Program> Factory, FakeGoogleOAuthClient OAuth, FakeGmailClient Gmail, FakeStatusClassifier Classifier) BootWithClassifier(
+        bool configured = true, params (string Key, string Value)[] settings)
+    {
         var oauth = new FakeGoogleOAuthClient();
         var gmail = new FakeGmailClient();
+        var classifier = new FakeStatusClassifier();
         var parent = new TestAppFactory();
         var factory = parent.WithWebHostBuilder(b =>
         {
@@ -95,11 +116,13 @@ public static class GmailTestHost
             {
                 services.RemoveAll<IGoogleOAuthClient>();
                 services.RemoveAll<IGmailClient>();
+                services.RemoveAll<IStatusClassifier>();
                 services.AddSingleton<IGoogleOAuthClient>(oauth);
                 services.AddSingleton<IGmailClient>(gmail);
+                services.AddSingleton<IStatusClassifier>(classifier);
             });
         });
-        return (parent, factory, oauth, gmail);
+        return (parent, factory, oauth, gmail, classifier);
     }
 
     public static HttpClient Client(WebApplicationFactory<Program> f) =>

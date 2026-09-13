@@ -4,6 +4,7 @@ using InternTrackAI.Data;
 using InternTrackAI.Models;
 using InternTrackAI.Services.Gmail;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -27,9 +28,9 @@ public class GmailConnectTests
         return q["state"]!;
     }
 
-    private static async Task<string> UserIdAsync(TestAppFactory parent, string email)
+    private static async Task<string> UserIdAsync(WebApplicationFactory<Program> factory, string email)
     {
-        using var scope = parent.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         var users = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
         return (await users.FindByEmailAsync(email))!.Id;
     }
@@ -51,8 +52,8 @@ public class GmailConnectTests
         Assert.Equal(new[] { "4/auth-code" }, oauth.ExchangedCodes);
         Assert.Contains(FakeGoogleOAuthClient.AccessToken, gmail.AccessTokensSeen);
 
-        var aliceId = await UserIdAsync(parent, aliceEmail);
-        using var scope = parent.Services.CreateScope();
+        var aliceId = await UserIdAsync(factory, aliceEmail);
+        using var scope = factory.Services.CreateScope();
         var db  = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         var row = await db.GmailConnections.SingleAsync();
         Assert.Equal(aliceId, row.UserId);
@@ -103,7 +104,7 @@ public class GmailConnectTests
         Assert.Equal(HttpStatusCode.Redirect, forged.StatusCode);
 
         Assert.Empty(oauth.ExchangedCodes);
-        using var scope = parent.Services.CreateScope();
+        using var scope = factory.Services.CreateScope();
         Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().GmailConnections.CountAsync());
 
         var html = await (await client.GetAsync("/Profile")).Content.ReadAsStringAsync();
@@ -159,7 +160,7 @@ public class GmailConnectTests
         var bobDisc = await bob.PostAsync("/Integrations/Gmail/Disconnect", new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = bobToken }));
         Assert.Equal(HttpStatusCode.Redirect, bobDisc.StatusCode);
         Assert.Empty(oauth.RevokedTokens);
-        using (var scope = parent.Services.CreateScope())
+        using (var scope = factory.Services.CreateScope())
             Assert.Equal(1, await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().GmailConnections.CountAsync());
 
         // Alice's Disconnect revokes with Google and removes the row, even if Google errors.
@@ -168,7 +169,7 @@ public class GmailConnectTests
         var aliceDisc = await alice.PostAsync("/Integrations/Gmail/Disconnect", new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = aliceToken }));
         Assert.Equal(HttpStatusCode.Redirect, aliceDisc.StatusCode);
         Assert.Equal(new[] { FakeGoogleOAuthClient.RefreshToken }, oauth.RevokedTokens);
-        using (var scope = parent.Services.CreateScope())
+        using (var scope = factory.Services.CreateScope())
             Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>().GmailConnections.CountAsync());
 
         var aliceHtml = await (await alice.GetAsync("/Profile")).Content.ReadAsStringAsync();

@@ -112,7 +112,10 @@ builder.Services.Configure<GoogleOptions>(builder.Configuration.GetSection(Googl
 builder.Services.Configure<GmailOptions>(builder.Configuration.GetSection(GmailOptions.SectionName));
 builder.Services.AddSingleton<GmailTokenProtector>();
 builder.Services.AddSingleton<IGoogleOAuthClient, GoogleOAuthClient>();
-builder.Services.AddSingleton<IGmailClient, GmailApiClient>();   // per-user time zone (see Services/UserClock.cs)
+builder.Services.AddSingleton<IGmailClient, GmailApiClient>();
+builder.Services.AddHttpClient<IStatusClassifier, OpenAiStatusClassifier>();
+builder.Services.AddScoped<GmailSyncService>();
+builder.Services.AddHostedService<GmailSyncHostedService>();   // per-user time zone (see Services/UserClock.cs)
 builder.Services.AddHttpClient<JobAnalyzerService>();
 builder.Services.AddHttpClient<ResumeMatcherService>();
 builder.Services.AddHttpClient<ResumeScoreService>();

@@ -21,6 +21,7 @@ public class ApplicationDbContext : IdentityDbContext, IDataProtectionKeyContext
     public DbSet<InterviewPrepSession> InterviewPrepSessions { get; set; }
     public DbSet<ApplicationNote> ApplicationNotes { get; set; }
     public DbSet<GmailConnection> GmailConnections { get; set; }
+    public DbSet<StatusSuggestion> StatusSuggestions { get; set; }
 
     // Persists Data Protection keys to DB so they survive container restarts and redeployments.
     public DbSet<DataProtectionKey> DataProtectionKeys { get; set; } = null!;
@@ -49,6 +50,18 @@ public class ApplicationDbContext : IdentityDbContext, IDataProtectionKeyContext
         builder.Entity<GmailConnection>()
             .HasIndex(c => c.UserId)
             .IsUnique();
+
+        // Suggestions die with their application; a Gmail message is classified at most once per user.
+        builder.Entity<StatusSuggestion>()
+            .HasOne(s => s.Application)
+            .WithMany()
+            .HasForeignKey(s => s.ApplicationId)
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Entity<StatusSuggestion>()
+            .HasIndex(s => new { s.UserId, s.GmailMessageId })
+            .IsUnique();
+        builder.Entity<StatusSuggestion>()
+            .HasIndex(s => new { s.UserId, s.Status });
     }
 
     // PostgreSQL's "timestamp with time zone" columns reject DateTime.Kind=Unspecified

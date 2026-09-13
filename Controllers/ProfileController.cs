@@ -335,6 +335,7 @@ public class ProfileController : Controller
     {
         var userId = UserId();
         var versions = await _db.ResumeVersions.Where(r => r.UserId == userId).ToListAsync();
+        if (!versions.Any(v => v.Id == id)) return NotFound();
         foreach (var v in versions) v.IsActive = v.Id == id;
         await _db.SaveChangesAsync();
         TempData["Success"] = "Active resume updated.";
@@ -349,6 +350,7 @@ public class ProfileController : Controller
     {
         var userId = UserId();
         var versions = await _db.CoverLetterVersions.Where(c => c.UserId == userId).ToListAsync();
+        if (!versions.Any(v => v.Id == id)) return NotFound();
         foreach (var v in versions) v.IsActive = v.Id == id;
         await _db.SaveChangesAsync();
         TempData["Success"] = "Active cover letter updated.";
@@ -363,14 +365,13 @@ public class ProfileController : Controller
     {
         var userId = UserId();
         var resume = await _db.ResumeVersions.FirstOrDefaultAsync(r => r.Id == id && r.UserId == userId);
-        if (resume != null)
-        {
-            DeleteFile(resume.StoredPath);
-            _db.ResumeVersions.Remove(resume);
-            await _db.SaveChangesAsync();
-            // Renumber remaining versions
-            await RenumberVersionsAsync(userId, isResume: true);
-        }
+        if (resume == null) return NotFound();
+
+        DeleteFile(resume.StoredPath);
+        _db.ResumeVersions.Remove(resume);
+        await _db.SaveChangesAsync();
+        // Renumber remaining versions
+        await RenumberVersionsAsync(userId, isResume: true);
         TempData["Success"] = "Resume deleted.";
         return RedirectToAction(nameof(Index));
     }
@@ -383,13 +384,12 @@ public class ProfileController : Controller
     {
         var userId = UserId();
         var cl = await _db.CoverLetterVersions.FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
-        if (cl != null)
-        {
-            DeleteFile(cl.StoredPath);
-            _db.CoverLetterVersions.Remove(cl);
-            await _db.SaveChangesAsync();
-            await RenumberVersionsAsync(userId, isResume: false);
-        }
+        if (cl == null) return NotFound();
+
+        DeleteFile(cl.StoredPath);
+        _db.CoverLetterVersions.Remove(cl);
+        await _db.SaveChangesAsync();
+        await RenumberVersionsAsync(userId, isResume: false);
         TempData["Success"] = "Cover letter deleted.";
         return RedirectToAction(nameof(Index));
     }

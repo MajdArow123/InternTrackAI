@@ -45,6 +45,9 @@ public class CoverLetterController : Controller
     {
         var uid = UserId();
 
+        if (appId.HasValue && !await _db.JobApplications.AnyAsync(a => a.Id == appId && a.UserId == uid))
+            return NotFound();
+
         var vm = new CoverLetterGeneratorViewModel
         {
             Applications = await _db.JobApplications
@@ -85,11 +88,15 @@ public class CoverLetterController : Controller
     {
         var uid = UserId();
 
-        // Load the selected job application
+        // Load the selected job application (must belong to this user)
         JobApplication? app = null;
         if (req.ApplicationId.HasValue)
+        {
             app = await _db.JobApplications
                 .FirstOrDefaultAsync(a => a.Id == req.ApplicationId && a.UserId == uid);
+            if (app is null)
+                return NotFound(new { success = false, error = "Application not found." });
+        }
 
         // Extract text from the user's active resume
         var resumeText   = "";
@@ -162,8 +169,12 @@ public class CoverLetterController : Controller
 
         JobApplication? app = null;
         if (req.ApplicationId.HasValue)
+        {
             app = await _db.JobApplications
                 .FirstOrDefaultAsync(a => a.Id == req.ApplicationId && a.UserId == uid);
+            if (app is null)
+                return NotFound(new { success = false, error = "Application not found." });
+        }
 
         var company = app?.CompanyName ?? req.Company ?? "";
         var role    = app?.RoleTitle   ?? req.Role    ?? "";
@@ -196,6 +207,10 @@ public class CoverLetterController : Controller
         var uid = UserId();
         if (string.IsNullOrWhiteSpace(content))
             return RedirectToAction(nameof(Generate));
+
+        // A letter may only be linked to one of the user's own applications.
+        if (applicationId.HasValue && !await _db.JobApplications.AnyAsync(a => a.Id == applicationId && a.UserId == uid))
+            return NotFound();
 
         var maxVersion = await _db.GeneratedCoverLetters
             .Where(c => c.UserId == uid)
@@ -235,27 +250,25 @@ public class CoverLetterController : Controller
         var uid    = UserId();
         var letter = await _db.GeneratedCoverLetters
             .FirstOrDefaultAsync(c => c.Id == id && c.UserId == uid);
+        if (letter == null) return NotFound();
 
-        if (letter != null)
-        {
-            bool wasActive = letter.IsActive;
-            _db.GeneratedCoverLetters.Remove(letter);
-            await _db.SaveChangesAsync();
+        bool wasActive = letter.IsActive;
+        _db.GeneratedCoverLetters.Remove(letter);
+        await _db.SaveChangesAsync();
 
-            // Renumber and restore active flag
-            var remaining = await _db.GeneratedCoverLetters
-                .Where(c => c.UserId == uid)
-                .OrderBy(c => c.Id)
-                .ToListAsync();
+        // Renumber and restore active flag
+        var remaining = await _db.GeneratedCoverLetters
+            .Where(c => c.UserId == uid)
+            .OrderBy(c => c.Id)
+            .ToListAsync();
 
-            for (int i = 0; i < remaining.Count; i++)
-                remaining[i].VersionNumber = i + 1;
+        for (int i = 0; i < remaining.Count; i++)
+            remaining[i].VersionNumber = i + 1;
 
-            if (wasActive && remaining.Any())
-                remaining[0].IsActive = true;
+        if (wasActive && remaining.Any())
+            remaining[0].IsActive = true;
 
-            await _db.SaveChangesAsync();
-        }
+        await _db.SaveChangesAsync();
 
         return RedirectToAction(nameof(Generate));
     }
@@ -272,6 +285,7 @@ public class CoverLetterController : Controller
         var letters = await _db.GeneratedCoverLetters
             .Where(c => c.UserId == uid)
             .ToListAsync();
+        if (!letters.Any(l => l.Id == id)) return NotFound();
 
         foreach (var l in letters)
             l.IsActive = l.Id == id;

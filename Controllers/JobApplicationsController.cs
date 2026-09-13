@@ -131,10 +131,10 @@ public class JobApplicationsController : Controller
 
     // ── Edit ──────────────────────────────────────────────
 
-    /// <summary>Loads an application by id for editing. Returns 404 if it doesn't exist.</summary>
+    /// <summary>Loads one of the current user's applications for editing. 404 if it doesn't exist or isn't theirs.</summary>
     public async Task<IActionResult> Edit(int id)
     {
-        var app = await _context.JobApplications.FindAsync(id);
+        var app = await FindOwnedAsync(id);
         if (app is null) return NotFound();
         return View(app);
     }
@@ -152,7 +152,13 @@ public class JobApplicationsController : Controller
     {
         if (id != jobApplication.Id) return BadRequest();
 
-        jobApplication.UserId = UserId();
+        // The row must already exist and belong to this user; otherwise a client could post an
+        // arbitrary id and overwrite (and take ownership of) someone else's application.
+        var uid = UserId();
+        if (!await _context.JobApplications.AnyAsync(a => a.Id == id && a.UserId == uid))
+            return NotFound();
+
+        jobApplication.UserId = uid;
         ModelState.Remove(nameof(jobApplication.UserId));
 
         if (!ModelState.IsValid)
@@ -176,10 +182,10 @@ public class JobApplicationsController : Controller
 
     // ── Delete ────────────────────────────────────────────
 
-    /// <summary>Loads an application by id for the delete confirmation page. Returns 404 if it doesn't exist.</summary>
+    /// <summary>Loads one of the current user's applications for the delete confirmation page. 404 if it isn't theirs.</summary>
     public async Task<IActionResult> Delete(int id)
     {
-        var app = await _context.JobApplications.FindAsync(id);
+        var app = await FindOwnedAsync(id);
         if (app is null) return NotFound();
         return View(app);
     }
@@ -191,29 +197,36 @@ public class JobApplicationsController : Controller
     /// the GET confirmation page's route.
     /// </summary>
     /// <param name="id">The application id to delete.</param>
-    /// <returns>Redirect to Index, with a toast confirming the deletion (silently no-ops if the id doesn't exist).</returns>
+    /// <returns>Redirect to Index with a toast confirming the deletion; 404 if the id isn't one of the user's applications.</returns>
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(int id)
     {
-        var app = await _context.JobApplications.FindAsync(id);
-        if (app is not null)
-        {
-            var linkedLetters = await _context.GeneratedCoverLetters
-                .Where(c => c.JobApplicationId == id).ToListAsync();
-            _context.GeneratedCoverLetters.RemoveRange(linkedLetters);
+        var uid = UserId();
+        var app = await FindOwnedAsync(id);
+        if (app is null) return NotFound();
 
-            var linkedPreps = await _context.InterviewPrepSessions
-                .Where(s => s.JobApplicationId == id).ToListAsync();
-            _context.InterviewPrepSessions.RemoveRange(linkedPreps);
+        var linkedLetters = await _context.GeneratedCoverLetters
+            .Where(c => c.JobApplicationId == id && c.UserId == uid).ToListAsync();
+        _context.GeneratedCoverLetters.RemoveRange(linkedLetters);
 
-            await _context.SaveChangesAsync();
+        var linkedPreps = await _context.InterviewPrepSessions
+            .Where(s => s.JobApplicationId == id && s.UserId == uid).ToListAsync();
+        _context.InterviewPrepSessions.RemoveRange(linkedPreps);
 
-            _context.JobApplications.Remove(app);
-            await _context.SaveChangesAsync();
-            TempData["Toast"] = $"success|{app.CompanyName} — {app.RoleTitle} deleted.";
-        }
+        await _context.SaveChangesAsync();
+
+        _context.JobApplications.Remove(app);
+        await _context.SaveChangesAsync();
+        TempData["Toast"] = $"success|{app.CompanyName} — {app.RoleTitle} deleted.";
         return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>Loads an application only if it belongs to the signed-in user; null otherwise.</summary>
+    private Task<JobApplication?> FindOwnedAsync(int id)
+    {
+        var uid = UserId();
+        return _context.JobApplications.FirstOrDefaultAsync(a => a.Id == id && a.UserId == uid);
     }
 
     // ── Bulk Delete ───────────────────────────────────────
@@ -241,12 +254,12 @@ public class JobApplicationsController : Controller
             var appIds = apps.Select(a => a.Id).ToArray();
 
             var linkedLetters = await _context.GeneratedCoverLetters
-                .Where(c => c.JobApplicationId.HasValue && appIds.Contains(c.JobApplicationId.Value))
+                .Where(c => c.UserId == uid && c.JobApplicationId.HasValue && appIds.Contains(c.JobApplicationId.Value))
                 .ToListAsync();
             _context.GeneratedCoverLetters.RemoveRange(linkedLetters);
 
             var linkedPreps = await _context.InterviewPrepSessions
-                .Where(s => appIds.Contains(s.JobApplicationId))
+                .Where(s => s.UserId == uid && appIds.Contains(s.JobApplicationId))
                 .ToListAsync();
             _context.InterviewPrepSessions.RemoveRange(linkedPreps);
 

@@ -93,7 +93,7 @@ public class InterviewPrepController : Controller
         var app = await _db.JobApplications
             .FirstOrDefaultAsync(a => a.Id == req.AppId && a.UserId == uid);
         if (app is null)
-            return Json(new { success = false, error = "Application not found." });
+            return NotFound(new { success = false, error = "Application not found." });
 
         // Resume text
         var resumeText   = "";
@@ -175,7 +175,7 @@ public class InterviewPrepController : Controller
         var app = await _db.JobApplications
             .FirstOrDefaultAsync(a => a.Id == req.AppId && a.UserId == uid);
         if (app is null)
-            return Json(new { success = false, error = "Application not found." });
+            return NotFound(new { success = false, error = "Application not found." });
 
         var (success, feedback, error) = await _service.CritiqueAnswerAsync(
             req.Question, req.Answer, app.RoleTitle, app.CompanyName);

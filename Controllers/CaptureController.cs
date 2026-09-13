@@ -76,6 +76,7 @@ public class CaptureController : Controller
             prefill.Role     = result.RoleTitle;
             prefill.Location = result.Location;
             prefill.Salary   = result.Salary;
+            prefill.Deadline = result.DeadlineDate;
             prefill.WorkMode = GuessWorkMode(result.Location);
         }
         else

@@ -8,7 +8,7 @@ namespace InternTrackAI.Services;
 
 /// <summary>
 /// Parses a pasted job description or job-posting URL into structured fields (company, role,
-/// location, salary, key skills) using the OpenAI API. Used by <c>AnalyzerController.Analyze</c>
+/// location, salary, key skills, and any stated deadline / interview date) using the OpenAI API. Used by <c>AnalyzerController.Analyze</c>
 /// to power the "AI Job Analyzer" panel on the Create Application page, which auto-fills the form
 /// from free-text input.
 /// </summary>
@@ -77,6 +77,8 @@ public class JobAnalyzerService
             - location     (string or null — city/state/country or "Remote")
             - salary       (string or null — include currency and period, e.g. "$30/hr" or "$80,000/yr")
             - skills       (array of strings — up to 8 key technical skills, empty array if none found)
+            - deadline     (string or null — the application deadline as an ISO date "YYYY-MM-DD", only if the posting states one)
+            - interviewDate (string or null — a specific interview date as an ISO date "YYYY-MM-DD", only if the posting states one)
 
             Job description:
             {jobDescription}
@@ -231,6 +233,8 @@ public class JobAnalyzerService
             result.RoleTitle   = Str(r, "roleTitle");
             result.Location    = Str(r, "location");
             result.Salary      = Str(r, "salary");
+            result.Deadline      = Str(r, "deadline");
+            result.InterviewDate = Str(r, "interviewDate");
 
             if (r.TryGetProperty("skills", out var skills) && skills.ValueKind == JsonValueKind.Array)
                 result.Skills = skills.EnumerateArray()

@@ -78,7 +78,8 @@ public class CaptureTests
         Task.FromResult(new JobAnalysisResult
         {
             Success = true, CompanyName = "Example Co", RoleTitle = "Software Engineering Intern",
-            Location = "Remote (US)", Salary = "$45/hr", Skills = ["C#", "SQL"]
+            Location = "Remote (US)", Salary = "$45/hr", Skills = ["C#", "SQL"],
+            Deadline = "2030-01-15", InterviewDate = "not a date"
         });
 
     private static Task<JobAnalysisResult> Failed(string _, CancellationToken __) =>
@@ -106,6 +107,7 @@ public class CaptureTests
         Assert.Equal("Remote (US)",                 q["location"]);
         Assert.Equal("$45/hr",                      q["salary"]);
         Assert.Equal("Remote",                      q["workMode"]);
+        Assert.Equal("2030-01-15",                  q["deadline"]);
 
         // The Create GET binds those parameters and renders them into the form (nothing is saved).
         var page = await client.GetAsync(location);
@@ -115,6 +117,7 @@ public class CaptureTests
         Assert.Contains("value=\"Software Engineering Intern\"", html);
         Assert.Contains("value=\"Remote (US)\"", html);
         Assert.Contains("value=\"$45/hr\"", html);
+        Assert.Contains("value=\"2030-01-15\"", html);
         Assert.Contains("value=\"" + HttpUtility.HtmlEncode(PostingUrl) + "\"", html);
         Assert.Contains("<option selected=\"selected\" value=\"0\">Remote</option>", html);
         Assert.Contains("Saved from example.com", html);

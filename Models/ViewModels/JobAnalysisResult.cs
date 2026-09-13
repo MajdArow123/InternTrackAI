@@ -18,4 +18,17 @@ public class JobAnalysisResult
 
     // Up to 8 required skills extracted by the AI from the job text.
     public List<string> Skills { get; set; } = new();
+
+    // ISO dates ("YYYY-MM-DD") when the posting states them, otherwise null. Kept as the raw
+    // strings the model returned; use DeadlineDate / InterviewDateValue for a validated DateTime.
+    public string? Deadline { get; set; }
+    public string? InterviewDate { get; set; }
+
+    public DateTime? DeadlineDate => ParseIsoDate(Deadline);
+    public DateTime? InterviewDateValue => ParseIsoDate(InterviewDate);
+
+    /// <summary>Strict "YYYY-MM-DD" parse; anything else (prose, partial dates, nonsense) is treated as absent.</summary>
+    public static DateTime? ParseIsoDate(string? value) =>
+        DateTime.TryParseExact(value?.Trim(), "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                               System.Globalization.DateTimeStyles.None, out var d) ? d.Date : null;
 }

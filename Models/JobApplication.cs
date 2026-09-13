@@ -75,4 +75,19 @@ public class JobApplication
     // Position of the card within its status column on the Kanban board (0-based). Rows that
     // were never dragged keep the default 0 and fall back to newest-applied-first ordering.
     public int BoardOrder { get; set; }
+
+    // ── Reminder fields (see Services/ReminderService.cs for the rules that read them) ──
+
+    // Scheduled interview, date + time as the user typed it. No time zone is stored: the value is
+    // wall-clock time and is compared/displayed as such.
+    [DataType(DataType.DateTime)]
+    public DateTime? InterviewAt { get; set; }
+
+    // Explicit follow-up date. While it is in the future the follow-up reminder stays quiet
+    // ("Snooze" sets it to today + 3); once it passes, the normal follow-up rule applies again.
+    [DataType(DataType.Date)]
+    public DateTime? FollowUpAt { get; set; }
+
+    // When the user last reached out ("Mark contacted"). Restarts the follow-up clock.
+    public DateTime? LastContactAt { get; set; }
 }

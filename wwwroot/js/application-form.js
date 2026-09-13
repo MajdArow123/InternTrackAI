@@ -73,6 +73,8 @@
                     autofill('RoleTitle',     data.roleTitle);
                     autofill('Location',      data.location);
                     autofill('Salary',        data.salary);
+                    // Only a strict ISO date is accepted by <input type="date">; anything else is ignored.
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(data.deadline || '')) autofill('Deadline', data.deadline);
 
                     // If input was a URL, auto-fill the Job Link field with it
                     if (isUrl) {

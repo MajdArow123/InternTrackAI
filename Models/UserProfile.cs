@@ -37,4 +37,8 @@ public class UserProfile
     // GitHub username shown as a "Projects" section on both the private and public profile
     // pages, with a handful of repos pulled live from the public GitHub API.
     public string? GitHubUsername { get; set; }
+
+    // Days after applying (or after the last contact) before an application in Applied shows up
+    // as "follow-up due". Editable on the profile page within ReminderService.Min/MaxFollowUpAfterDays.
+    public int FollowUpAfterDays { get; set; } = 7;
 }

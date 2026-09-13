@@ -96,6 +96,9 @@ builder.Services.AddScoped<DemoSeeder>();
 builder.Services.AddHostedService<DemoResetService>();
 
 // ── Application services ────────────────────────────────────────────────────
+// Single source of truth for "needs attention" rules (follow-up due, deadline soon/overdue,
+// upcoming interview); the dashboard, list, board, drawer and calendar feed all go through it.
+builder.Services.AddScoped<ReminderService>();
 builder.Services.AddHttpClient<JobAnalyzerService>();
 builder.Services.AddHttpClient<ResumeMatcherService>();
 builder.Services.AddHttpClient<ResumeScoreService>();

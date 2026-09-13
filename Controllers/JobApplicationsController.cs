@@ -3,6 +3,7 @@ using System.Text;
 using InternTrackAI.Data;
 using InternTrackAI.Models;
 using InternTrackAI.Models.Enums;
+using InternTrackAI.Models.ViewModels;
 using InternTrackAI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -140,11 +141,24 @@ public class JobApplicationsController : Controller
 
     // ── Create ────────────────────────────────────────────
 
-    /// <summary>Renders the empty Add Application form, including the AI Job Analyzer panel.</summary>
+    /// <summary>
+    /// Renders the Add Application form, including the AI Job Analyzer panel. The form starts
+    /// empty unless the caller pre-fills it: the board's per-column "+" button passes a
+    /// <paramref name="status"/>, and the bookmarklet's <c>/Capture</c> endpoint passes the
+    /// extracted fields as query parameters bound into <paramref name="prefill"/>. Either way the
+    /// user reviews and submits the form themselves — nothing is saved on GET.
+    /// </summary>
     /// <param name="status">Optional status to pre-select (the board's per-column "+" button).</param>
-    public IActionResult Create(ApplicationStatus? status)
+    /// <param name="prefill">Optional bookmarklet capture fields (url, title, company, role, location, salary, deadline, workMode).</param>
+    public IActionResult Create(ApplicationStatus? status, [FromQuery] CapturePrefill? prefill)
     {
-        return View(new JobApplication { Status = status ?? default });
+        var app = new JobApplication { Status = status ?? default };
+        if (prefill is { HasAny: true })
+        {
+            prefill.ApplyTo(app);
+            ViewBag.CapturedFrom = prefill.Host;
+        }
+        return View(app);
     }
 
     /// <summary>

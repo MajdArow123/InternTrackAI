@@ -2026,6 +2026,26 @@ html[data-theme="dark"] .bulk-bar { background: rgba(44,44,46,.9); }
   color: var(--warning-text);
 }
 
+/* Create page banner shown when the form was pre-filled by the bookmarklet (/Capture). */
+.capture-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: .65rem;
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+  padding: .85rem 1.05rem;
+  font-size: .9333rem;
+  color: var(--accent-text);
+  line-height: 1.45;
+}
+.capture-banner strong { font-weight: 600; }
+.capture-banner-dot {
+  width: 9px; height: 9px; margin-top: .45em;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
 /* ── Interview Prep ──────────────────────────────────── */
 .company-avatar--lg { width: 44px; height: 44px; font-size: .9rem; border-radius: 12px; }
 .prep-company { font-weight: 600; font-size: 1rem; color: var(--text); letter-spacing: -.01em; }

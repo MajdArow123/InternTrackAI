@@ -23,6 +23,17 @@
         <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
     </div>
 
+    @if (ViewBag.CapturedFrom is string capturedFrom)
+    {
+        <div class="capture-banner mb-3" id="captureBanner" role="status">
+            <span class="capture-banner-dot" aria-hidden="true"></span>
+            <div>
+                <strong>Saved from @capturedFrom.</strong>
+                Review the details below, then save.
+            </div>
+        </div>
+    }
+
     <partial name="_AnalyzerPanel" />
 
     @if (ViewBag.DuplicateWarning == true)

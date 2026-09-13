@@ -46,7 +46,12 @@ public class JobAnalyzerService
     /// A result object (rather than a thrown exception) is used so the controller can render a
     /// friendly inline error without a try/catch at the call site.
     /// </returns>
-    public async Task<JobAnalysisResult> AnalyzeAsync(string input)
+    /// <param name="cancellationToken">
+    /// Optional cap on the whole operation (page fetch + OpenAI call). Callers that need a hard
+    /// time limit — the bookmarklet's <c>/Capture</c> endpoint — pass a timed token; cancellation
+    /// surfaces as a failed result, not an exception. The default keeps the original behaviour.
+    /// </param>
+    public virtual async Task<JobAnalysisResult> AnalyzeAsync(string input, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
             return Fail("OpenAI API key is not configured. Run: dotnet user-secrets set \"OpenAI:ApiKey\" \"sk-...\"");
@@ -55,7 +60,7 @@ public class JobAnalyzerService
 
         if (IsUrl(input))
         {
-            var fetched = await FetchPageTextAsync(input);
+            var fetched = await FetchPageTextAsync(input, cancellationToken);
             if (fetched == null || fetched.Length < 50)
                 return Fail("Could not fetch the job posting from that URL. The site may require a login or block automated access. Try pasting the job description text instead.");
             jobDescription = fetched;
@@ -97,8 +102,8 @@ public class JobAnalyzerService
 
         try
         {
-            var response = await _http.SendAsync(request);
-            var raw = await response.Content.ReadAsStringAsync();
+            var response = await _http.SendAsync(request, cancellationToken);
+            var raw = await response.Content.ReadAsStringAsync(cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -132,6 +137,11 @@ public class JobAnalyzerService
 
             return Parse(content);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning("OpenAI call cancelled by the caller's timeout");
+            return Fail("The analysis took too long. Please try again.");
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error calling OpenAI API");
@@ -150,7 +160,7 @@ public class JobAnalyzerService
     /// block requests from default HttpClient/bot user agents. Returns null on any failure
     /// (non-success status, network error) so the caller can show a friendly fallback message.
     /// </summary>
-    private async Task<string?> FetchPageTextAsync(string url)
+    private async Task<string?> FetchPageTextAsync(string url, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -161,14 +171,14 @@ public class JobAnalyzerService
                 "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
             request.Headers.Add("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8");
 
-            var response = await client.SendAsync(request);
+            var response = await client.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("URL fetch returned {Status} for {Url}", (int)response.StatusCode, url);
                 return null;
             }
 
-            var html = await response.Content.ReadAsStringAsync();
+            var html = await response.Content.ReadAsStringAsync(cancellationToken);
             var text = StripHtml(html);
 
             return text.Length > 8000 ? text[..8000] : text;

@@ -1,8 +1,11 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     ViewData["Title"] = "Home";
     ViewData["HideFooter"] = true;
     bool signedIn = User.Identity?.IsAuthenticated == true;
+    bool demoAvailable = InternTrackAI.Controllers.AccountController.IsDemoConfigured(Configuration);
     const string repoUrl = "https://github.com/MajdArow123/InternTrackAI";
+    const string linkedInUrl = "https://www.linkedin.com/in/majd-arow-92b97719a";
 }
 
 <!-- ── Hero ───────────────────────────────────────────────────────────── -->
@@ -16,13 +19,28 @@
                 <a asp-controller="Home" asp-action="Dashboard" class="btn btn-primary btn-lg">Open your dashboard</a>
                 <a asp-controller="JobApplications" asp-action="Create" class="btn lp-ghost btn-lg">Add an application</a>
             }
-            else
+            else if (demoAvailable)
             {
-                <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-primary btn-lg">Try the live demo</a>
+                <form asp-controller="Account" asp-action="DemoLogin" method="post" class="lp-demo-form">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-primary btn-lg">Try the live demo</button>
+                </form>
                 <a asp-area="Identity" asp-page="/Account/Register" class="btn lp-ghost btn-lg">Create an account</a>
             }
+            else
+            {
+                <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-primary btn-lg">Create an account</a>
+                <a asp-area="Identity" asp-page="/Account/Login" class="btn lp-ghost btn-lg">Sign in</a>
+            }
         </div>
-        <p class="lp-fine">No signup needed for the demo. The shared demo credentials are in the README on GitHub.</p>
+        @if (!signedIn && demoAvailable)
+        {
+            <p class="lp-fine">No signup needed. The demo account is shared, so anything you add may be seen by others.</p>
+        }
+        else
+        {
+            <p class="lp-fine">Free to use. Your data stays in your own account.</p>
+        }
 
         <!-- Static dashboard preview -->
         <div class="lp-shot" aria-hidden="true">
@@ -160,15 +178,29 @@
     <div class="container lp-wrap">
         <div class="lp-final-box">
             <h2>See it with real data.</h2>
-            <p>The demo account comes with a sample profile, resume, and applications already loaded. Add, edit, and explore freely.</p>
+            @if (demoAvailable)
+            {
+                <p>The demo account comes with a sample profile, resume, and applications already loaded. Add, edit, and explore freely.</p>
+            }
+            else
+            {
+                <p>Create a free account, upload a resume, and paste your first posting. You'll have a match score in under a minute.</p>
+            }
             <div class="lp-cta">
                 @if (signedIn)
                 {
                     <a asp-controller="Home" asp-action="Dashboard" class="btn btn-primary btn-lg">Open your dashboard</a>
                 }
+                else if (demoAvailable)
+                {
+                    <form asp-controller="Account" asp-action="DemoLogin" method="post" class="lp-demo-form">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-primary btn-lg">Open the demo</button>
+                    </form>
+                }
                 else
                 {
-                    <a asp-area="Identity" asp-page="/Account/Login" class="btn btn-primary btn-lg">Open the demo</a>
+                    <a asp-area="Identity" asp-page="/Account/Register" class="btn btn-primary btn-lg">Create an account</a>
                 }
                 <a href="@repoUrl" target="_blank" rel="noopener" class="btn lp-ghost btn-lg">View on GitHub</a>
             </div>
@@ -182,7 +214,7 @@
         <span>InternTrackAI &middot; a portfolio project by Majd Arow</span>
         <div>
             <a href="@repoUrl" target="_blank" rel="noopener">GitHub</a>
-            <a href="#" rel="noopener">LinkedIn</a>
+            <a href="@linkedInUrl" target="_blank" rel="noopener">LinkedIn</a>
             @if (signedIn)
             {
                 <a asp-controller="Home" asp-action="Dashboard">Dashboard</a>

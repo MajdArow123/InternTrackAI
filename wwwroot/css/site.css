@@ -426,6 +426,8 @@ html[data-theme="dark"] .btn-outline-secondary:hover, html[data-theme="dark"] .b
 .lp-cta { display: flex; gap: .75rem; justify-content: center; margin-bottom: .9rem; flex-wrap: wrap; }
 .lp-cta .btn-lg { padding: .85rem 1.8rem; font-size: 1.1333rem; }
 .lp-fine { font-size: .8667rem; color: var(--muted-2); margin: 0 0 4rem; }
+.lp-demo-form { display: inline-flex; margin: 0; }
+@media (max-width: 575.98px) { .lp-demo-form { width: 100%; } .lp-demo-form .btn { width: 100%; } }
 
 /* Dashboard preview frame */
 .lp-shot {
@@ -847,6 +849,7 @@ textarea.form-control { min-height: 100px; resize: vertical; }
   color: var(--danger-text);
 }
 .auth-alert ul { margin: 0; padding-left: 1.1rem; }
+.auth-alert--success { background: var(--success-soft); color: var(--success-text); }
 .auth-alert .validation-summary-valid { display: none; }
 .auth-success { text-align: left; }
 

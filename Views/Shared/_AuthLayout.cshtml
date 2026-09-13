@@ -22,6 +22,13 @@
         </a>
 
         <main class="auth-card anim-fade-up" role="main">
+            @if (TempData["Toast"] is string toastData)
+            {
+                var parts = toastData.Split('|', 2);
+                var kind  = parts.Length > 1 ? parts[0] : "info";
+                var msg   = parts.Length > 1 ? parts[1] : parts[0];
+                <div class="auth-alert @(kind == "success" ? "auth-alert--success" : "")" role="alert">@msg</div>
+            }
             @RenderBody()
         </main>
 

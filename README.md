@@ -32,7 +32,7 @@ If you'd rather sign in manually:
 
 **AI tools**
 
-- 🧠 **Job analyzer** — paste a job description or URL and the form auto-fills with company, role, location, salary, and required skills
+- 🧠 **Job analyzer** — paste a job description or URL and the form auto-fills with company, role, location, salary, required skills, and the application deadline when the posting states one
 - 🎯 **Resume match scoring** — a 0–100 match ring for every role, with matched and missing skills side by side and a plain-language summary
 - ✍️ **Cover letter generator** — a personalized letter written from the posting, your resume, and your profile; improve it with a one-line instruction, save versions, and download as PDF
 - 🎤 **Interview prep** — technical, behavioral, and company-specific questions with tips, plus AI feedback on your written answers
@@ -45,7 +45,9 @@ If you'd rather sign in manually:
 - 🗂️ **Kanban board** — drag cards between Saved, Applied, Interview, Offer, and Rejected columns (or move them with the keyboard); order and status save instantly, with the same filters as the list
 - 📂 **Detail drawer** — the full posting, AI analysis, key details, a status timeline, and a notes log without leaving the list
 - ✅ **Bulk actions** — select rows to change status, delete, or compare up to three applications side by side
-- 📊 **Dashboard** — headline stats, an applications-over-time chart, a pipeline funnel, top companies, follow-up reminders, and upcoming deadlines
+- 📊 **Dashboard** — headline stats, an applications-over-time chart, a pipeline funnel, top companies, and an **Attention** card
+- 🔔 **Follow-up reminders and deadline tracking** — one rule set (`ReminderService`) flags applications that are overdue (deadline passed, still Saved), due soon (deadline within 7 days), waiting on a reply (Applied for longer than your follow-up window, 3–30 days, set on the profile), or have an interview in the next 14 days. They show up on the dashboard with *Mark contacted* / *Snooze 3 days* buttons, as chips on the board, in the drawer, and behind a **Needs attention** filter on the list
+- 📅 **Calendar export** — a private iCalendar feed URL (subscribe from Google Calendar or Apple Calendar; regenerate it any time) with every deadline, interview, and follow-up date, plus a one-click *Add to calendar* file for a single application
 - 🔁 **CSV import and export** — move your data in and out in one click
 - 🔖 **Save from anywhere bookmarklet** — drag a button to your bookmarks bar, click it on any job posting (LinkedIn, Indeed, Glassdoor, company career pages), and a new tab opens with the Add Application form pre-filled by the AI analyzer; if a posting can't be read (login-walled pages), the form still opens with the link and title filled in
 
@@ -81,6 +83,10 @@ If you'd rather sign in manually:
 | Kanban Board |
 |---|
 | ![Kanban Board](docs/screenshots/board.png) |
+
+| Attention card — overdue, deadline soon, follow-up due, upcoming interview |
+|---|
+| ![Attention card](docs/screenshots/attention.png) |
 
 | Add Application — AI Analysis + Resume Match |
 |---|

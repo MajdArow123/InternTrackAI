@@ -458,7 +458,7 @@ html[data-theme="dark"] .btn-outline-secondary:hover, html[data-theme="dark"] .b
 .lp-stat .u { font-size: .9rem; font-weight: 500; color: var(--muted); }
 .lp-stat .d { font-size: .7333rem; color: var(--text-2); margin-top: .4rem; }
 .lp-stat .up { color: var(--success-text); font-weight: 500; }
-.lp-shot-row { display: grid; grid-template-columns: 1.6fr 1fr; gap: .75rem; }
+.lp-shot-row { display: grid; grid-template-columns: 1fr 1.5fr; gap: .75rem; }   /* board fragment on the wider side */
 .lp-bars { height: 120px; display: flex; align-items: flex-end; gap: 6px; padding-top: .5rem; }
 .lp-bars i { flex: 1; background: var(--accent-soft); border-radius: 4px 4px 0 0; position: relative; height: 100%; }
 .lp-bars i::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: var(--v); background: var(--accent); border-radius: 4px 4px 0 0; opacity: .9; }
@@ -3757,3 +3757,17 @@ a.funnel-row:hover { background: var(--surface-2); }
 a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .analytics-card-link { font-size: .875rem; font-weight: 500; color: var(--accent-text); text-decoration: none; white-space: nowrap; }
 .analytics-card-link:hover { text-decoration: underline; }
+
+/* Landing hero: compact 3-column board fragment inside the dashboard preview */
+.lp-board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.lp-board-col { display: flex; flex-direction: column; gap: .4rem; padding: .45rem; border-radius: 10px; background: var(--surface-2); }
+.lp-board-head { display: flex; align-items: center; justify-content: space-between; gap: .3rem; padding: .1rem .2rem .15rem; font-size: .7333rem; font-weight: 600; }
+.lp-board-head .status-badge { font-size: .6667rem; padding: .12em .55em; }
+.lp-board-card { display: flex; align-items: center; gap: .4rem; padding: .45rem .55rem; border-radius: 8px; background: var(--card); box-shadow: var(--shadow-xs); font-size: .7333rem; }
+.lp-board-card .t { flex: 1; min-width: 0; }
+.lp-board-card .t b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: .7733rem; letter-spacing: -.01em; }
+.lp-board-card .t span { display: block; color: var(--text-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lp-board-card .match-ring { width: 26px; height: 26px; flex: none; }
+.lp-board-card .match-ring::before { inset: 3px; }
+.lp-board-card .match-ring > span { font-size: .55rem; color: var(--text); }
+.lp-board-card .match-ring > span::after { display: none; }

@@ -195,6 +195,28 @@ public class GmailConnectTests
     }
 
     [Fact]
+    public async Task Demo_account_sees_a_disabled_connect_button_and_cannot_start_the_flow()
+    {
+        var demoEmail = $"demo-{Guid.NewGuid():N}@example.test";
+        var (parent, factory, oauth, _) = GmailTestHost.Boot(true, ("Demo:Email", demoEmail), ("Demo:Password", "x-Demo-1!"));
+        using var __ = parent; using var ___ = factory;
+
+        var demo = GmailTestHost.Client(factory);
+        await Http.RegisterAsync(demo, demoEmail);
+
+        var html = await (await demo.GetAsync("/Profile")).Content.ReadAsStringAsync();
+        Assert.Contains("connectedAccountsCard", html);
+        Assert.Contains("Not available on the demo account", html);
+        Assert.Contains("id=\"gmailConnectBtn\" disabled", html);
+        Assert.DoesNotContain("href=\"/Integrations/Gmail/Connect\"", html);
+
+        var res = await demo.GetAsync("/Integrations/Gmail/Connect");
+        Assert.Equal(HttpStatusCode.Redirect, res.StatusCode);
+        Assert.Equal("/Profile", res.Headers.Location!.ToString());
+        Assert.Null(oauth.LastState);
+    }
+
+    [Fact]
     public async Task Anonymous_requests_are_sent_to_login()
     {
         var (parent, factory, _, _) = GmailTestHost.Boot();

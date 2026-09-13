@@ -70,6 +70,8 @@ public class IntegrationsController : Controller
     public IActionResult Connect()
     {
         if (!Enabled) return NotFound();
+        if (Services.AiRateLimiting.IsDemoEmail(User.FindFirstValue(ClaimTypes.Email) ?? User.Identity?.Name, _config))
+            return BackToProfile("info", "Connecting Gmail is not available on the demo account.");
 
         var nonce   = Convert.ToBase64String(RandomNumberGenerator.GetBytes(24)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
         var expires = DateTimeOffset.UtcNow.Add(StateLifetime);

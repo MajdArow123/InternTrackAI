@@ -17,7 +17,17 @@
                     <div class="connected-account-name">Gmail</div>
                     <div class="connected-account-sub">Not connected</div>
                 </div>
-                <a asp-controller="Integrations" asp-action="Connect" class="btn btn-primary btn-sm" id="gmailConnectBtn">Connect Gmail</a>
+                @if (Model.IsDemoAccount)
+                {
+                    <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Not available on the demo account" id="gmailConnectDemoWrap">
+                        <button type="button" class="btn btn-primary btn-sm" id="gmailConnectBtn" disabled aria-describedby="gmailConnectDemoHint">Connect Gmail</button>
+                    </span>
+                    <span class="visually-hidden" id="gmailConnectDemoHint">Not available on the demo account</span>
+                }
+                else
+                {
+                    <a asp-controller="Integrations" asp-action="Connect" class="btn btn-primary btn-sm" id="gmailConnectBtn">Connect Gmail</a>
+                }
             </div>
         }
         else

@@ -48,4 +48,6 @@ public class ProfileViewModel
     // GmailConfigured is false when Google:ClientId/ClientSecret are absent: the card is not rendered at all.
     public bool GmailConfigured { get; set; }
     public GmailConnection? GmailConnection { get; set; }
+    // The shared demo account can't link a real inbox: Connect renders disabled with a tooltip.
+    public bool IsDemoAccount { get; set; }
 }

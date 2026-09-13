@@ -57,6 +57,7 @@ public class DemoResetTests
             Assert.Equal(15, result.Applications);
             Assert.True(result.Notes >= 2);
             Assert.Equal(1, result.CoverLetters);
+            Assert.Equal(3, result.Suggestions);
 
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             var demoApps = await db.JobApplications.Where(a => a.UserId == demoId).ToListAsync();
@@ -67,6 +68,15 @@ public class DemoResetTests
             Assert.Contains(demoApps, a => a.MatchScore < 20);
 
             Assert.DoesNotContain(await db.ApplicationNotes.Where(n => n.UserId == demoId).ToListAsync(), n => n.Text == "stale note");
+
+            // Three pending inbox suggestions (Interview with a time, Offer, Rejected) against seeded applications; no accumulation.
+            var suggestions = await db.StatusSuggestions.Where(x => x.UserId == demoId).Include(x => x.Application).ToListAsync();
+            Assert.Equal(3, suggestions.Count);
+            Assert.All(suggestions, x => Assert.Equal(SuggestionState.Pending, x.Status));
+            Assert.Contains(suggestions, x => x.SuggestedStatus == ApplicationStatus.Interview && x.InterviewAt.HasValue && x.Application!.Status == ApplicationStatus.Applied);
+            Assert.Contains(suggestions, x => x.SuggestedStatus == ApplicationStatus.Offer && x.Application!.Status == ApplicationStatus.Interview);
+            Assert.Contains(suggestions, x => x.SuggestedStatus == ApplicationStatus.Rejected && x.Application!.Status == ApplicationStatus.Applied);
+            Assert.All(suggestions, x => Assert.Contains(x.Application!, demoApps.Where(a => a.Id == x.ApplicationId)));
             Assert.True(await db.ApplicationNotes.CountAsync(n => n.UserId == demoId) >= 2);
             var letter = await db.GeneratedCoverLetters.SingleAsync(c => c.UserId == demoId);
             Assert.True(letter.IsActive);

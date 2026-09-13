@@ -40,6 +40,11 @@
             });
     });
 
+    // Bootstrap tooltips on the board/list dots (Bootstrap only wires tooltips that are initialised).
+    if (window.bootstrap?.Tooltip) {
+        document.querySelectorAll('[data-suggestion-dot][data-bs-toggle="tooltip"]').forEach(function (el) { new bootstrap.Tooltip(el); });
+    }
+
     // Navbar badge on the Dashboard link.
     document.addEventListener('suggestion:resolved', function (e) {
         const badge = document.getElementById('nav-suggestions-badge');

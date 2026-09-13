@@ -16,6 +16,10 @@ document.querySelectorAll('.upload-zone').forEach(function (zone) {
     ['dragleave','drop'].forEach(function (ev) { zone.addEventListener(ev, function (e) { e.preventDefault(); zone.classList.remove('is-dragover'); }); });
     zone.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files.length) { input.files = e.dataTransfer.files; showFile(); } });
 });
+// Disabled "Connect Gmail" on the demo account carries its explanation as a tooltip on the wrapper.
+if (window.bootstrap?.Tooltip) {
+    document.querySelectorAll('#gmailConnectDemoWrap[data-bs-toggle="tooltip"]').forEach(function (el) { new bootstrap.Tooltip(el); });
+}
 document.querySelectorAll('.file-pick-input').forEach(function (input) {
     input.addEventListener('change', function () {
         var label = input.closest('.file-pick')?.querySelector('.file-pick-label');

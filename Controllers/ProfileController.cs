@@ -718,6 +718,7 @@ public class ProfileController : Controller
         {
             GmailConfigured = gmailConfigured,
             GmailConnection = gmail,
+            IsDemoAccount   = AiRateLimiting.IsDemoEmail(user?.Email, _config),
             ResumeStats   = ResumeAnalyticsService.Build(resumes, apps).ByResumeId,
             Profile       = profile,
             Email         = user?.Email,

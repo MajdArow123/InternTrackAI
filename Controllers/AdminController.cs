@@ -61,7 +61,7 @@ public class AdminController : Controller
             User.FindFirstValue(ClaimTypes.NameIdentifier), result.UserFound, result.Applications);
 
         TempData["Toast"] = result.UserFound
-            ? $"success|Demo account reset: {result.Applications} applications, {result.Notes} notes, {result.CoverLetters} cover letter in {result.Elapsed.TotalSeconds:0.0}s."
+            ? $"success|Demo account reset: {result.Applications} applications, {result.Notes} notes, {result.CoverLetters} cover letter, {result.Suggestions} inbox suggestions in {result.Elapsed.TotalSeconds:0.0}s."
             : "error|No account matches Demo:Email — nothing was reset.";
 
         return RedirectToAction(nameof(ResetDemo));

@@ -8,9 +8,9 @@ using Microsoft.EntityFrameworkCore;
 namespace InternTrackAI.Services;
 
 /// <summary>Outcome of one demo reseed, for logging and the admin page.</summary>
-public sealed record DemoResetResult(bool UserFound, string? Email, int Applications, int Notes, int CoverLetters, TimeSpan Elapsed)
+public sealed record DemoResetResult(bool UserFound, string? Email, int Applications, int Notes, int CoverLetters, int Suggestions, TimeSpan Elapsed)
 {
-    public static DemoResetResult NoUser(string? email) => new(false, email, 0, 0, 0, TimeSpan.Zero);
+    public static DemoResetResult NoUser(string? email) => new(false, email, 0, 0, 0, 0, TimeSpan.Zero);
 }
 
 /// <summary>
@@ -72,17 +72,19 @@ public class DemoSeeder
         _db.JobApplications.AddRange(apps);
         await _db.SaveChangesAsync(ct);
 
-        var notes   = BuildNotes(user.Id, apps);
-        var letters = BuildCoverLetters(user.Id, apps);
+        var notes       = BuildNotes(user.Id, apps);
+        var letters     = BuildCoverLetters(user.Id, apps);
+        var suggestions = BuildSuggestions(user.Id, apps, DateTime.UtcNow);
         _db.ApplicationNotes.AddRange(notes);
         _db.GeneratedCoverLetters.AddRange(letters);
+        _db.StatusSuggestions.AddRange(suggestions);
         await _db.SaveChangesAsync(ct);
 
         sw.Stop();
-        _logger.LogInformation("Demo reset finished for user {UserId}: {Apps} applications, {Notes} notes, {Letters} cover letter(s), resumes {Primary}/{Secondary} in {Ms} ms.",
-            user.Id, apps.Count, notes.Count, letters.Count, primary.Id, secondary.Id, sw.ElapsedMilliseconds);
+        _logger.LogInformation("Demo reset finished for user {UserId}: {Apps} applications, {Notes} notes, {Letters} cover letter(s), {Suggestions} inbox suggestions, resumes {Primary}/{Secondary} in {Ms} ms.",
+            user.Id, apps.Count, notes.Count, letters.Count, suggestions.Count, primary.Id, secondary.Id, sw.ElapsedMilliseconds);
 
-        return new DemoResetResult(true, email, apps.Count, notes.Count, letters.Count, sw.Elapsed);
+        return new DemoResetResult(true, email, apps.Count, notes.Count, letters.Count, suggestions.Count, sw.Elapsed);
     }
 
     // ── Resume versions ──────────────────────────────────────────────────────
@@ -327,6 +329,48 @@ public class DemoSeeder
             new() { UserId = userId, JobApplicationId = notion.Id, CreatedAt = now.AddDays(-4), Text = "Offer received: $50/hr, 12 weeks, remote with a two-week SF onsite. Deadline to respond is Friday. Asked about start-date flexibility." },
             new() { UserId = userId, JobApplicationId = airbnb.Id, CreatedAt = now.AddDays(-11), Text = "Applied via referral from Marcus (met at the iOS meetup). He said the team reviews referrals within two weeks." },
             new() { UserId = userId, JobApplicationId = google.Id, CreatedAt = now.AddDays(-20), Text = "Rejected after the second technical round. Feedback: solid coding, but slow on the graph problem. Practicing BFS/DFS variants before next cycle." },
+        };
+    }
+
+    /// <summary>
+    /// Three pending inbox suggestions so the dashboard card, drawer section and board dots are visible
+    /// on the demo without a real Gmail connection: an interview invitation with a time (Airbnb, Applied),
+    /// an offer (Shopify, Interview) and a rejection (Cloudflare, Applied). Message ids are fixed so a
+    /// reseed never trips the (UserId, GmailMessageId) unique index after the purge.
+    /// </summary>
+    public static List<StatusSuggestion> BuildSuggestions(string userId, List<JobApplication> apps, DateTime nowUtc)
+    {
+        var airbnb     = apps.First(a => a.CompanyName == "Airbnb");
+        var shopify    = apps.First(a => a.CompanyName == "Shopify");
+        var cloudflare = apps.First(a => a.CompanyName == "Cloudflare");
+        var interviewAt = nowUtc.Date.AddDays(5).AddHours(15);   // 11:00 AM Toronto in September
+
+        return new List<StatusSuggestion>
+        {
+            new()
+            {
+                UserId = userId, ApplicationId = airbnb.Id, GmailMessageId = "demo-airbnb-interview",
+                SuggestedStatus = ApplicationStatus.Interview, Confidence = 0.92, InterviewAt = interviewAt,
+                Summary = "Airbnb's recruiting team invites you to a 45-minute technical phone screen for the iOS Engineering Intern role.",
+                EmailSubject = "Airbnb iOS Engineering Intern — phone screen invitation", EmailFrom = "Airbnb Recruiting <recruiting@airbnb.com>",
+                EmailDate = nowUtc.AddHours(-5), Status = SuggestionState.Pending, CreatedAt = nowUtc.AddHours(-4)
+            },
+            new()
+            {
+                UserId = userId, ApplicationId = shopify.Id, GmailMessageId = "demo-shopify-offer",
+                SuggestedStatus = ApplicationStatus.Offer, Confidence = 0.88,
+                Summary = "Shopify extends an offer for the Software Engineering Intern position and asks for a response within a week.",
+                EmailSubject = "Your offer from Shopify", EmailFrom = "Shopify Talent <talent@shopify.com>",
+                EmailDate = nowUtc.AddHours(-26), Status = SuggestionState.Pending, CreatedAt = nowUtc.AddHours(-4)
+            },
+            new()
+            {
+                UserId = userId, ApplicationId = cloudflare.Id, GmailMessageId = "demo-cloudflare-rejected",
+                SuggestedStatus = ApplicationStatus.Rejected, Confidence = 0.95,
+                Summary = "Cloudflare will not be moving forward with the Systems Engineering Intern application this cycle.",
+                EmailSubject = "Update on your Cloudflare application", EmailFrom = "Cloudflare Careers <no-reply@cloudflare.com>",
+                EmailDate = nowUtc.AddHours(-50), Status = SuggestionState.Pending, CreatedAt = nowUtc.AddHours(-4)
+            }
         };
     }
 

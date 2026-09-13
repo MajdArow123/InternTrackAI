@@ -65,6 +65,9 @@ builder.Services.AddScoped<IEmailSender, ConsoleEmailSender>();
 // Singleton so the root is computed and created once at startup.
 builder.Services.AddSingleton<UploadStorage>();
 
+// Removes every row and file owned by a user; shared by account deletion and the demo reset.
+builder.Services.AddScoped<UserDataPurger>();
+
 // ── Application services ────────────────────────────────────────────────────
 builder.Services.AddHttpClient<JobAnalyzerService>();
 builder.Services.AddHttpClient<ResumeMatcherService>();

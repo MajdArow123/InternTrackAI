@@ -1,0 +1,66 @@
+@page
+@model InternTrackAI.Areas.Identity.Pages.Account.Manage.DeletePersonalDataModel
+@{
+    ViewData["Title"] = "Delete Account";
+}
+
+<div class="container py-4 container-xnarrow">
+
+    <nav class="breadcrumb-nav" aria-label="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li><a asp-page="./Index">Account settings</a></li>
+            <li>Delete account</li>
+        </ol>
+    </nav>
+
+    <div class="page-header">
+        <div>
+            <h2>Delete account</h2>
+            <p class="sub">This permanently removes your account and everything in it</p>
+        </div>
+    </div>
+
+    <div class="app-table-wrapper mb-4">
+        <div class="card-header-clean">
+            <h5>What gets deleted</h5>
+        </div>
+        <div class="p-4">
+            <ul class="mb-0 kv-list ps-3">
+                <li>Your login and account settings</li>
+                <li>Every tracked application and its notes</li>
+                <li>Generated cover letters and interview prep sessions</li>
+                <li>Uploaded resumes, cover letters, and your profile photo</li>
+                <li>Your profile, skills, target roles, and public profile link</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="form-card danger-confirm-card">
+        <p class="mb-3 danger-confirm-text">
+            Deleting your account cannot be undone. Confirm your password to continue.
+        </p>
+        <form method="post">
+            @Html.AntiForgeryToken()
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
+            @if (Model.RequirePassword)
+            {
+                <div class="mb-3">
+                    <label asp-for="Input.Password" class="form-label">Password</label>
+                    <input asp-for="Input.Password" class="form-control" type="password"
+                           placeholder="••••••••" autocomplete="current-password" />
+                    <span asp-validation-for="Input.Password" class="text-danger field-validation-error"></span>
+                </div>
+            }
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="submit" class="btn btn-danger px-4">Delete my account</button>
+                <a asp-page="./Index" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

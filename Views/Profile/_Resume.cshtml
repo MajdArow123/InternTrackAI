@@ -27,6 +27,10 @@
                                 @r.OriginalFileName &middot;
                                 @clock.LocalDate(r.UploadedAt) &middot;
                                 @((r.FileSize / 1024.0).ToString("F0")) KB
+                                @if (Model.ResumeStats.TryGetValue(r.Id, out var stat))
+                                {
+                                    <span class="doc-stat" data-resume-stat="@r.Id">&middot; @stat.Sent sent @if (stat.Sent > 0) {<text>&middot; @stat.ResponseRatePercent% response rate</text>}</span>
+                                }
                             </div>
                         </div>
                         <div class="doc-actions">

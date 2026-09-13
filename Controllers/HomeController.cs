@@ -21,13 +21,16 @@ public class HomeController : Controller
     private readonly ApplicationDbContext _context;
     private readonly ReminderService _reminders;
     private readonly UserClockProvider _clocks;
+    private readonly ResumeAnalyticsService _resumeAnalytics;
 
-    public HomeController(ILogger<HomeController> logger, ApplicationDbContext context, ReminderService reminders, UserClockProvider clocks)
+    public HomeController(ILogger<HomeController> logger, ApplicationDbContext context, ReminderService reminders,
+                          UserClockProvider clocks, ResumeAnalyticsService resumeAnalytics)
     {
         _logger = logger;
         _context = context;
         _reminders = reminders;
         _clocks = clocks;
+        _resumeAnalytics = resumeAnalytics;
     }
 
     /// <summary>Renders the marketing/hero landing page. No model, no auth required.</summary>
@@ -51,7 +54,8 @@ public class HomeController : Controller
             .ToListAsync();
 
         var profile   = await _context.UserProfiles.FirstOrDefaultAsync(p => p.UserId == uid);
-        var hasResume = await _context.ResumeVersions.AnyAsync(r => r.UserId == uid);
+        var resumes   = await _context.ResumeVersions.AsNoTracking().Where(r => r.UserId == uid).ToListAsync();
+        var hasResume = resumes.Count > 0;
 
         var clock  = await _clocks.GetAsync();
         var today  = clock.Today;
@@ -92,6 +96,7 @@ public class HomeController : Controller
             ApplicationsOverTime = applicationsOverTime,
             Attention            = attention.Take(DashboardViewModel.AttentionLimit).ToList(),
             AttentionTotal       = attention.Count,
+            ResumeAnalytics      = ResumeAnalyticsService.Build(resumes, applications),
             HasProfileBasics     = profile != null && !string.IsNullOrWhiteSpace(profile.FullName)
                                     && !string.IsNullOrWhiteSpace(profile.SkillsJson) && profile.SkillsJson != "[]",
             HasResume            = hasResume

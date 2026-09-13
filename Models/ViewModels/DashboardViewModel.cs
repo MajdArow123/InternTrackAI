@@ -34,6 +34,10 @@ public class DashboardViewModel
     public List<InternTrackAI.Services.ReminderItem> Attention { get; set; } = new();
     public int AttentionTotal { get; set; }
 
+    // "Resume performance" card: per-resume sent / response rate / interviews / offers / avg match.
+    // Rendered only when ResumeAnalytics.ShowCard (two or more resume versions).
+    public InternTrackAI.Services.ResumeAnalytics ResumeAnalytics { get; set; } = new();
+
     // Onboarding checklist (shown only to brand-new users with zero applications).
     public bool HasProfileBasics { get; set; }
     public bool HasResume { get; set; }

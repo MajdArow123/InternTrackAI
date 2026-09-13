@@ -707,6 +707,7 @@ public class ProfileController : Controller
 
         return new ProfileViewModel
         {
+            ResumeStats   = ResumeAnalyticsService.Build(resumes, apps).ByResumeId,
             Profile       = profile,
             Email         = user?.Email,
             Resumes       = resumes,

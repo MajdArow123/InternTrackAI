@@ -13,6 +13,9 @@ public class ProfileViewModel
     public string? Email { get; set; }
 
     public List<ResumeVersion> Resumes { get; set; } = new();
+
+    // Sent count / response rate per resume version (ResumeAnalyticsService), shown inline in the resume list.
+    public IReadOnlyDictionary<int, InternTrackAI.Services.ResumeStats> ResumeStats { get; set; } = new Dictionary<int, InternTrackAI.Services.ResumeStats>();
     public List<CoverLetterVersion> CoverLetters { get; set; } = new();
 
     // Deserialized from UserProfile.SkillsJson/TargetRolesJson for direct use in the view.

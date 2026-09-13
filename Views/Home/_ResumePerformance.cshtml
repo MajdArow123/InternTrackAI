@@ -1,0 +1,70 @@
+@model InternTrackAI.Models.ViewModels.DashboardViewModel
+@using InternTrackAI.Services
+@{
+    var ra = Model.ResumeAnalytics;
+}
+@if (ra.ShowCard)
+{
+    <!-- Resume performance: which resume version gets responses (ResumeAnalyticsService) -->
+    <div class="analytics-card resume-perf-card anim-fade-up anim-d4" id="resumePerformanceCard">
+        <div class="analytics-card-head">
+            <div>
+                <div class="analytics-card-label">Resume performance</div>
+                <div class="analytics-card-sub">Response rate by resume version &middot; Applied or later only</div>
+            </div>
+            <a asp-controller="Profile" asp-action="Index" class="analytics-card-link">Resumes &rarr;</a>
+        </div>
+
+        <p class="resume-perf-takeaway" id="resumePerformanceTakeaway">@ra.Takeaway</p>
+
+        <div class="table-responsive">
+            <table class="resume-perf-table" id="resumePerformanceTable">
+                <thead>
+                    <tr>
+                        <th scope="col">Resume</th>
+                        <th scope="col" class="num">Sent</th>
+                        <th scope="col" class="rate-col">Response rate</th>
+                        <th scope="col" class="num">Interviews</th>
+                        <th scope="col" class="num">Offers</th>
+                        <th scope="col" class="num">Avg match</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in ra.Rows)
+                    {
+                        var low = row.LowConfidence;
+                        <tr class="@(low ? "is-low" : "") @(row.IsNoResumeBucket ? "is-none" : "")"
+                            data-resume-id="@(row.ResumeVersionId?.ToString() ?? "")" data-sent="@row.Sent" data-rate="@row.ResponseRatePercent"
+                            @(low ? Html.Raw("data-bs-toggle=\"tooltip\" data-bs-placement=\"top\" data-bs-title=\"Fewer than 5 applications\"") : Html.Raw(""))>
+                            <td class="resume-perf-name">
+                                @if (!row.IsNoResumeBucket)
+                                {
+                                    <span class="doc-version-badge">v@(row.VersionNumber)</span>
+                                }
+                                <span class="resume-perf-label">@row.Label</span>
+                                @if (row.IsActive)
+                                {
+                                    <span class="active-label">Active</span>
+                                }
+                                @if (low)
+                                {
+                                    <span class="visually-hidden">Fewer than 5 applications</span>
+                                }
+                            </td>
+                            <td class="num">@row.Sent</td>
+                            <td class="rate-col">
+                                <div class="resume-perf-rate">
+                                    <div class="top-company-bar-wrap" aria-hidden="true"><div class="top-company-bar" style="width:@row.ResponseRatePercent%"></div></div>
+                                    <span class="resume-perf-pct">@row.ResponseRatePercent%</span>
+                                </div>
+                            </td>
+                            <td class="num">@row.Interviews</td>
+                            <td class="num">@row.Offers</td>
+                            <td class="num">@(row.AverageMatchScore.HasValue ? Math.Round(row.AverageMatchScore.Value).ToString("0") : "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}

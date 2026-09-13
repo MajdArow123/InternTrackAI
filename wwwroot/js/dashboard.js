@@ -116,3 +116,8 @@
         requestAnimationFrame(step);
     });
 })();
+
+// Resume performance: "Fewer than 5 applications" tooltip on greyed rows.
+document.querySelectorAll('#resumePerformanceTable [data-bs-toggle="tooltip"]').forEach(function (el) {
+    if (window.bootstrap && bootstrap.Tooltip) new bootstrap.Tooltip(el);
+});

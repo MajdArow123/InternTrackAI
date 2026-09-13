@@ -8,13 +8,17 @@
 [![Deployed on Railway](https://img.shields.io/badge/Deployed%20on-Railway-0B0D0E?logo=railway)](https://interntrackai-production.up.railway.app)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-InternTrackAI is a full-stack internship application tracker built with ASP.NET Core 9 MVC. It replaces the typical spreadsheet with a real pipeline: paste a job posting and let AI fill out the form, see instantly how well your resume matches, track every application through five stages, and generate cover letters and interview prep on demand — all in one place.
+InternTrackAI is a full-stack internship application tracker built with ASP.NET Core 9 MVC. It replaces the typical spreadsheet with a real pipeline: paste a job posting and let AI fill out the form, see instantly how well your resume matches, track every application through five stages, and generate cover letters and interview prep on demand — all in one place, in a clean Apple-style interface with full dark mode.
+
+![InternTrackAI landing page](docs/screenshots/home.png)
 
 ## 🚀 Live Demo
 
 **[interntrackai-production.up.railway.app](https://interntrackai-production.up.railway.app)**
 
-A permanent demo account is seeded with a sample profile, a resume, and 5 job applications spanning every match-score tier, so you can explore everything immediately without signing up:
+Click **Try the live demo** on the landing page to be signed straight into a demo account with a sample profile, a resume, and job applications spanning every match-score tier. No signup needed.
+
+If you'd rather sign in manually:
 
 | | |
 |---|---|
@@ -25,15 +29,30 @@ A permanent demo account is seeded with a sample profile, a resume, and 5 job ap
 
 ## ✨ Key Features
 
-- 🧠 **AI-powered job analyzer** — paste a job description or URL and watch the form auto-fill with company, role, location, salary, and required skills
-- 🎯 **Resume match scoring** — instantly see how well your resume matches a role, with a skill gap analysis showing exactly what you have and what's missing
-- 📋 **Application tracking** — follow every application through 5 status stages: Saved, Applied, Interview, Offer, Rejected
-- 🚦 **AI match score color indicators** — a 5-tier color system (green → red) gives you an at-a-glance read on fit, from APPLY to SKIP
-- 📂 **Slide-out detail drawer** — click any application for the full job description and a complete AI analysis without leaving the list
-- ✍️ **Cover letter generator** — AI writes a personalized cover letter using the job description, your resume, and your profile
-- 🎤 **Interview prep tool** — generates tailored technical, behavioral, and company-specific questions with tips for each one
-- 🌗 **Dark / light mode** — toggle in the navbar, persisted across sessions
-- 🔐 **Password reset flow** — full forgot-password / reset-password flow via ASP.NET Core Identity
+**AI tools**
+
+- 🧠 **Job analyzer** — paste a job description or URL and the form auto-fills with company, role, location, salary, and required skills
+- 🎯 **Resume match scoring** — a 0–100 match ring for every role, with matched and missing skills side by side and a plain-language summary
+- ✍️ **Cover letter generator** — a personalized letter written from the posting, your resume, and your profile; improve it with a one-line instruction, save versions, and download as PDF
+- 🎤 **Interview prep** — technical, behavioral, and company-specific questions with tips, plus AI feedback on your written answers
+- 💵 **Salary insight** — a typical pay range for the role, company, and location while you're filling in the form
+- 📄 **Resume tools** — AI extracts your name, skills, and target roles from your resume, and scores it with strengths and improvements
+
+**Tracking**
+
+- 📋 **Five-stage pipeline** — Saved, Applied, Interview, Offer, Rejected, with status filter pills, search, and sorting
+- 📂 **Detail drawer** — the full posting, AI analysis, key details, a status timeline, and a notes log without leaving the list
+- ✅ **Bulk actions** — select rows to change status, delete, or compare up to three applications side by side
+- 📊 **Dashboard** — headline stats, an applications-over-time chart, a pipeline funnel, top companies, follow-up reminders, and upcoming deadlines
+- 🔁 **CSV import and export** — move your data in and out in one click
+
+**Profile and account**
+
+- 👤 **Profile** — photo, basic info, skill and target-role chips, versioned resumes and cover letters with an active version, and your public GitHub repos
+- 🔗 **Public profile** — an optional read-only page with your name, skills, target roles, and stats, on a regenerable link
+- 🌗 **Dark / light mode** — Apple-style design system with soft surfaces, pill buttons, and a frosted navbar; the toggle persists across sessions
+- ⌨️ **Keyboard shortcuts** — press `?` anywhere for the list
+- 🔐 **Account management** — register, sign in, forgot/reset password, display name, and change password via ASP.NET Core Identity
 
 ## 🛠️ Tech Stack
 
@@ -41,7 +60,7 @@ A permanent demo account is seeded with a sample profile, a resume, and 5 job ap
 |---|---|
 | Framework | ASP.NET Core 9 (C#) |
 | Database | SQLite (local) / PostgreSQL (production), via Entity Framework Core 9 |
-| Frontend | Bootstrap 5, vanilla JavaScript — Razor views, no SPA framework |
+| Frontend | Razor views, Bootstrap 5 (restyled with a custom token-based design system), vanilla JavaScript, Chart.js, jsPDF — no SPA framework |
 | AI | OpenAI API (GPT-4o-mini) |
 | Auth | ASP.NET Core Identity |
 | Hosting | Railway (Docker) |
@@ -89,20 +108,35 @@ Run the app:
 dotnet run
 ```
 
-Open [http://localhost:5240](http://localhost:5240) and register an account to get started. Locally, the app uses a SQLite file (`app.db`) created automatically via EF Core migrations — no extra database setup needed.
+Open [http://localhost:5240](http://localhost:5240) and register an account to get started. Locally, the app uses a SQLite file (`app.db`) created automatically via EF Core migrations — no extra database setup needed. Uploaded files go to `./uploads` unless you set `UPLOADS_PATH`.
 
 > AI features require billing credits on your OpenAI account, added at [platform.openai.com/settings/billing](https://platform.openai.com/settings/billing). GPT-4o-mini costs roughly $0.00015 per analysis.
+
+Optional: to enable the one-click **Try the live demo** button locally, point it at any account you've registered:
+
+```bash
+dotnet user-secrets set "Demo:Email" "you@example.com"
+dotnet user-secrets set "Demo:Password" "your-password"
+```
 
 ## ☁️ Deployment
 
 The live instance runs on [Railway](https://railway.app), built directly from the `Dockerfile` in this repo:
 
 - **Database** — Railway-managed PostgreSQL. `Program.cs` detects the `DATABASE_URL` environment variable Railway injects and switches the EF Core provider from SQLite to Npgsql automatically.
-- **Persistent storage** — uploaded resumes, cover letters, and profile photos are written to a mounted Railway volume so files survive redeploys.
+- **Persistent storage** — uploaded resumes, cover letters, and profile photos are written to the directory named by `UPLOADS_PATH`, which points at a mounted Railway volume so files survive redeploys. Resumes and cover letters are never served as static files; only profile photos are public.
 - **Data Protection keys** — persisted to the database so antiforgery tokens and cookies stay valid across container restarts.
 - **Migrations** — applied automatically on startup, so deploying a new migration is just a `git push`.
 
-To deploy your own copy: create a Railway project, add a PostgreSQL service, attach a volume mounted at `/app/uploads`, set the `OpenAI:ApiKey` config variable, and point Railway at this repo — `railway.toml` already configures the build and health check.
+To deploy your own copy: create a Railway project, add a PostgreSQL service, attach a volume (mounted at `/data`), point Railway at this repo, and set these variables on the service — `railway.toml` already configures the build and health check.
+
+| Variable | Purpose |
+|---|---|
+| `OpenAI__ApiKey` | OpenAI API key for all AI features |
+| `UPLOADS_PATH` | Upload root on the volume, e.g. `/data/uploads` |
+| `Demo__Email` / `Demo__Password` | Optional. Credentials of the account behind the **Try the live demo** button; leave unset to hide it |
+
+(`DATABASE_URL` and `PORT` are injected by Railway automatically.)
 
 ## License
 
@@ -110,4 +144,4 @@ Released under the [MIT License](LICENSE).
 
 ## Author
 
-Majd Arow
+**Majd Arow** — [GitHub](https://github.com/MajdArow123) · [LinkedIn](https://www.linkedin.com/in/majd-arow-92b97719a)

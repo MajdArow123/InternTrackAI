@@ -472,13 +472,15 @@ html[data-theme="dark"] .btn-outline-secondary:hover, html[data-theme="dark"] .b
 html[data-theme="dark"] .lp-shot-nav button:hover { background: rgba(255,255,255,.07); }
 html[data-theme="dark"] .lp-shot-nav button.on { background: rgba(255,255,255,.10); }
 
-/* Panels stack in one grid cell so the frame is always as tall as the tallest mock (no jump on switch). */
-.lp-shot-panels { display: grid; background: var(--bg); }
-.lp-shot-panel { grid-area: 1 / 1; min-width: 0; opacity: 0; visibility: hidden; transition: opacity 180ms var(--ease), visibility 0s linear 180ms; }
-.lp-shot-panel.is-active { opacity: 1; visibility: visible; transition-delay: 0s; }
+/* Only the active panel is in flow, so the stage is exactly as tall as the visible mock. Inactive panels sit
+   absolutely on top of it for the crossfade. landing-preview.js keeps the stage at an explicit pixel height
+   (measured from the active panel) so the change animates instead of jumping. */
+.lp-shot-panels { position: relative; overflow: hidden; background: var(--bg); transition: height 180ms var(--ease); }
+.lp-shot-panel { position: absolute; top: 0; left: 0; right: 0; min-width: 0; opacity: 0; visibility: hidden; transition: opacity 180ms var(--ease), visibility 0s linear 180ms; }
+.lp-shot-panel.is-active { position: relative; opacity: 1; visibility: visible; transition-delay: 0s; }
 .lp-shot-panel .btn, .lp-shot-panel .filter-pill { pointer-events: none; }
-@keyframes lpPanelIn { from { opacity: 0; } to { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .lp-shot-panel { transition: none; } }
+.lp-shot-panel .view-toggle button { pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) { .lp-shot-panels, .lp-shot-panel { transition: none; } }
 .lp-shot-hint { margin: .9rem 0 0; font-size: .8667rem; color: var(--muted-2); }
 .lp-shot-body { padding: 1.6rem 1.6rem 1.75rem; background: var(--bg); }
 .lp-shot-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1.1rem; }
@@ -590,9 +592,6 @@ html[data-theme="dark"] .lp-shot-nav button.on { background: rgba(255,255,255,.1
   .lp-shot-nav b { margin-right: .25rem; }
   .lp-shot-brand { display: none; }
   .lp-shot-nav button { padding: .3rem .45rem; font-size: .8rem; }
-  .lp-shot-panels { display: block; }
-  .lp-shot-panel { display: none; }
-  .lp-shot-panel.is-active { display: block; animation: lpPanelIn 180ms var(--ease); }
   .lp-shot-hint { font-size: .8rem; }
   .lp-footer-in { flex-direction: column; align-items: flex-start; }
 }
@@ -4034,6 +4033,35 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .lp-pills .filter-pill-count { font-size: .6667rem; }
 .lp-pills .view-toggle { padding: .15rem; }
 .lp-pills .view-toggle .filter-pill { padding: .22rem .65rem; }
+.lp-pills .view-toggle button.filter-pill { border: 0; font-family: inherit; line-height: inherit; cursor: pointer; }
+.lp-pills .view-toggle button.filter-pill:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
+/* Board / List views: same crossfade + in-flow-active trick as the panels, so the panel height follows the visible view */
+.lp-views { position: relative; }
+.lp-view { position: absolute; top: 0; left: 0; right: 0; min-width: 0; opacity: 0; visibility: hidden; transition: opacity 180ms var(--ease), visibility 0s linear 180ms; }
+.lp-view.is-active { position: relative; opacity: 1; visibility: visible; transition-delay: 0s; }
+@media (prefers-reduced-motion: reduce) { .lp-view { transition: none; } }
+/* List view mock: the real table, selected rows and bulk bar at preview scale */
+.lp-list .app-table-wrapper { border-radius: 12px; }
+.lp-list .table thead th { font-size: .6667rem; padding: .5rem .6rem; }
+.lp-list .table tbody td { font-size: .7333rem; padding: .42rem .6rem; }
+.lp-list .app-row { cursor: default; }
+.lp-list .company-avatar { width: 26px; height: 26px; font-size: .6rem; border-radius: 7px; }
+.lp-list .status-badge { font-size: .6667rem; padding: .25em .6em; }
+.lp-list .status-icon { width: 9px; height: 9px; }
+.lp-list .match-ring--sm { width: 26px; height: 26px; }
+.lp-list .match-ring--sm::before { inset: 3px; }
+.lp-list .match-ring--sm > span { font-size: .55rem; }
+.lp-list .col-check { width: 2.1rem; }
+.lp-check { display: inline-block; width: 13px; height: 13px; border-radius: 4px; border: 1.5px solid var(--border-strong); background: var(--card); vertical-align: middle; }
+.lp-check.on { background: var(--accent) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e") center/10px no-repeat; border-color: var(--accent); }
+.lp-list-more { font-size: .6667rem; color: var(--muted-2); text-align: center; padding: .4rem 0; border-top: 1px solid var(--border); background: var(--card); }
+.lp-bulk-bar { position: relative; left: auto; bottom: auto; transform: none; opacity: 1; visibility: visible; margin: .65rem auto 0; max-width: 100%; padding: .35rem .35rem .35rem .85rem; transition: none; z-index: 1; }
+.lp-bulk-bar .bulk-bar-inner { gap: .65rem; }
+.lp-bulk-bar .bulk-count { font-size: .7733rem; }
+.lp-bulk-bar .bulk-actions { gap: .35rem; }
+.lp-bulk-bar .btn { height: 26px; font-size: .6667rem; padding: 0 .65rem; }
+.lp-bulk-bar .bulk-status-select { height: 26px; font-size: .6667rem; min-width: 128px; display: inline-flex; align-items: center; padding: 0 1.7rem 0 .65rem; color: rgba(255,255,255,.85) !important; white-space: nowrap; }
+.lp-bulk-bar .bulk-deselect-link { font-size: .6667rem; }
 /* Cover letter: selector card on the left, generated letter on the right */
 .lp-shot-row--cl { grid-template-columns: 1fr 1.4fr; }
 .lp-label { font-size: .7733rem; font-weight: 500; color: var(--text); margin: .65rem 0 .3rem; }

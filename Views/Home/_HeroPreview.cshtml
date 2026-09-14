@@ -61,34 +61,140 @@
                 <span class="filter-pill filter-pill-applied lp-pill-status"><span class="filter-pill-dot"></span>Applied</span>
                 <span class="filter-pill filter-pill-interview lp-pill-status"><span class="filter-pill-dot"></span>Interview</span>
                 <span class="filter-pill filter-pill-offer lp-pill-status"><span class="filter-pill-dot"></span>Offer</span>
-                <span class="view-toggle"><span class="filter-pill">List</span><span class="filter-pill active">Board</span></span>
+                <div class="view-toggle lp-view-toggle" role="group" aria-label="View">
+                    <button type="button" class="filter-pill" id="lp-view-list" aria-pressed="false" aria-controls="lp-view-list-panel">List</button>
+                    <button type="button" class="filter-pill active" id="lp-view-board" aria-pressed="true" aria-controls="lp-view-board-panel">Board</button>
+                </div>
             </div>
-            <div class="lp-board lp-board--4">
-                <div class="lp-board-col">
-                    <div class="lp-board-head"><span>Saved</span><span class="status-badge badge-saved">21</span></div>
-                    <div class="lp-board-card"><div class="t"><b>TD</b><span>Data Engineering Co-op</span></div></div>
-                    <div class="lp-board-card"><div class="t"><b>Kinaxis</b><span>QA Automation Intern</span></div><span class="match-ring match-ring--tier-4" style="--p:68"><span>68</span></span><div class="tags"><span class="board-tag board-tag--warning">Due in 3 days</span></div></div>
-                    <div class="lp-board-card"><div class="t"><b>Manulife</b><span>Data Analyst Intern</span></div></div>
-                    <div class="lp-board-more">+18 more</div>
+            <!-- Board / List views share one cell; the inactive one is absolutely positioned so the panel is only as tall as the visible view -->
+            <div class="lp-views">
+                <div class="lp-view is-active" id="lp-view-board-panel">
+                <div class="lp-board lp-board--4">
+                    <div class="lp-board-col">
+                        <div class="lp-board-head"><span>Saved</span><span class="status-badge badge-saved">21</span></div>
+                        <div class="lp-board-card"><div class="t"><b>TD</b><span>Data Engineering Co-op</span></div></div>
+                        <div class="lp-board-card"><div class="t"><b>Kinaxis</b><span>QA Automation Intern</span></div><span class="match-ring match-ring--tier-4" style="--p:68"><span>68</span></span><div class="tags"><span class="board-tag board-tag--warning">Due in 3 days</span></div></div>
+                        <div class="lp-board-card"><div class="t"><b>Manulife</b><span>Data Analyst Intern</span></div></div>
+                        <div class="lp-board-more">+18 more</div>
+                    </div>
+                    <div class="lp-board-col">
+                        <div class="lp-board-head"><span>Applied</span><span class="status-badge badge-applied">13</span></div>
+                        <div class="lp-board-card"><div class="t"><b>TD</b><span>.NET Developer Co-op</span></div><div class="tags"><span class="board-tag board-tag--warning">Follow up</span></div></div>
+                        <div class="lp-board-card"><div class="t"><b>Kinaxis</b><span>Software Developer Intern</span></div><span class="match-ring match-ring--tier-4" style="--p:72"><span>72</span></span></div>
+                        <div class="lp-board-card"><div class="t"><b>Wealthsimple</b><span>Platform Engineering Intern</span></div><span class="match-ring match-ring--tier-3" style="--p:55"><span>55</span></span></div>
+                        <div class="lp-board-more">+10 more</div>
+                    </div>
+                    <div class="lp-board-col">
+                        <div class="lp-board-head"><span>Interview</span><span class="status-badge badge-interview">9</span></div>
+                        <div class="lp-board-card"><div class="t"><b>RBC</b><span>Software Developer Co-op</span></div><span class="match-ring match-ring--tier-5" style="--p:84"><span>84</span></span><div class="tags"><span class="board-tag board-tag--accent">Interview Wed 2:00 PM</span></div></div>
+                        <div class="lp-board-card"><div class="t"><b>Manulife</b><span>Backend Developer Co-op</span></div></div>
+                        <div class="lp-board-card"><div class="t"><b>RBC</b><span>Data Science Co-op</span></div><span class="match-ring match-ring--tier-4" style="--p:77"><span>77</span></span></div>
+                        <div class="lp-board-more">+6 more</div>
+                    </div>
+                    <div class="lp-board-col">
+                        <div class="lp-board-head"><span>Offer</span><span class="status-badge badge-offer">2</span></div>
+                        <div class="lp-board-card"><div class="t"><b>Shopify</b><span>Backend Developer Intern</span></div><span class="match-ring match-ring--tier-5" style="--p:91"><span>91</span></span><div class="tags"><span class="board-tag">$32/hr</span></div></div>
+                        <div class="lp-board-card"><div class="t"><b>Wealthsimple</b><span>Full Stack Intern</span></div></div>
+                    </div>
                 </div>
-                <div class="lp-board-col">
-                    <div class="lp-board-head"><span>Applied</span><span class="status-badge badge-applied">13</span></div>
-                    <div class="lp-board-card"><div class="t"><b>TD</b><span>.NET Developer Co-op</span></div><div class="tags"><span class="board-tag board-tag--warning">Follow up</span></div></div>
-                    <div class="lp-board-card"><div class="t"><b>Kinaxis</b><span>Software Developer Intern</span></div><span class="match-ring match-ring--tier-4" style="--p:72"><span>72</span></span></div>
-                    <div class="lp-board-card"><div class="t"><b>Wealthsimple</b><span>Platform Engineering Intern</span></div><span class="match-ring match-ring--tier-3" style="--p:55"><span>55</span></span></div>
-                    <div class="lp-board-more">+10 more</div>
+
                 </div>
-                <div class="lp-board-col">
-                    <div class="lp-board-head"><span>Interview</span><span class="status-badge badge-interview">9</span></div>
-                    <div class="lp-board-card"><div class="t"><b>RBC</b><span>Software Developer Co-op</span></div><span class="match-ring match-ring--tier-5" style="--p:84"><span>84</span></span><div class="tags"><span class="board-tag board-tag--accent">Interview Wed 2:00 PM</span></div></div>
-                    <div class="lp-board-card"><div class="t"><b>Manulife</b><span>Backend Developer Co-op</span></div></div>
-                    <div class="lp-board-card"><div class="t"><b>RBC</b><span>Data Science Co-op</span></div><span class="match-ring match-ring--tier-4" style="--p:77"><span>77</span></span></div>
-                    <div class="lp-board-more">+6 more</div>
-                </div>
-                <div class="lp-board-col">
-                    <div class="lp-board-head"><span>Offer</span><span class="status-badge badge-offer">2</span></div>
-                    <div class="lp-board-card"><div class="t"><b>Shopify</b><span>Backend Developer Intern</span></div><span class="match-ring match-ring--tier-5" style="--p:91"><span>91</span></span><div class="tags"><span class="board-tag">$32/hr</span></div></div>
-                    <div class="lp-board-card"><div class="t"><b>Wealthsimple</b><span>Full Stack Intern</span></div></div>
+                <div class="lp-view lp-list" id="lp-view-list-panel" aria-hidden="true">
+                    <div class="app-table-wrapper">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th class="ps-3 col-check"><span class="lp-check"></span></th>
+                                        <th class="ps-2">Company</th>
+                                        <th>Role</th>
+                                        <th class="d-none d-md-table-cell">Location</th>
+                                        <th>Status</th>
+                                        <th class="text-center d-none d-sm-table-cell col-match">Match</th>
+                                        <th class="d-none d-sm-table-cell">Applied</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                <tr class="app-row">
+                                    <td class="ps-3 col-check"><span class="lp-check"></span></td>
+                                    <td class="ps-2"><div class="d-flex align-items-center gap-2"><span class="company-avatar">TD</span><span class="company-name">TD</span></div></td>
+                                    <td class="role-name">Data Engineering Co-op</td>
+                                    <td class="text-muted d-none d-md-table-cell">Toronto, ON</td>
+                                    <td><span class="status-badge badge-saved"><svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> <span class="row-status-name">Saved</span></span></td>
+                                    <td class="text-center d-none d-sm-table-cell"><span class="text-muted">&mdash;</span></td>
+                                    <td class="text-muted d-none d-sm-table-cell">&mdash;</td>
+                                </tr>
+                                <tr class="app-row">
+                                    <td class="ps-3 col-check"><span class="lp-check"></span></td>
+                                    <td class="ps-2"><div class="d-flex align-items-center gap-2"><span class="company-avatar">KI</span><span class="company-name">Kinaxis</span></div></td>
+                                    <td class="role-name">QA Automation Intern</td>
+                                    <td class="text-muted d-none d-md-table-cell">Ottawa, ON</td>
+                                    <td><span class="status-badge badge-saved"><svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg> <span class="row-status-name">Saved</span></span></td>
+                                    <td class="text-center d-none d-sm-table-cell"><span class="match-ring match-ring--sm match-ring--tier-4" style="--p:68"><span>68</span></span></td>
+                                    <td class="text-muted d-none d-sm-table-cell">&mdash;</td>
+                                </tr>
+                                <tr class="app-row is-selected">
+                                    <td class="ps-3 col-check"><span class="lp-check on"></span></td>
+                                    <td class="ps-2"><div class="d-flex align-items-center gap-2"><span class="company-avatar">TD</span><span class="company-name">TD</span></div></td>
+                                    <td class="role-name">.NET Developer Co-op</td>
+                                    <td class="text-muted d-none d-md-table-cell">Toronto, ON</td>
+                                    <td><span class="status-badge badge-applied"><svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> <span class="row-status-name">Applied</span></span></td>
+                                    <td class="text-center d-none d-sm-table-cell"><span class="text-muted">&mdash;</span></td>
+                                    <td class="text-muted d-none d-sm-table-cell">Sep 3, 2026</td>
+                                </tr>
+                                <tr class="app-row is-selected">
+                                    <td class="ps-3 col-check"><span class="lp-check on"></span></td>
+                                    <td class="ps-2"><div class="d-flex align-items-center gap-2"><span class="company-avatar">KI</span><span class="company-name">Kinaxis</span></div></td>
+                                    <td class="role-name">Software Developer Intern</td>
+                                    <td class="text-muted d-none d-md-table-cell">Ottawa, ON</td>
+                                    <td><span class="status-badge badge-applied"><svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> <span class="row-status-name">Applied</span></span></td>
+                                    <td class="text-center d-none d-sm-table-cell"><span class="match-ring match-ring--sm match-ring--tier-4" style="--p:72"><span>72</span></span></td>
+                                    <td class="text-muted d-none d-sm-table-cell">Sep 5, 2026</td>
+                                </tr>
+                                <tr class="app-row">
+                                    <td class="ps-3 col-check"><span class="lp-check"></span></td>
+                                    <td class="ps-2"><div class="d-flex align-items-center gap-2"><span class="company-avatar">RB</span><span class="company-name">RBC</span></div></td>
+                                    <td class="role-name">Software Developer Co-op</td>
+                                    <td class="text-muted d-none d-md-table-cell">Toronto, ON</td>
+                                    <td><span class="status-badge badge-interview"><svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <span class="row-status-name">Interview</span></span></td>
+                                    <td class="text-center d-none d-sm-table-cell"><span class="match-ring match-ring--sm match-ring--tier-5" style="--p:84"><span>84</span></span></td>
+                                    <td class="text-muted d-none d-sm-table-cell">Aug 21, 2026</td>
+                                </tr>
+                                <tr class="app-row">
+                                    <td class="ps-3 col-check"><span class="lp-check"></span></td>
+                                    <td class="ps-2"><div class="d-flex align-items-center gap-2"><span class="company-avatar">MA</span><span class="company-name">Manulife</span></div></td>
+                                    <td class="role-name">Backend Developer Co-op</td>
+                                    <td class="text-muted d-none d-md-table-cell">Waterloo, ON</td>
+                                    <td><span class="status-badge badge-interview"><svg class="status-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> <span class="row-status-name">Interview</span></span></td>
+                                    <td class="text-center d-none d-sm-table-cell"><span class="text-muted">&mdash;</span></td>
+                                    <td class="text-muted d-none d-sm-table-cell">Aug 18, 2026</td>
+                                </tr>
+                                <tr class="app-row">
+                                    <td class="ps-3 col-check"><span class="lp-check"></span></td>
+                                    <td class="ps-2"><div class="d-flex align-items-center gap-2"><span class="company-avatar">SH</span><span class="company-name">Shopify</span></div></td>
+                                    <td class="role-name">Backend Developer Intern</td>
+                                    <td class="text-muted d-none d-md-table-cell">Remote</td>
+                                    <td><span class="status-badge badge-offer"><svg class="status-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> <span class="row-status-name">Offer</span></span></td>
+                                    <td class="text-center d-none d-sm-table-cell"><span class="match-ring match-ring--sm match-ring--tier-5" style="--p:91"><span>91</span></span></td>
+                                    <td class="text-muted d-none d-sm-table-cell">Aug 4, 2026</td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="lp-list-more">+40 more</div>
+                    </div>
+                    <div class="bulk-bar lp-bulk-bar" role="region" aria-label="Bulk actions">
+                        <div class="bulk-bar-inner">
+                            <span class="bulk-count">2 selected</span>
+                            <div class="bulk-actions">
+                                <span class="btn btn-sm btn-outline-light">Compare</span>
+                                <span class="bulk-status-select">Change status to&hellip;</span>
+                                <span class="btn btn-sm btn-outline-light">Apply</span>
+                                <span class="btn btn-sm btn-danger">Delete</span>
+                                <span class="btn btn-sm btn-link bulk-deselect-link">Deselect</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -20,12 +20,88 @@ document.querySelectorAll('.upload-zone').forEach(function (zone) {
 if (window.bootstrap?.Tooltip) {
     document.querySelectorAll('#gmailConnectDemoWrap[data-bs-toggle="tooltip"]').forEach(function (el) { new bootstrap.Tooltip(el); });
 }
-document.querySelectorAll('.file-pick-input').forEach(function (input) {
+
+// ── Profile photo: the avatar circle opens the picker, uploads via fetch with an instant
+//    preview, reverts on failure; "Remove photo" confirms then falls back to initials. ──
+(function () {
+    var wrap        = document.getElementById('avatarWrap');
+    var btn         = document.getElementById('avatarBtn');
+    var input       = document.getElementById('photoInput');
+    var img         = document.getElementById('avatarImg');
+    var placeholder = document.getElementById('avatarPlaceholder');
+    var removeBtn   = document.getElementById('removePhotoBtn');
+    if (!wrap || !btn || !input || !img || !placeholder) return;
+    var token = document.querySelector('#photoForm input[name="__RequestVerificationToken"]')?.value || '';
+    var MAX_BYTES = 2 * 1024 * 1024;
+    var busy = false;
+
+    function showPhoto(src) {
+        img.src = src; img.hidden = false; placeholder.hidden = true;
+        wrap.dataset.hasPhoto = 'true';
+        if (removeBtn) removeBtn.hidden = false;
+    }
+    function showInitials(initials) {
+        if (initials) placeholder.textContent = initials;
+        img.hidden = true; img.removeAttribute('src'); placeholder.hidden = false;
+        wrap.dataset.hasPhoto = 'false';
+        if (removeBtn) removeBtn.hidden = true;
+    }
+    function snapshot() {
+        return { hasPhoto: wrap.dataset.hasPhoto === 'true', src: img.getAttribute('src') || '', initials: placeholder.textContent };
+    }
+    function restore(s) { if (s.hasPhoto) showPhoto(s.src); else showInitials(s.initials); }
+    function setBusy(on) { busy = on; wrap.classList.toggle('is-uploading', on); btn.setAttribute('aria-busy', on ? 'true' : 'false'); }
+
+    // Enter/Space on the <button> fire click natively; the picker itself stays out of the tab order.
+    btn.addEventListener('click', function () { if (!busy) input.click(); });
+
     input.addEventListener('change', function () {
-        var label = input.closest('.file-pick')?.querySelector('.file-pick-label');
-        if (label) label.textContent = input.files[0] ? input.files[0].name : 'Choose photo';
+        var file = input.files && input.files[0];
+        input.value = '';   // so picking the same file again re-triggers change
+        if (!file) return;
+        if (!/^image\//.test(file.type)) { showAppToast('error', 'Please choose an image file.'); return; }
+        if (file.size > MAX_BYTES)      { showAppToast('error', 'Photo must be under 2 MB.'); return; }
+
+        var previous = snapshot();
+        var previewUrl = URL.createObjectURL(file);
+        showPhoto(previewUrl);
+        setBusy(true);
+
+        var fd = new FormData();
+        fd.append('photo', file, file.name);
+        fd.append('__RequestVerificationToken', token);
+        fetch('/Profile/UploadPhoto', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+                if (res.ok && res.data.success && res.data.url) {
+                    showPhoto(res.data.url);
+                    showAppToast('success', 'Photo updated');
+                } else {
+                    restore(previous);
+                    showAppToast('error', res.data.error || 'Could not update the photo. Try again.');
+                }
+            })
+            .catch(function () { restore(previous); showAppToast('error', 'Could not update the photo. Check your connection and try again.'); })
+            .finally(function () { setBusy(false); URL.revokeObjectURL(previewUrl); });
     });
-});
+
+    removeBtn?.addEventListener('click', function () {
+        if (busy) return;
+        appConfirm({ title: 'Remove profile photo?', text: 'Your initials will be shown instead.', okLabel: 'Remove' }).then(function (ok) {
+            if (!ok) return;
+            setBusy(true);
+            var body = new URLSearchParams({ __RequestVerificationToken: token });
+            fetch('/Profile/RemovePhoto', { method: 'POST', body: body, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (d && d.success) { showInitials(d.initials); showAppToast('success', 'Photo removed'); }
+                    else showAppToast('error', (d && d.error) || 'Could not remove the photo.');
+                })
+                .catch(function () { showAppToast('error', 'Could not remove the photo. Try again.'); })
+                .finally(function () { setBusy(false); });
+        });
+    });
+})();
 
     (function () {
 

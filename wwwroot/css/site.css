@@ -1162,10 +1162,57 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
 .profile-identity { min-width: 0; }
 .profile-photo-name    { font-size: 1.3333rem; font-weight: 600; letter-spacing: -.015em; margin-bottom: .1rem; color: var(--text); }
 .profile-photo-email   { font-size: .9333rem; color: var(--muted); margin-bottom: .6rem; }
-.profile-photo-form    { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
-.file-pick { position: relative; overflow: hidden; cursor: pointer; }
-.file-pick-input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.file-pick-label { display: inline-block; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
+
+/* The avatar circle is the photo control: hover/focus reveals a dark overlay with a camera
+   icon and "Change"; clicking (or Enter/Space) opens the file picker. */
+.profile-avatar-wrap { display: flex; flex-direction: column; align-items: center; gap: .4rem; flex-shrink: 0; }
+.profile-avatar-btn {
+  position: relative;
+  width: 84px; height: 84px;
+  padding: 0; border: 0; background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: block;
+  transition: transform var(--duration) var(--ease);
+}
+.profile-avatar-btn:hover { transform: scale(1.02); }
+.profile-avatar-btn:focus-visible { outline: none; box-shadow: 0 0 0 4px var(--card), 0 0 0 7px var(--accent); }
+.profile-avatar-btn .profile-avatar,
+.profile-avatar-btn .profile-avatar-placeholder { display: flex; }
+.profile-avatar-btn .profile-avatar[hidden],
+.profile-avatar-btn .profile-avatar-placeholder[hidden] { display: none; }
+.profile-avatar-overlay {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,.48);
+  color: #fff;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .15rem;
+  font-size: .7rem; font-weight: 600; letter-spacing: .01em;
+  opacity: 0;
+  transition: opacity var(--duration) var(--ease);
+  pointer-events: none;
+}
+.profile-avatar-btn:hover .profile-avatar-overlay,
+.profile-avatar-btn:focus-visible .profile-avatar-overlay,
+.profile-avatar-wrap.is-uploading .profile-avatar-overlay { opacity: 1; }
+.profile-avatar-spinner { display: none; width: 18px; height: 18px; border-width: 2px; }
+.profile-avatar-wrap.is-uploading .profile-avatar-spinner { display: inline-block; }
+.profile-avatar-wrap.is-uploading .profile-avatar-overlay-icon { display: none; }
+.profile-avatar-wrap.is-uploading .profile-avatar-btn { cursor: progress; }
+.profile-photo-remove {
+  background: none; border: 0; padding: 0;
+  font-size: .75rem; font-weight: 500;
+  color: var(--muted);
+  text-decoration: underline; text-underline-offset: 2px;
+  cursor: pointer;
+}
+.profile-photo-remove:hover { color: var(--danger); }
+.profile-photo-remove:focus-visible { outline: none; border-radius: 4px; box-shadow: var(--focus-ring); }
+/* No hover on phones: keep the overlay faintly visible so the control is discoverable. */
+@media (max-width: 575.98px) {
+  .profile-avatar-overlay { opacity: .45; }
+  .profile-avatar-btn:active .profile-avatar-overlay { opacity: 1; }
+}
 
 .profile-stat-strip {
   display: flex;
@@ -1183,7 +1230,7 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
 .profile-stat-dot.dot-offer     { background: var(--success); }
 .profile-stat-dot.dot-rejected  { background: var(--danger); }
 @media (max-width: 575.98px) {
-  .profile-photo-row { flex-direction: column; align-items: flex-start; }
+  .profile-photo-row { flex-direction: row; align-items: center; }
   .profile-stat-strip { gap: .75rem 1.25rem; }
 }
 

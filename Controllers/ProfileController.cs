@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
 using InternTrackAI.Data;
+using InternTrackAI.Helpers;
 using InternTrackAI.Models;
 using InternTrackAI.Models.Enums;
 using InternTrackAI.Models.ViewModels;
@@ -168,54 +169,88 @@ public class ProfileController : Controller
 
     // ── POST /Profile/UploadPhoto ────────────────────────
 
+    public const int MaxPhotoBytes = 2 * 1024 * 1024;
+
     /// <summary>
     /// Replaces the user's profile photo. Validates extension and size, deletes the previous
     /// photo file, and bumps <c>PhotoVersion</c> so the new image cache-busts in the UI (the
     /// stored filename is the user id, so the version number is the only thing that changes).
+    /// The avatar on the profile page posts this via fetch and gets JSON <c>{ success, url, error }</c>;
+    /// a plain form post (no JS) still gets the redirect-with-toast behaviour.
     /// </summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> UploadPhoto(IFormFile? photo)
     {
         if (photo == null || photo.Length == 0)
-        {
-            TempData["Error"] = "Please select a photo.";
-            return RedirectToAction(nameof(Index));
-        }
+            return PhotoError("Please select a photo.");
 
         var ext = Path.GetExtension(photo.FileName).ToLowerInvariant();
         if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp"))
-        {
-            TempData["Error"] = "Photos must be JPG, PNG, or WebP.";
-            return RedirectToAction(nameof(Index));
-        }
+            return PhotoError("Photos must be JPG, PNG, or WebP.");
 
-        if (photo.Length > 3 * 1024 * 1024)
-        {
-            TempData["Error"] = "Photo must be under 3 MB.";
-            return RedirectToAction(nameof(Index));
-        }
+        if (photo.Length > MaxPhotoBytes)
+            return PhotoError("Photo must be under 2 MB.");
 
         var userId = UserId();
         var dir = _uploads.PhotosDirectory;
 
-        // Delete old photo
         var profile = await GetOrCreateProfileAsync(userId);
-        if (profile.PhotoFileName != null)
-        {
-            var old = Path.Combine(dir, profile.PhotoFileName);
-            if (System.IO.File.Exists(old)) System.IO.File.Delete(old);
-        }
+        DeletePhotoFile(profile);
 
         var fileName = $"{userId}{ext}";
-        await using var fs = System.IO.File.Create(Path.Combine(dir, fileName));
-        await photo.CopyToAsync(fs);
+        await using (var fs = System.IO.File.Create(Path.Combine(dir, fileName)))
+        {
+            await photo.CopyToAsync(fs);
+        }
 
         profile.PhotoFileName = fileName;
         profile.PhotoVersion++;
         await _db.SaveChangesAsync();
 
-        TempData["Success"] = "Photo updated.";
+        var url = ProfileDisplay.PhotoUrl(profile.PhotoFileName, profile.PhotoVersion);
+        if (IsAjax()) return Json(new { success = true, url });
+        TempData["Toast"] = "success|Photo updated.";
         return RedirectToAction(nameof(Index));
+    }
+
+    // ── POST /Profile/RemovePhoto ────────────────────────
+
+    /// <summary>
+    /// Deletes the profile photo (file + reference) so the avatar falls back to initials.
+    /// Returns JSON <c>{ success, initials }</c> for the fetch caller, or redirects for a plain post.
+    /// </summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemovePhoto()
+    {
+        var userId  = UserId();
+        var profile = await GetOrCreateProfileAsync(userId);
+        DeletePhotoFile(profile);
+        profile.PhotoFileName = null;
+        profile.PhotoVersion++;
+        await _db.SaveChangesAsync();
+
+        var user = await _userManager.FindByIdAsync(userId);
+        var initials = ProfileDisplay.Initials(profile.FullName, user?.Email);
+        if (IsAjax()) return Json(new { success = true, initials });
+        TempData["Toast"] = "success|Photo removed.";
+        return RedirectToAction(nameof(Index));
+    }
+
+    private IActionResult PhotoError(string error)
+    {
+        if (IsAjax()) return BadRequest(new { success = false, error });
+        TempData["Error"] = error;
+        return RedirectToAction(nameof(Index));
+    }
+
+    private bool IsAjax() => Request.Headers.XRequestedWith == "XMLHttpRequest";
+
+    /// <summary>Removes the stored photo file (if any) without touching the profile row.</summary>
+    private void DeletePhotoFile(UserProfile profile)
+    {
+        if (profile.PhotoFileName is null) return;
+        var old = Path.Combine(_uploads.PhotosDirectory, profile.PhotoFileName);
+        if (System.IO.File.Exists(old)) System.IO.File.Delete(old);
     }
 
     // ── POST /Profile/SaveSkills ─────────────────────────

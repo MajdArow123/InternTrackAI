@@ -1,37 +1,31 @@
 @model InternTrackAI.Models.ViewModels.ProfileViewModel
 @{ var clock = await Clocks.GetAsync(); }
+@using InternTrackAI.Helpers
 @{
-    var initials = string.IsNullOrWhiteSpace(Model.Profile.FullName)
-        ? (Model.Email?.Substring(0, 1).ToUpperInvariant() ?? "?")
-        : string.Concat(Model.Profile.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-              .Take(2).Select(w => char.ToUpperInvariant(w[0])));
-
-    var photoPath = Model.Profile.PhotoFileName != null
-        ? $"/uploads/photos/{Model.Profile.PhotoFileName}?v={Model.Profile.PhotoVersion}"
-        : null;
+    var initials  = ProfileDisplay.Initials(Model.Profile.FullName, Model.Email);
+    var photoPath = ProfileDisplay.PhotoUrl(Model.Profile.PhotoFileName, Model.Profile.PhotoVersion);
+    var hasPhoto  = photoPath != null;
 }
-    <!-- ── Identity card: avatar, name, stats ── -->
+    <!-- ── Identity card: avatar (the circle is the photo control), name, stats ── -->
     <div class="form-card mb-3 profile-hero">
         <div class="profile-photo-row">
-            @if (photoPath != null)
-            {
-                <img src="@photoPath" class="profile-avatar" alt="Profile photo" />
-            }
-            else
-            {
-                <div class="profile-avatar-placeholder">@initials</div>
-            }
+            <div class="profile-avatar-wrap" id="avatarWrap" data-has-photo="@(hasPhoto ? "true" : "false")">
+                <button type="button" class="profile-avatar-btn" id="avatarBtn" aria-label="Change profile photo" title="Change profile photo">
+                    <img src="@(photoPath ?? "")" class="profile-avatar" id="avatarImg" alt="Profile photo" hidden="@(!hasPhoto)" />
+                    <span class="profile-avatar-placeholder" id="avatarPlaceholder" aria-hidden="true" hidden="@hasPhoto">@initials</span>
+                    <span class="profile-avatar-overlay" aria-hidden="true">
+                        <svg class="profile-avatar-overlay-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                        <span class="spinner-border spinner-border-sm profile-avatar-spinner" role="status" aria-hidden="true"></span>
+                        <span class="profile-avatar-overlay-label">Change</span>
+                    </span>
+                </button>
+                <input type="file" id="photoInput" accept="image/*" class="visually-hidden" tabindex="-1" aria-hidden="true" />
+                <form id="photoForm" hidden>@Html.AntiForgeryToken()</form>
+                <button type="button" class="profile-photo-remove" id="removePhotoBtn" hidden="@(!hasPhoto)">Remove photo</button>
+            </div>
             <div class="profile-identity">
                 <p class="profile-photo-name mb-0">@(Model.Profile.FullName ?? "Your name")</p>
                 <p class="profile-photo-email">@Model.Email</p>
-                <form asp-action="UploadPhoto" method="post" enctype="multipart/form-data" class="profile-photo-form">
-                    @Html.AntiForgeryToken()
-                    <label class="btn btn-outline-secondary btn-sm file-pick" for="photoInput">
-                        <span class="file-pick-label">Choose photo</span>
-                        <input type="file" name="photo" id="photoInput" accept=".jpg,.jpeg,.png,.webp" class="file-pick-input" />
-                    </label>
-                    <button type="submit" class="btn btn-primary btn-sm">Update photo</button>
-                </form>
             </div>
         </div>
 

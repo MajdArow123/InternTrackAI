@@ -99,11 +99,32 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
                 if (opts.onAfterAdd) opts.onAfterAdd();
             }
 
+            // Replace the whole list without posting (the server already persisted it).
+            function set(list) {
+                values = Array.isArray(list) ? [...list] : [];
+                render();
+            }
+
+            // Briefly flash the chips whose labels are in `list` (case-insensitive), e.g. the
+            // ones a resume auto-fill just added, so the user can see what changed.
+            function highlight(list) {
+                const wanted = new Set((list || []).map(v => String(v).trim().toLowerCase()));
+                if (!wanted.size) return;
+                cloud.querySelectorAll('.tag-item').forEach(tag => {
+                    const label = tag.querySelector('.tag-item-label')?.textContent.trim().toLowerCase();
+                    if (!wanted.has(label)) return;
+                    tag.classList.remove('tag-item-new');
+                    void tag.offsetWidth;
+                    tag.classList.add('tag-item-new');
+                    tag.addEventListener('animationend', () => tag.classList.remove('tag-item-new'), { once: true });
+                });
+            }
+
             addBtn.addEventListener('click', () => add());
             textEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
 
             render();
-            return { values: () => values, add, render };
+            return { values: () => values, add, render, set, highlight };
         }
 
         function escHtml(s) {
@@ -228,20 +249,15 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
                             return;
                         }
 
-                        let filledSomething = false;
+                        // The server has already merged and saved (add, never remove); mirror its state here.
+                        if (res.fullName && !fullNameInput.value.trim()) fullNameInput.value = res.fullName;
+                        if (Array.isArray(res.skills))      skillsApi.set(res.skills);
+                        if (Array.isArray(res.targetRoles)) rolesApi.set(res.targetRoles);
+                        skillsApi.highlight(res.addedSkills);
+                        rolesApi.highlight(res.addedRoles);
 
-                        if (res.fullName && !fullNameInput.value.trim()) {
-                            fullNameInput.value = res.fullName;
-                            filledSomething = true;
-                        }
-                        (res.skills || []).forEach(s => { skillsApi.add(s); filledSomething = true; });
-                        (res.targetRoles || []).forEach(r => { rolesApi.add(r); filledSomething = true; });
-
-                        if (filledSomething) {
-                            showAppToast('success', 'Profile auto-filled from your resume. Review and click Save Info to keep the name.');
-                        } else {
-                            showAppToast('info', 'No new details found to fill in.');
-                        }
+                        const added = res.nameFilled || res.skillsAdded > 0 || res.rolesAdded > 0;
+                        showAppToast(added ? 'success' : 'info', 'Resume analyzed \u2014 ' + (res.summary || (added ? 'profile updated' : 'nothing new to add')) + '.');
                     })
                     .catch(() => {
                         ['fullNameWrap', 'skillsWrap', 'rolesWrap'].forEach(id => {
@@ -255,6 +271,15 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
                         analyzeError.style.display = 'block';
                     });
             });
+        }
+
+        // After an upload the page reloads; flash the chips the auto-fill just added.
+        const autoFillAdded = document.getElementById('autoFillAdded');
+        if (autoFillAdded) {
+            try {
+                const added = JSON.parse(autoFillAdded.value || '{}');
+                setTimeout(() => { skillsApi.highlight(added.skills); rolesApi.highlight(added.roles); }, 150);
+            } catch (_) { /* malformed payload: nothing to highlight */ }
         }
 
         // Loading state for score button

@@ -168,8 +168,11 @@ public static class AiRateLimiting
         return msg;
     }
 
-    private static bool IsDemoUser(HttpContext http, IConfiguration config) =>
-        IsDemoEmail(http.User.FindFirstValue(ClaimTypes.Email) ?? http.User.Identity?.Name, config);
+    private static bool IsDemoUser(HttpContext http, IConfiguration config) => IsDemoUser(http.User, config);
+
+    /// <summary>True when the signed-in principal is the shared demo account (email claim, else the Identity user name).</summary>
+    public static bool IsDemoUser(ClaimsPrincipal user, IConfiguration config) =>
+        IsDemoEmail(user.FindFirstValue(ClaimTypes.Email) ?? user.Identity?.Name, config);
 
     /// <summary>True when <paramref name="email"/> is the configured shared demo account.</summary>
     public static bool IsDemoEmail(string? email, IConfiguration config)

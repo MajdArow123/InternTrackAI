@@ -10,14 +10,16 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternTrackAI.Controllers;
 
 /// <summary>
 /// Manages the user's career portfolio: personal info, profile photo, skills/target-role tags,
-/// resume version history (upload, activate, delete, download), AI resume
-/// scoring, and the AI resume-match endpoint used by the Job Application create page.
+/// resume version history (upload, activate, delete, download), the resume → profile auto-fill
+/// (automatic after an upload, manual via "Analyze with AI"), AI resume scoring, and the AI
+/// resume-match endpoint used by the Job Application create page.
 /// </summary>
 [Authorize]
 public class ProfileController : Controller
@@ -27,7 +29,8 @@ public class ProfileController : Controller
     private readonly UploadStorage _uploads;
     private readonly ResumeScoreService _scorer;
     private readonly ResumeMatcherService _matcher;
-    private readonly ProfileExtractorService _extractor;
+    private readonly ProfileAutoFillService _autoFill;
+    private readonly AiUsageLimiter _aiLimiter;
     private readonly GitHubService _github;
     private readonly UserClockProvider _clocks;
     private readonly IConfiguration _config;
@@ -39,7 +42,8 @@ public class ProfileController : Controller
         UploadStorage uploads,
         ResumeScoreService scorer,
         ResumeMatcherService matcher,
-        ProfileExtractorService extractor,
+        ProfileAutoFillService autoFill,
+        AiUsageLimiter aiLimiter,
         GitHubService github,
         UserClockProvider clocks,
         IConfiguration config,
@@ -52,7 +56,8 @@ public class ProfileController : Controller
         _uploads = uploads;
         _scorer = scorer;
         _matcher = matcher;
-        _extractor = extractor;
+        _autoFill = autoFill;
+        _aiLimiter = aiLimiter;
         _github = github;
         _logger = logger;
     }
@@ -254,16 +259,15 @@ public class ProfileController : Controller
     // ── POST /Profile/AnalyzeResume (AJAX) ───────────────
 
     /// <summary>
-    /// Extracts text from the user's active resume and asks <see cref="ProfileExtractorService"/>
-    /// to pull out a full name, skills, and likely target roles, so the profile form can be
-    /// auto-filled right after upload instead of the user retyping information already on their resume.
-    /// This only returns the extracted data — saving it is a separate AJAX call from the client
-    /// (the existing SaveInfo/SaveSkills/SaveTargetRoles endpoints) so the user can see and adjust
-    /// the suggestions before they're persisted.
+    /// Manual re-run of the resume → profile auto-fill against the active resume (the same
+    /// <see cref="ProfileAutoFillService"/> that runs automatically after an upload): an empty name
+    /// is filled in, extracted skills and target roles are added when not already present, nothing
+    /// is ever removed. The merge is persisted here; the response carries the profile's values after
+    /// the merge so the page can re-render the chips without a reload.
     /// </summary>
     /// <returns>
-    /// JSON <c>{ success, hasResume, fullName, skills, targetRoles, error }</c>. <c>hasResume</c> is
-    /// false if no active resume exists yet (nothing to analyze).
+    /// JSON <c>{ success, hasResume, fullName, skills, targetRoles, nameFilled, skillsAdded, rolesAdded,
+    /// addedSkills, addedRoles, summary, error }</c>. <c>hasResume</c> is false if no active resume exists yet (nothing to analyze).
     /// </returns>
     [HttpPost, ValidateAntiForgeryToken]
     [EnableRateLimiting(AiRateLimiting.PolicyName)]
@@ -274,34 +278,32 @@ public class ProfileController : Controller
         if (activeResume == null)
             return Json(new { success = false, hasResume = false });
 
-        var filePath = _uploads.Resolve(activeResume.StoredPath);
-        if (!System.IO.File.Exists(filePath))
-            return Json(new { success = false, hasResume = false, error = "Resume file not found. Try uploading it again." });
+        var result = await _autoFill.FillFromResumeAsync(userId, activeResume.StoredPath);
+        if (!result.Success)
+            return Json(new { success = false, hasResume = true, error = result.Error });
 
-        string resumeText;
-        try
+        return Json(new
         {
-            await using var fs = System.IO.File.OpenRead(filePath);
-            resumeText = ResumeMatcherService.ExtractPdfText(fs);
-        }
-        catch
-        {
-            return Json(new { success = false, hasResume = true, error = "Could not read the PDF. Make sure it is a text-based (not scanned) PDF." });
-        }
-
-        if (string.IsNullOrWhiteSpace(resumeText) || resumeText.Length < 50)
-            return Json(new { success = false, hasResume = true, error = "No readable text found in the PDF." });
-
-        var (success, fullName, skills, targetRoles, error) = await _extractor.ExtractAsync(resumeText);
-        if (!success)
-            return Json(new { success = false, hasResume = true, error });
-
-        return Json(new { success = true, hasResume = true, fullName, skills, targetRoles });
+            success     = true,
+            hasResume   = true,
+            fullName    = result.FullName,
+            skills      = result.Skills,
+            targetRoles = result.TargetRoles,
+            nameFilled  = result.NameFilled,
+            skillsAdded = result.SkillsAdded,
+            rolesAdded  = result.RolesAdded,
+            addedSkills = result.AddedSkills,
+            addedRoles  = result.AddedRoles,
+            summary     = result.Summary
+        });
     }
 
     // ── POST /Profile/UploadResume ───────────────────────
 
-    /// <summary>Uploads a new resume PDF as the next version (see <see cref="UploadResumeAsync"/> for validation rules).</summary>
+    /// <summary>
+    /// Uploads a new resume PDF as the next version (see <see cref="UploadResumeAsync"/> for validation
+    /// rules), then auto-fills the profile from it (see <see cref="AutoFillToastAsync"/>).
+    /// </summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> UploadResume(IFormFile? resume)
         => await UploadResumeAsync(resume);
@@ -574,8 +576,8 @@ public class ProfileController : Controller
             Profile       = profile,
             Email         = user?.Email,
             Resumes       = resumes,
-            Skills        = ParseTagJson(profile.SkillsJson),
-            TargetRoles   = ParseTagJson(profile.TargetRolesJson),
+            Skills        = ProfileTags.FromJson(profile.SkillsJson),
+            TargetRoles   = ProfileTags.FromJson(profile.TargetRolesJson),
             TotalApplications = apps.Count,
             StatusCounts  = statusCounts,
             SuccessRate   = successRate,
@@ -633,8 +635,11 @@ public class ProfileController : Controller
 
         var stored = $"{Guid.NewGuid():N}.pdf";
         var fullPath = Path.Combine(dir, stored);
-        await using var fs = System.IO.File.Create(fullPath);
-        await file.CopyToAsync(fs);
+        // Scoped so the stream is flushed and closed before the auto-fill below reads the file back.
+        await using (var fs = System.IO.File.Create(fullPath))
+        {
+            await file.CopyToAsync(fs);
+        }
 
         var relativePath = UploadStorage.MakeStoredPath(subDir, userId, stored);
 
@@ -653,8 +658,53 @@ public class ProfileController : Controller
         });
 
         await _db.SaveChangesAsync();
-        TempData["Success"] = $"{label} v{await _db.ResumeVersions.CountAsync(r => r.UserId == userId)} uploaded.";
+
+        // The file is saved at this point no matter what the auto-fill does.
+        TempData["Toast"] = await AutoFillToastAsync(userId, relativePath);
         return RedirectToAction(nameof(Index));
+    }
+
+    /// <summary>
+    /// Runs the resume → profile auto-fill for a just-uploaded file and turns the outcome into the
+    /// upload toast ("type|message"). The upload has already succeeded, so every branch here still
+    /// reports that: the demo account skips the AI call, a rate-limited or failed extraction says the
+    /// profile wasn't auto-filled and points at "Analyze with AI" for a retry. One permit is taken
+    /// from the user's shared "ai" bucket — the same one the AI endpoints draw from.
+    /// </summary>
+    private async Task<string> AutoFillToastAsync(string userId, string storedPath)
+    {
+        const string uploaded = "Resume uploaded";
+
+        if (AiRateLimiting.IsDemoUser(User, _config))
+            return $"info|{uploaded}. Auto-fill is skipped on the demo account — use Analyze with AI to fill in your profile.";
+
+        using var lease = _aiLimiter.TryAcquire(userId, isDemo: false);
+        if (!lease.IsAcquired)
+        {
+            TimeSpan? retryAfter = lease.TryGetMetadata(MetadataName.RetryAfter, out var ra) ? ra : null;
+            var limitMsg = AiRateLimiting.BuildMessage(_aiLimiter.LimitFor(false), _aiLimiter.WindowMinutes, retryAfter);
+            return $"info|{uploaded}, but your profile wasn't auto-filled: {limitMsg} Use Analyze with AI to retry later.";
+        }
+
+        ProfileAutoFillResult result;
+        try
+        {
+            result = await _autoFill.FillFromResumeAsync(userId, storedPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Resume auto-fill threw for user {UserId}; the upload itself succeeded.", userId);
+            result = ProfileAutoFillResult.Failed("something went wrong while reading it");
+        }
+
+        if (!result.Success)
+            return $"info|{uploaded}, but your profile wasn't auto-filled ({result.Error?.TrimEnd('.')}). Use Analyze with AI to retry.";
+
+        // The page reloads after the redirect; this tells it which chips are new so it can flash them.
+        if (result.SkillsAdded > 0 || result.RolesAdded > 0)
+            TempData["AutoFillAdded"] = JsonSerializer.Serialize(new { skills = result.AddedSkills, roles = result.AddedRoles });
+
+        return $"success|{uploaded} — {result.Summary}";
     }
 
     /// <summary>Re-sequences version numbers to 1..N after a deletion so they stay contiguous (no gaps).</summary>
@@ -679,14 +729,6 @@ public class ProfileController : Controller
 
     /// <summary>Deletes a stored file from disk if it exists; no-ops otherwise.</summary>
     private void DeleteFile(string storedPath) => _uploads.Delete(storedPath);
-
-    /// <summary>Deserializes a JSON string array (skills or target roles), tolerating null/malformed input.</summary>
-    private static List<string> ParseTagJson(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return new();
-        try { return JsonSerializer.Deserialize<List<string>>(json) ?? new(); }
-        catch { return new(); }
-    }
 
     /// <summary>Trims, dedupes, and drops empty entries from a tag list before re-serializing it to JSON for storage.</summary>
     private static string? NormalizeTagJson(string? json)

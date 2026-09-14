@@ -37,7 +37,7 @@ If you'd rather sign in manually:
 - ✍️ **Cover letter generator** — a personalized letter written from the posting, your resume, and your profile; improve it with a one-line instruction, save versions, and download as PDF
 - 🎤 **Interview prep** — technical, behavioral, and company-specific questions with tips, plus AI feedback on your written answers
 - 💵 **Salary insight** — a typical pay range for the role, company, and location while you're filling in the form
-- 📄 **Resume tools** — AI extracts your name, skills, and target roles from your resume, and scores it with strengths and improvements
+- 📄 **Resume tools** — every upload auto-fills your name, skills, and target roles from the resume (adds, never removes; re-run any time with Analyze with AI), and Score my resume rates it with strengths and improvements
 
 **Tracking**
 

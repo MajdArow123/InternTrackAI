@@ -43,6 +43,11 @@
     {
         <div class="match-error-banner mb-3">@TempData["ScoreError"]</div>
     }
+    @if (TempData["AutoFillAdded"] is string autoFillAdded)
+    {
+        @* Skills/roles the upload just auto-filled; profile.js flashes their chips once on load. *@
+        <input type="hidden" id="autoFillAdded" value="@autoFillAdded" />
+    }
 
     <partial name="_IdentityCard" model="Model" />
     @* The resume feeds the AI tools and the auto-filled profile fields below, so it comes first. *@

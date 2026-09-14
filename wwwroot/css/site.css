@@ -1318,6 +1318,16 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
 .tag-cloud > span.tag-item { padding-right: .85em; }
 .tag-item-label { letter-spacing: -.01em; }
 
+/* Chips a resume auto-fill just added: one soft pulse so the user can spot what changed. */
+@keyframes tag-added-flash {
+  0%   { background: var(--accent); color: #fff; transform: scale(1.06); box-shadow: 0 0 0 0 rgba(10,132,255,.45); }
+  60%  { background: var(--accent); color: #fff; transform: scale(1); box-shadow: 0 0 0 8px rgba(10,132,255,0); }
+  100% { background: var(--accent-soft); color: var(--accent-text); transform: scale(1); box-shadow: none; }
+}
+.tag-item-new { animation: tag-added-flash 1.6s var(--ease) both; }
+.tag-item-new button { color: inherit; }
+@media (prefers-reduced-motion: reduce) { .tag-item-new { animation-duration: .01s; } }
+
 .tag-item button {
   background: rgba(10,132,255,.14);
   border: none;

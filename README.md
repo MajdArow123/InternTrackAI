@@ -164,7 +164,7 @@ dotnet user-secrets set "Google:ClientId" "1234567890-abc.apps.googleusercontent
 dotnet user-secrets set "Google:ClientSecret" "GOCSPX-..."
 ```
 
-Then open **Profile → Connected accounts → Connect Gmail**. The background sync runs every `Gmail:SyncIntervalMinutes` (default 30); **Sync now** on the profile runs one immediately and reports what it found.
+Then open **Profile → Connected accounts → Connect Gmail**. Every time the flow starts the app logs the exact `redirect_uri` it sends to Google (`Starting Gmail OAuth flow ... redirect_uri ...`), so a `redirect_uri_mismatch` can be checked against the console entry. Behind Railway the app derives the `https://` origin from the proxy's `X-Forwarded-*` headers; `Google__RedirectBaseUrl` overrides that derivation if you ever need to pin it. The background sync runs every `Gmail:SyncIntervalMinutes` (default 30); **Sync now** on the profile runs one immediately and reports what it found.
 
 **Privacy.** Only the `gmail.readonly` scope is ever requested — the app cannot send, modify, label or delete mail. Email bodies are read once for classification and never stored: a suggestion keeps the subject, sender, date, Gmail message id and the AI's one-sentence summary. OAuth tokens are encrypted at rest with ASP.NET Data Protection, and **Disconnect** revokes the grant with Google before deleting the row. Each AI classification counts against the same per-user AI rate limit as every other AI feature.
 
@@ -196,6 +196,7 @@ To deploy your own copy: create a Railway project, add a PostgreSQL service, att
 | `Admin__Email` | Optional. The one account allowed to call `POST /Admin/ResetDemo` (manual reseed); unset disables the endpoint |
 | `Capture__AnalyzeTimeoutSeconds` | Optional (default `15`). How long the bookmarklet's `/Capture` endpoint waits for the AI analyzer before falling back to manual entry |
 | `Google__ClientId` / `Google__ClientSecret` | Optional. Google OAuth web-client credentials for **Gmail status suggestions**; leave both unset to hide the feature entirely |
+| `Google__RedirectBaseUrl` | Optional. Public origin (e.g. `https://<your-app>.up.railway.app`) used verbatim for the Gmail OAuth `redirect_uri`. Normally unnecessary: the app trusts Railway's `X-Forwarded-Proto`/`X-Forwarded-Host` headers and derives the https origin itself. Set it only if the redirect URI logged at the start of the flow ever differs from the one registered in the Google console |
 | `Gmail__SyncIntervalMinutes` | Optional (default `30`). How often connected Gmail accounts are synced in the background |
 
 (`DATABASE_URL` and `PORT` are injected by Railway automatically.)

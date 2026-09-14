@@ -54,8 +54,21 @@ public class IntegrationsController : Controller
 
     private bool Enabled => GmailIntegration.IsConfigured(_config);
 
-    /// <summary>Absolute redirect URI registered with Google: <c>{scheme}://{host}/Integrations/Gmail/Callback</c>.</summary>
-    private string RedirectUri() => Url.Action(nameof(Callback), "Integrations", null, Request.Scheme, Request.Host.ToUriComponent())!;
+    /// <summary>
+    /// Absolute redirect URI registered with Google: <c>{origin}/Integrations/Gmail/Callback</c>. The origin
+    /// is <c>Google:RedirectBaseUrl</c> when configured; otherwise the request's scheme and host, which the
+    /// forwarded-headers middleware (first in the pipeline, see Program.cs) has already rewritten to the
+    /// public https origin behind Railway's TLS-terminating proxy. The same value must be used for the
+    /// consent redirect and the code exchange or Google rejects the exchange.
+    /// </summary>
+    private string RedirectUri()
+    {
+        var configured = _config["Google:RedirectBaseUrl"];
+        if (!string.IsNullOrWhiteSpace(configured))
+            return configured.TrimEnd('/') + Url.Action(nameof(Callback), "Integrations")!;
+
+        return Url.Action(nameof(Callback), "Integrations", null, Request.Scheme, Request.Host.ToUriComponent())!;
+    }
 
     private IActionResult BackToProfile(string toastType, string message)
     {
@@ -87,7 +100,13 @@ public class IntegrationsController : Controller
             Path     = "/Integrations/Gmail"
         });
 
-        return Redirect(_oauth.BuildAuthorizationUrl(RedirectUri(), nonce));
+        // Logged (no secrets involved) so a redirect_uri_mismatch from Google can be diagnosed from the
+        // Railway logs: the value here must match an Authorized redirect URI on the OAuth client exactly.
+        var redirectUri = RedirectUri();
+        _logger.LogInformation("Starting Gmail OAuth flow for user {UserId} with redirect_uri {RedirectUri} (source: {Source}).",
+            UserId(), redirectUri, string.IsNullOrWhiteSpace(_config["Google:RedirectBaseUrl"]) ? "request" : "Google:RedirectBaseUrl");
+
+        return Redirect(_oauth.BuildAuthorizationUrl(redirectUri, nonce));
     }
 
     // ── GET /Integrations/Gmail/Callback ─────────────────

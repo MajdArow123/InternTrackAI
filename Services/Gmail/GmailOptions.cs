@@ -14,6 +14,15 @@ public class GoogleOptions
     public string? ClientId { get; set; }
     public string? ClientSecret { get; set; }
 
+    /// <summary>
+    /// Optional public origin used verbatim for the OAuth redirect URI, e.g.
+    /// <c>https://interntrackai.up.railway.app</c> (<c>Google__RedirectBaseUrl</c> on Railway). When unset
+    /// the redirect URI is derived from the request's scheme and host, which behind Railway's proxy are
+    /// correct only because the forwarded-headers middleware runs first; set this as a belt-and-braces
+    /// override if the derived value ever disagrees with the URI registered in the Google console.
+    /// </summary>
+    public string? RedirectBaseUrl { get; set; }
+
     public bool IsConfigured => !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
 }
 

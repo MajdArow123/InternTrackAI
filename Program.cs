@@ -165,14 +165,24 @@ using (var scope = app.Services.CreateScope())
 }
 
 // ── Proxy / forwarded headers (Railway terminates TLS at the load balancer) ──
-// Railway's edge proxy terminates HTTPS and forwards plain HTTP to the container,
-// attaching X-Forwarded-* headers describing the original request. Without this,
-// the app would think every request is HTTP and misreport the client IP. This must
-// run before the HTTPS-redirect/HSTS checks below so they see the real scheme.
-app.UseForwardedHeaders(new ForwardedHeadersOptions
+// Railway's edge proxy terminates HTTPS and forwards plain HTTP to the container, attaching
+// X-Forwarded-For / -Proto / -Host describing the original request. This MUST be the first
+// middleware in the pipeline: everything after it (HSTS, auth cookies' Secure flag, Url.Action
+// with Request.Scheme, the Gmail OAuth redirect_uri, password-reset links) reads Request.Scheme
+// and Request.Host, and those are only correct once the forwarded values have been applied.
+//
+// KnownNetworks/KnownProxies are cleared on purpose. The defaults trust loopback only, and
+// Railway's proxy connects from a private-network address, so with the defaults every
+// X-Forwarded-* header was silently ignored and the app kept believing it was on http://.
+// The container is only reachable through Railway's proxy, so trusting whichever hop sent the
+// request is safe here; the proxy overwrites client-supplied X-Forwarded-* headers.
+var forwardedHeaders = new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
-});
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+};
+forwardedHeaders.KnownNetworks.Clear();
+forwardedHeaders.KnownProxies.Clear();
+app.UseForwardedHeaders(forwardedHeaders);
 
 // ── Request pipeline ────────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())

@@ -12,7 +12,7 @@ namespace InternTrackAI.Tests.Integration;
 
 /// <summary>
 /// Two users share one app instance. Bob owns one of everything (application, note, generated
-/// cover letter, resume version, cover-letter version, prep session). Alice is signed in and
+/// cover letter, resume version, prep session). Alice is signed in and
 /// tries every id-taking action with Bob's ids: each must answer 404 and leave Bob's data intact.
 /// </summary>
 public class OwnershipFixture : TestAppFactory, IAsyncLifetime
@@ -20,7 +20,7 @@ public class OwnershipFixture : TestAppFactory, IAsyncLifetime
     public HttpClient Alice { get; private set; } = null!;
     public string AliceToken { get; private set; } = "";
     public string BobId { get; private set; } = "";
-    public int BobAppId, BobNoteId, BobLetterId, BobResumeId, BobCoverLetterVersionId, BobPrepId;
+    public int BobAppId, BobNoteId, BobLetterId, BobResumeId, BobPrepId;
 
     public async Task InitializeAsync()
     {
@@ -46,11 +46,10 @@ public class OwnershipFixture : TestAppFactory, IAsyncLifetime
         var note   = new ApplicationNote { UserId = BobId, JobApplicationId = app.Id, Text = "Bob's private note" };
         var letter = new GeneratedCoverLetter { UserId = BobId, JobApplicationId = app.Id, Content = "Bob's letter", CompanyName = "Bob Corp", RoleTitle = "Bob Role", IsActive = true, VersionNumber = 1 };
         var resume = new ResumeVersion { UserId = BobId, VersionNumber = 1, OriginalFileName = "bob.pdf", StoredPath = $"resumes/{BobId}/bob.pdf", IsActive = true };
-        var clv    = new CoverLetterVersion { UserId = BobId, VersionNumber = 1, OriginalFileName = "bob-cl.pdf", StoredPath = $"coverletters/{BobId}/bob-cl.pdf", IsActive = true };
         var prep   = new InterviewPrepSession { UserId = BobId, JobApplicationId = app.Id, QuestionsJson = "[]" };
-        db.AddRange(note, letter, resume, clv, prep);
+        db.AddRange(note, letter, resume, prep);
         await db.SaveChangesAsync();
-        BobNoteId = note.Id; BobLetterId = letter.Id; BobResumeId = resume.Id; BobCoverLetterVersionId = clv.Id; BobPrepId = prep.Id;
+        BobNoteId = note.Id; BobLetterId = letter.Id; BobResumeId = resume.Id; BobPrepId = prep.Id;
     }
 
     public new Task DisposeAsync() { Dispose(); return Task.CompletedTask; }
@@ -185,7 +184,6 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
 
     // ── Profile documents ──
     [Fact] public async Task Profile_DownloadResume_GET()      => await Assert404(await _f.Alice.GetAsync($"/Profile/DownloadResume/{_f.BobResumeId}"));
-    [Fact] public async Task Profile_DownloadCoverLetter_GET() => await Assert404(await _f.Alice.GetAsync($"/Profile/DownloadCoverLetter/{_f.BobCoverLetterVersionId}"));
 
     [Fact]
     public async Task Profile_SetActiveResume_POST()
@@ -195,23 +193,9 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
     }
 
     [Fact]
-    public async Task Profile_SetActiveCoverLetter_POST()
-    {
-        await Assert404(await _f.Alice.PostAsync("/Profile/SetActiveCoverLetter", _f.Form(("id", _f.BobCoverLetterVersionId.ToString()))));
-        await AssertBobDocsUntouched();
-    }
-
-    [Fact]
     public async Task Profile_DeleteResume_POST()
     {
         await Assert404(await _f.Alice.PostAsync("/Profile/DeleteResume", _f.Form(("id", _f.BobResumeId.ToString()))));
-        await AssertBobDocsUntouched();
-    }
-
-    [Fact]
-    public async Task Profile_DeleteCoverLetter_POST()
-    {
-        await Assert404(await _f.Alice.PostAsync("/Profile/DeleteCoverLetter", _f.Form(("id", _f.BobCoverLetterVersionId.ToString()))));
         await AssertBobDocsUntouched();
     }
 
@@ -233,6 +217,5 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
         using var scope = _f.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Assert.True((await db.ResumeVersions.AsNoTracking().SingleAsync(r => r.Id == _f.BobResumeId)).IsActive);
-        Assert.True((await db.CoverLetterVersions.AsNoTracking().SingleAsync(c => c.Id == _f.BobCoverLetterVersionId)).IsActive);
     }
 }

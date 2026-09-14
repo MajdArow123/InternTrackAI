@@ -1,7 +1,7 @@
 namespace InternTrackAI.Services;
 
 /// <summary>
-/// Single source of truth for where user-uploaded files (profile photos, resumes, cover letters)
+/// Single source of truth for where user-uploaded files (profile photos and resumes)
 /// live on disk. The root directory comes from the <c>UPLOADS_PATH</c> setting (environment
 /// variable or appsettings key); when unset it falls back to <c>uploads/</c> under the content
 /// root, which matches the pre-existing local layout. In production, point <c>UPLOADS_PATH</c>
@@ -11,7 +11,6 @@ namespace InternTrackAI.Services;
 /// <code>
 ///   photos/{userId}.{ext}             — served publicly at /uploads/photos/... (see Program.cs)
 ///   resumes/{userId}/{guid}.pdf       — private; only served through ProfileController after an ownership check
-///   coverletters/{userId}/{guid}.pdf  — private; same as resumes
 /// </code>
 /// </summary>
 public class UploadStorage

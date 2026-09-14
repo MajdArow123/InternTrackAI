@@ -16,7 +16,7 @@ namespace InternTrackAI.Controllers;
 
 /// <summary>
 /// Manages the user's career portfolio: personal info, profile photo, skills/target-role tags,
-/// resume and cover letter version history (upload, activate, delete, download), AI resume
+/// resume version history (upload, activate, delete, download), AI resume
 /// scoring, and the AI resume-match endpoint used by the Job Application create page.
 /// </summary>
 [Authorize]
@@ -302,17 +302,10 @@ public class ProfileController : Controller
 
     // ── POST /Profile/UploadResume ───────────────────────
 
-    /// <summary>Uploads a new resume PDF as the next version (see <see cref="UploadDocumentAsync"/> for validation rules).</summary>
+    /// <summary>Uploads a new resume PDF as the next version (see <see cref="UploadResumeAsync"/> for validation rules).</summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> UploadResume(IFormFile? resume)
-        => await UploadDocumentAsync(resume, isResume: true);
-
-    // ── POST /Profile/UploadCoverLetter ──────────────────
-
-    /// <summary>Uploads a new cover letter PDF as the next version (see <see cref="UploadDocumentAsync"/> for validation rules).</summary>
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> UploadCoverLetter(IFormFile? coverLetter)
-        => await UploadDocumentAsync(coverLetter, isResume: false);
+        => await UploadResumeAsync(resume);
 
     // ── POST /Profile/SetActiveResume ────────────────────
 
@@ -326,21 +319,6 @@ public class ProfileController : Controller
         foreach (var v in versions) v.IsActive = v.Id == id;
         await _db.SaveChangesAsync();
         TempData["Success"] = "Active resume updated.";
-        return RedirectToAction(nameof(Index));
-    }
-
-    // ── POST /Profile/SetActiveCoverLetter ───────────────
-
-    /// <summary>Marks one cover letter version as active and unmarks all others for this user.</summary>
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetActiveCoverLetter(int id)
-    {
-        var userId = UserId();
-        var versions = await _db.CoverLetterVersions.Where(c => c.UserId == userId).ToListAsync();
-        if (!versions.Any(v => v.Id == id)) return NotFound();
-        foreach (var v in versions) v.IsActive = v.Id == id;
-        await _db.SaveChangesAsync();
-        TempData["Success"] = "Active cover letter updated.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -381,26 +359,8 @@ public class ProfileController : Controller
         _db.ResumeVersions.Remove(resume);
         await _db.SaveChangesAsync();
         // Renumber remaining versions
-        await RenumberVersionsAsync(userId, isResume: true);
+        await RenumberVersionsAsync(userId);
         TempData["Success"] = "Resume deleted.";
-        return RedirectToAction(nameof(Index));
-    }
-
-    // ── POST /Profile/DeleteCoverLetter ──────────────────
-
-    /// <summary>Deletes a cover letter version (file + DB row) and renumbers the remaining versions so they stay contiguous.</summary>
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> DeleteCoverLetter(int id)
-    {
-        var userId = UserId();
-        var cl = await _db.CoverLetterVersions.FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
-        if (cl == null) return NotFound();
-
-        DeleteFile(cl.StoredPath);
-        _db.CoverLetterVersions.Remove(cl);
-        await _db.SaveChangesAsync();
-        await RenumberVersionsAsync(userId, isResume: false);
-        TempData["Success"] = "Cover letter deleted.";
         return RedirectToAction(nameof(Index));
     }
 
@@ -415,19 +375,6 @@ public class ProfileController : Controller
         var resume = await _db.ResumeVersions.FirstOrDefaultAsync(r => r.Id == id && r.UserId == userId);
         if (resume == null) return NotFound();
         return ServeFile(resume.StoredPath, resume.OriginalFileName);
-    }
-
-    // ── GET /Profile/DownloadCoverLetter/{id} ────────────
-
-    /// <summary>Streams a cover letter PDF version back to the browser under its original filename.</summary>
-    /// <returns>The PDF file, or 404 if it doesn't exist or isn't owned by the current user.</returns>
-    [HttpGet]
-    public async Task<IActionResult> DownloadCoverLetter(int id)
-    {
-        var userId = UserId();
-        var cl = await _db.CoverLetterVersions.FirstOrDefaultAsync(c => c.Id == id && c.UserId == userId);
-        if (cl == null) return NotFound();
-        return ServeFile(cl.StoredPath, cl.OriginalFileName);
     }
 
     // ── POST /Profile/ScoreResume ────────────────────────
@@ -580,11 +527,6 @@ public class ProfileController : Controller
             .OrderByDescending(r => r.VersionNumber)
             .ToListAsync();
 
-        var coverLetters = await _db.CoverLetterVersions
-            .Where(c => c.UserId == userId)
-            .OrderByDescending(c => c.VersionNumber)
-            .ToListAsync();
-
         var apps = await _db.JobApplications
             .Where(a => a.UserId == userId)
             .ToListAsync();
@@ -633,7 +575,6 @@ public class ProfileController : Controller
             Profile       = profile,
             Email         = user?.Email,
             Resumes       = resumes,
-            CoverLetters  = coverLetters,
             Skills        = ParseTagJson(profile.SkillsJson),
             TargetRoles   = ParseTagJson(profile.TargetRolesJson),
             TotalApplications = apps.Count,
@@ -648,14 +589,14 @@ public class ProfileController : Controller
     }
 
     /// <summary>
-    /// Shared upload pipeline for both resumes and cover letters: validates extension, size, and
-    /// PDF magic bytes (rejects files merely renamed to .pdf), stores the file under a per-user
-    /// directory with a random filename (avoids collisions and leaking the original name on disk),
-    /// and records it as the next version number. The first version uploaded is auto-activated.
+    /// Resume upload pipeline: validates extension, size, and PDF magic bytes (rejects files
+    /// merely renamed to .pdf), stores the file under a per-user directory with a random filename
+    /// (avoids collisions and leaking the original name on disk), and records it as the next
+    /// version number. The first version uploaded is auto-activated.
     /// </summary>
-    private async Task<IActionResult> UploadDocumentAsync(IFormFile? file, bool isResume)
+    private async Task<IActionResult> UploadResumeAsync(IFormFile? file)
     {
-        var label = isResume ? "Resume" : "Cover letter";
+        const string label = "Resume";
 
         if (file == null || file.Length == 0)
         {
@@ -688,7 +629,7 @@ public class ProfileController : Controller
         }
 
         var userId = UserId();
-        var subDir = isResume ? "resumes" : "coverletters";
+        const string subDir = "resumes";
         var dir = _uploads.GetUserDirectory(subDir, userId);
 
         var stored = $"{Guid.NewGuid():N}.pdf";
@@ -700,53 +641,28 @@ public class ProfileController : Controller
 
         var safeOriginalName = SanitizeFileName(file.FileName);
 
-        if (isResume)
+        int nextVersion = (await _db.ResumeVersions.Where(r => r.UserId == userId).MaxAsync(r => (int?)r.VersionNumber) ?? 0) + 1;
+        bool firstOne = nextVersion == 1;
+        _db.ResumeVersions.Add(new ResumeVersion
         {
-            int nextVersion = (await _db.ResumeVersions.Where(r => r.UserId == userId).MaxAsync(r => (int?)r.VersionNumber) ?? 0) + 1;
-            bool firstOne = nextVersion == 1;
-            _db.ResumeVersions.Add(new ResumeVersion
-            {
-                UserId           = userId,
-                VersionNumber    = nextVersion,
-                OriginalFileName = safeOriginalName,
-                StoredPath       = relativePath,
-                FileSize         = file.Length,
-                IsActive         = firstOne
-            });
-        }
-        else
-        {
-            int nextVersion = (await _db.CoverLetterVersions.Where(c => c.UserId == userId).MaxAsync(c => (int?)c.VersionNumber) ?? 0) + 1;
-            bool firstOne = nextVersion == 1;
-            _db.CoverLetterVersions.Add(new CoverLetterVersion
-            {
-                UserId           = userId,
-                VersionNumber    = nextVersion,
-                OriginalFileName = safeOriginalName,
-                StoredPath       = relativePath,
-                FileSize         = file.Length,
-                IsActive         = firstOne
-            });
-        }
+            UserId           = userId,
+            VersionNumber    = nextVersion,
+            OriginalFileName = safeOriginalName,
+            StoredPath       = relativePath,
+            FileSize         = file.Length,
+            IsActive         = firstOne
+        });
 
         await _db.SaveChangesAsync();
-        TempData["Success"] = $"{label} v{(isResume ? await _db.ResumeVersions.CountAsync(r => r.UserId == userId) : await _db.CoverLetterVersions.CountAsync(c => c.UserId == userId))} uploaded.";
+        TempData["Success"] = $"{label} v{await _db.ResumeVersions.CountAsync(r => r.UserId == userId)} uploaded.";
         return RedirectToAction(nameof(Index));
     }
 
     /// <summary>Re-sequences version numbers to 1..N after a deletion so they stay contiguous (no gaps).</summary>
-    private async Task RenumberVersionsAsync(string userId, bool isResume)
+    private async Task RenumberVersionsAsync(string userId)
     {
-        if (isResume)
-        {
-            var versions = await _db.ResumeVersions.Where(r => r.UserId == userId).OrderBy(r => r.Id).ToListAsync();
-            for (int i = 0; i < versions.Count; i++) versions[i].VersionNumber = i + 1;
-        }
-        else
-        {
-            var versions = await _db.CoverLetterVersions.Where(c => c.UserId == userId).OrderBy(c => c.Id).ToListAsync();
-            for (int i = 0; i < versions.Count; i++) versions[i].VersionNumber = i + 1;
-        }
+        var versions = await _db.ResumeVersions.Where(r => r.UserId == userId).OrderBy(r => r.Id).ToListAsync();
+        for (int i = 0; i < versions.Count; i++) versions[i].VersionNumber = i + 1;
         await _db.SaveChangesAsync();
     }
 

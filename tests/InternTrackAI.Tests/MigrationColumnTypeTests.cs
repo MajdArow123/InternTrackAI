@@ -74,11 +74,20 @@ public class MigrationColumnTypeTests
                     types[$"{m.Groups["table"].Value}.{m.Groups["col"].Value}"] = m.Groups["type"].Value.Trim();
                 foreach (Match m in AlterType.Matches(sql))
                     types[$"{m.Groups["table"].Value}.{m.Groups["col"].Value}"] = m.Groups["type"].Value.Trim();
+                // A column or table a later migration removes (e.g. RemoveUploadedCoverLetters) no longer
+                // exists in production, so stop tracking it rather than reporting it as missing.
                 foreach (Match m in DropColumn.Matches(sql))
+                {
                     types.Remove($"{m.Groups["table"].Value}.{m.Groups["col"].Value}");
+                    dateColumns.Remove($"{m.Groups["table"].Value}.{m.Groups["col"].Value}");
+                }
                 foreach (Match m in DropTable.Matches(sql))
-                    foreach (var key in types.Keys.Where(k => k.StartsWith(m.Groups["table"].Value + ".", StringComparison.OrdinalIgnoreCase)).ToList())
+                {
+                    var prefix = m.Groups["table"].Value + ".";
+                    foreach (var key in types.Keys.Where(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)).ToList())
                         types.Remove(key);
+                    dateColumns.RemoveWhere(k => k.StartsWith(prefix, StringComparison.OrdinalIgnoreCase));
+                }
             }
         }
 

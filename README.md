@@ -56,7 +56,7 @@ If you'd rather sign in manually:
 
 **Profile and account**
 
-- 👤 **Profile** — photo, basic info, skill and target-role chips, versioned resumes and cover letters with an active version, and your public GitHub repos
+- 👤 **Profile** — photo, basic info, skill and target-role chips, versioned resumes with an active version, and your public GitHub repos
 - 🌗 **Dark / light mode** — Apple-style design system with soft surfaces, pill buttons, and a frosted navbar; the toggle persists across sessions
 - ⌨️ **Keyboard shortcuts** — press `?` anywhere for the list
 - 🔐 **Account management** — register, sign in, forgot/reset password, display name, and change password via ASP.NET Core Identity
@@ -172,7 +172,7 @@ Then open **Profile → Connected accounts → Connect Gmail**. Every time the f
 The live instance runs on [Railway](https://railway.app), built directly from the `Dockerfile` in this repo:
 
 - **Database** — Railway-managed PostgreSQL. `Program.cs` detects the `DATABASE_URL` environment variable Railway injects and switches the EF Core provider from SQLite to Npgsql automatically.
-- **Persistent storage** — uploaded resumes, cover letters, and profile photos are written to the directory named by `UPLOADS_PATH`, which points at a mounted Railway volume so files survive redeploys. Resumes and cover letters are never served as static files; only profile photos are public.
+- **Persistent storage** — uploaded resumes and profile photos are written to the directory named by `UPLOADS_PATH`, which points at a mounted Railway volume so files survive redeploys. Resumes are never served as static files; only profile photos are public.
 - **Data Protection keys** — persisted to the database so antiforgery tokens and cookies stay valid across container restarts.
 - **Migrations** — applied automatically on startup, so deploying a new migration is just a `git push`.
 - **Health check** — `GET /health` returns `{"status":"Healthy"}` (HTTP 200) when the database answers and 503 otherwise. `railway.toml` already sets `healthcheckPath = "/health"`; if you configure the service by hand, set **Settings → Deploy → Healthcheck Path** to `/health`.

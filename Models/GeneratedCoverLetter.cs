@@ -5,7 +5,7 @@ namespace InternTrackAI.Models;
 
 /// <summary>
 /// An AI-generated cover letter saved by the user, with version history per
-/// (user, job application) pair similar to <see cref="ResumeVersion"/>/<see cref="CoverLetterVersion"/>.
+/// (user, job application) pair similar to <see cref="ResumeVersion"/>.
 /// </summary>
 public class GeneratedCoverLetter
 {

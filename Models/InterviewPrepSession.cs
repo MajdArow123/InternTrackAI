@@ -6,7 +6,7 @@ namespace InternTrackAI.Models;
 /// <summary>
 /// Stores the most recent AI-generated interview prep results for one job application.
 /// One session per application — regenerating overwrites the previous result rather than
-/// creating a new version (unlike resumes/cover letters, which keep full history).
+/// creating a new version (unlike resumes and generated cover letters, which keep full history).
 /// </summary>
 public class InterviewPrepSession
 {

@@ -225,7 +225,7 @@ app.UseSerilogRequestLogging(options =>
 
 // Serve profile photos from the uploads root (which may be a mounted volume outside wwwroot)
 // at the same /uploads/photos/... URL the views already use. Only the photos subfolder is
-// exposed — resumes and cover letters stay private and go through ProfileController.
+// exposed — resumes stay private and go through ProfileController.
 var uploads = app.Services.GetRequiredService<UploadStorage>();
 app.UseStaticFiles(new StaticFileOptions
 {

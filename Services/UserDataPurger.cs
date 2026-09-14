@@ -5,7 +5,7 @@ namespace InternTrackAI.Services;
 
 /// <summary>
 /// Deletes everything the app stores for a user: applications, notes, generated cover letters,
-/// interview prep sessions, uploaded resume/cover-letter versions (rows and files), and optionally
+/// interview prep sessions, uploaded resume versions (rows and files), and optionally
 /// the profile row and photo. The Identity user row itself is left alone so callers decide whether
 /// to delete the account (account deletion) or keep it (demo reset).
 /// </summary>
@@ -25,7 +25,7 @@ public class UserDataPurger
     /// <param name="userId">Identity user id whose data is removed.</param>
     /// <param name="keepProfile">When true the <c>UserProfile</c> row and photo survive (demo reset).</param>
     /// <param name="keepActiveDocuments">
-    /// When true the currently active resume and active uploaded cover letter (row + file) survive;
+    /// When true the currently active resume (row + file) survives;
     /// all other versions are removed. Used by the demo reset so the sample resume stays in place.
     /// </param>
     public async Task PurgeAsync(string userId, bool keepProfile = false, bool keepActiveDocuments = false)
@@ -38,18 +38,12 @@ public class UserDataPurger
         await _db.JobApplications.Where(a => a.UserId == userId).ExecuteDeleteAsync();
 
         var resumes = await _db.ResumeVersions.Where(r => r.UserId == userId).ToListAsync();
-        var letters = await _db.CoverLetterVersions.Where(c => c.UserId == userId).ToListAsync();
 
         if (keepActiveDocuments)
-        {
             resumes = resumes.Where(r => !r.IsActive).ToList();
-            letters = letters.Where(c => !c.IsActive).ToList();
-        }
 
         foreach (var r in resumes) TryDeleteFile(r.StoredPath);
-        foreach (var c in letters) TryDeleteFile(c.StoredPath);
         _db.ResumeVersions.RemoveRange(resumes);
-        _db.CoverLetterVersions.RemoveRange(letters);
 
         if (!keepProfile)
         {
@@ -67,13 +61,10 @@ public class UserDataPurger
 
         await _db.SaveChangesAsync();
 
-        // Once the last version is gone the per-user folders are empty; remove them so the
+        // Once the last version is gone the per-user folder is empty; remove it so the
         // uploads volume doesn't accumulate one empty directory per deleted account.
         if (!keepActiveDocuments)
-        {
             TryDeleteDirectory(Path.Combine(_uploads.Root, "resumes", userId));
-            TryDeleteDirectory(Path.Combine(_uploads.Root, "coverletters", userId));
-        }
     }
 
     private void TryDeleteFile(string path, bool absolute = false)

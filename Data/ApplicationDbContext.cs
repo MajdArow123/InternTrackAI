@@ -16,7 +16,6 @@ public class ApplicationDbContext : IdentityDbContext, IDataProtectionKeyContext
     public DbSet<JobApplication> JobApplications { get; set; }
     public DbSet<UserProfile> UserProfiles { get; set; }
     public DbSet<ResumeVersion> ResumeVersions { get; set; }
-    public DbSet<CoverLetterVersion> CoverLetterVersions { get; set; }
     public DbSet<GeneratedCoverLetter> GeneratedCoverLetters { get; set; }
     public DbSet<InterviewPrepSession> InterviewPrepSessions { get; set; }
     public DbSet<ApplicationNote> ApplicationNotes { get; set; }

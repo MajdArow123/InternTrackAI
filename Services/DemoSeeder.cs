@@ -15,9 +15,9 @@ public sealed record DemoResetResult(bool UserFound, string? Email, int Applicat
 
 /// <summary>
 /// Wipes the shared demo account back to a known, realistic state: every application, note,
-/// generated cover letter, interview prep session, and any resume/cover-letter versions visitors
-/// uploaded are removed (the <em>active</em> resume and cover letter, plus the profile itself, are
-/// kept so the sample resume keeps powering match scores), then a fixed set of 15 applications
+/// generated cover letter, interview prep session, and any resume versions visitors uploaded
+/// are removed (the <em>active</em> resume and the profile itself are kept so the sample resume
+/// keeps powering match scores), then a fixed set of 15 applications
 /// spanning every status, match tier, and Attention category (overdue, deadline soon, follow-up
 /// due, upcoming interview) is recreated along with a few notes and one saved letter. Two resume
 /// versions are guaranteed ("Backend focus", the active one, and "General") and the applications

@@ -219,7 +219,8 @@ public class JobApplicationsController : Controller
     /// overwritten with the authenticated user's id (so a client can't submit on another user's
     /// behalf), then removed from <see cref="ModelState"/> so it doesn't fail required-field validation.
     /// Unless <paramref name="forceCreate"/> is set, a matching company+role pair for this user
-    /// re-renders the form with a duplicate warning instead of saving.
+    /// (compared trimmed and case-insensitively, see <see cref="IsDuplicateAsync"/>) re-renders the
+    /// form with a duplicate warning instead of saving.
     /// </summary>
     /// <param name="jobApplication">Form-bound application fields, including any AI-analyzer hidden inputs (match score/skills/summary).</param>
     /// <param name="forceCreate">When true, bypasses the duplicate-application check (set by the "Save Anyway" button).</param>
@@ -237,18 +238,11 @@ public class JobApplicationsController : Controller
         if (!ModelState.IsValid)
             return View(jobApplication);
 
-        if (!forceCreate)
+        TrimNames(jobApplication);
+        if (!forceCreate && await IsDuplicateAsync(uid, jobApplication))
         {
-            var isDuplicate = await _context.JobApplications.AnyAsync(a =>
-                a.UserId == uid &&
-                a.CompanyName == jobApplication.CompanyName &&
-                a.RoleTitle   == jobApplication.RoleTitle);
-
-            if (isDuplicate)
-            {
-                ViewBag.DuplicateWarning = true;
-                return View(jobApplication);
-            }
+            ViewBag.DuplicateWarning = true;
+            return View(jobApplication);
         }
 
         FormToUtc(jobApplication, await _clocks.GetAsync());
@@ -273,13 +267,16 @@ public class JobApplicationsController : Controller
     /// <summary>
     /// Persists edits to an existing application. Re-stamps <c>UserId</c> from the authenticated
     /// user (same rationale as Create) and handles the case where the row was deleted concurrently.
+    /// Renaming an application onto another one's company+role (trimmed, case-insensitive) shows
+    /// the same duplicate warning as Create unless <paramref name="forceSave"/> is set.
     /// </summary>
     /// <param name="id">Route id; must match <paramref name="jobApplication"/>'s id or the request is rejected.</param>
     /// <param name="jobApplication">Form-bound updated fields.</param>
+    /// <param name="forceSave">When true, bypasses the duplicate check (set by the "Save Anyway" button).</param>
     /// <returns>Redirect to Index on success; 400 on id mismatch; 404 if the row no longer exists; otherwise re-renders Edit.</returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Edit(int id, JobApplication jobApplication)
+    public async Task<IActionResult> Edit(int id, JobApplication jobApplication, bool forceSave = false)
     {
         if (id != jobApplication.Id) return BadRequest();
 
@@ -295,6 +292,13 @@ public class JobApplicationsController : Controller
 
         if (!ModelState.IsValid)
             return View(jobApplication);
+
+        TrimNames(jobApplication);
+        if (!forceSave && await IsDuplicateAsync(uid, jobApplication, excludeId: id))
+        {
+            ViewBag.DuplicateWarning = true;
+            return View(jobApplication);
+        }
 
         FormToUtc(jobApplication, await _clocks.GetAsync());
         try
@@ -356,6 +360,29 @@ public class JobApplicationsController : Controller
     }
 
     /// <summary>Loads an application only if it belongs to the signed-in user; null otherwise.</summary>
+    /// <summary>
+    /// True when the user already tracks another application with the same company and role.
+    /// Both sides are compared trimmed and case-insensitively (SQL <c>lower(trim(...))</c> on either
+    /// provider), so " stripe " / "Stripe" and "intern" / "Intern" count as the same pair.
+    /// </summary>
+    private async Task<bool> IsDuplicateAsync(string uid, JobApplication app, int? excludeId = null)
+    {
+        var company = app.CompanyName.Trim().ToLowerInvariant();
+        var role    = app.RoleTitle.Trim().ToLowerInvariant();
+        return await _context.JobApplications.AnyAsync(a =>
+            a.UserId == uid &&
+            (excludeId == null || a.Id != excludeId) &&
+            a.CompanyName.Trim().ToLower() == company &&
+            a.RoleTitle.Trim().ToLower()   == role);
+    }
+
+    /// <summary>Stores company and role without surrounding whitespace so lists, filters, and the duplicate check line up.</summary>
+    private static void TrimNames(JobApplication app)
+    {
+        app.CompanyName = app.CompanyName.Trim();
+        app.RoleTitle   = app.RoleTitle.Trim();
+    }
+
     private Task<JobApplication?> FindOwnedAsync(int id)
     {
         var uid = UserId();

@@ -1,11 +1,7 @@
-// Add Application page: the "Save anyway" duplicate override, the AI Job Analyzer panel
-// (analyze → autofill → resume auto-match), loaded from Views/JobApplications/Create.cshtml.
+// Add Application page: the AI Job Analyzer panel (analyze → autofill → resume auto-match),
+// loaded from Views/JobApplications/Create.cshtml. The duplicate "Save anyway" button lives in
+// duplicate-warning.js (shared with Edit).
 (function () {
-    document.getElementById('saveAnywayBtn')?.addEventListener('click', function () {
-        document.getElementById('forceCreate').value = 'true';
-        document.getElementById('appForm').submit();
-    });
-
     // AI Job Analyzer panel: lets the user paste a job posting (URL or full text),
     // sends it to the backend for extraction, auto-fills the form, and then
     // kicks off a resume match against the user's active resume.

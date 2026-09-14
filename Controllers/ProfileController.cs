@@ -221,39 +221,44 @@ public class ProfileController : Controller
     // ── POST /Profile/SaveSkills ─────────────────────────
 
     /// <summary>
-    /// Auto-saves the tag-based skills list via AJAX, deduplicated and JSON-encoded into
+    /// Auto-saves the tag-based skills list via AJAX, deduplicated (case-insensitive, whitespace
+    /// normalised, first-seen casing kept — see <see cref="ProfileTags"/>) and JSON-encoded into
     /// <c>UserProfile.SkillsJson</c>. Called immediately whenever a skill tag is added or removed
-    /// on the Profile page, so there's no separate "Save" button or page reload.
+    /// on the Profile page, so there's no separate "Save" button or page reload. A stale client or
+    /// direct API call can't sneak a duplicate in, and previously stored duplicates collapse here.
     /// </summary>
     /// <param name="skillsJson">A JSON array of skill strings from the tag input widget.</param>
-    /// <returns>JSON <c>{ success: true }</c> on save.</returns>
+    /// <returns>JSON <c>{ success: true, skills }</c> — <c>skills</c> is the normalised list as stored.</returns>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveSkills(string? skillsJson)
     {
         var userId = UserId();
         var profile = await GetOrCreateProfileAsync(userId);
-        profile.SkillsJson = NormalizeTagJson(skillsJson);
+        var skills = ProfileTags.Dedupe(ProfileTags.FromJson(skillsJson));
+        profile.SkillsJson = ProfileTags.ToJson(skills);
         await _db.SaveChangesAsync();
-        return Json(new { success = true });
+        return Json(new { success = true, skills });
     }
 
     // ── POST /Profile/SaveTargetRoles ────────────────────
 
     /// <summary>
-    /// Auto-saves the tag-based target-roles list via AJAX, deduplicated and JSON-encoded into
-    /// <c>UserProfile.TargetRolesJson</c>. Called immediately whenever a role tag is added or
-    /// removed on the Profile page (including from the searchable role combobox).
+    /// Auto-saves the tag-based target-roles list via AJAX, deduplicated the same way as
+    /// <see cref="SaveSkills"/> and JSON-encoded into <c>UserProfile.TargetRolesJson</c>. Called
+    /// immediately whenever a role tag is added or removed on the Profile page (including from the
+    /// searchable role combobox).
     /// </summary>
     /// <param name="targetRolesJson">A JSON array of role-name strings from the tag input widget.</param>
-    /// <returns>JSON <c>{ success: true }</c> on save.</returns>
+    /// <returns>JSON <c>{ success: true, targetRoles }</c> — <c>targetRoles</c> is the normalised list as stored.</returns>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> SaveTargetRoles(string? targetRolesJson)
     {
         var userId = UserId();
         var profile = await GetOrCreateProfileAsync(userId);
-        profile.TargetRolesJson = NormalizeTagJson(targetRolesJson);
+        var targetRoles = ProfileTags.Dedupe(ProfileTags.FromJson(targetRolesJson));
+        profile.TargetRolesJson = ProfileTags.ToJson(targetRoles);
         await _db.SaveChangesAsync();
-        return Json(new { success = true });
+        return Json(new { success = true, targetRoles });
     }
 
     // ── POST /Profile/AnalyzeResume (AJAX) ───────────────
@@ -729,19 +734,6 @@ public class ProfileController : Controller
 
     /// <summary>Deletes a stored file from disk if it exists; no-ops otherwise.</summary>
     private void DeleteFile(string storedPath) => _uploads.Delete(storedPath);
-
-    /// <summary>Trims, dedupes, and drops empty entries from a tag list before re-serializing it to JSON for storage.</summary>
-    private static string? NormalizeTagJson(string? json)
-    {
-        if (string.IsNullOrWhiteSpace(json)) return null;
-        try
-        {
-            var list = JsonSerializer.Deserialize<List<string>>(json);
-            if (list == null || list.Count == 0) return null;
-            return JsonSerializer.Serialize(list.Select(s => s.Trim()).Where(s => s.Length > 0).Distinct().ToList());
-        }
-        catch { return null; }
-    }
 
     /// <summary>Strips path components and characters invalid in filenames, so an uploaded name can't be used for path traversal.</summary>
     private static string SanitizeFileName(string name)

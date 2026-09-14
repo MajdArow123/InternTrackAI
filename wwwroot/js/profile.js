@@ -61,74 +61,17 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
             el.__hideTimer = setTimeout(() => el.classList.remove('show'), 2000);
         }
 
-        // ── Tag input helper ─────────────────────────────
+        // ── Tag inputs: shared TagInput module (wwwroot/js/tag-input.js) ──
         function initTagInput(cloudId, hiddenId, textId, addBtnId, initialValues, opts) {
-            opts = opts || {};
-            const cloud   = document.getElementById(cloudId);
-            const hidden  = document.getElementById(hiddenId);
-            const textEl  = document.getElementById(textId);
-            const addBtn  = document.getElementById(addBtnId);
-            let values    = Array.isArray(initialValues) ? [...initialValues] : [];
-
-            function render() {
-                cloud.innerHTML = '';
-                values.forEach((val, i) => {
-                    const tag = document.createElement('span');
-                    tag.className = 'tag-item';
-                    tag.innerHTML = `<span class="tag-item-label">${escHtml(val)}</span><button type="button" data-i="${i}" aria-label="Remove">&times;</button>`;
-                    cloud.appendChild(tag);
-                });
-                hidden.value = JSON.stringify(values);
-            }
-
-            function persist() {
-                render();
-                if (opts.onChange) opts.onChange(values);
-            }
-
-            cloud.addEventListener('click', e => {
-                const btn = e.target.closest('button[data-i]');
-                if (btn) { values.splice(parseInt(btn.dataset.i), 1); persist(); }
+            return TagInput.create({
+                cloud:     document.getElementById(cloudId),
+                hidden:    document.getElementById(hiddenId),
+                input:     document.getElementById(textId),
+                addButton: document.getElementById(addBtnId),
+                values:    initialValues,
+                onChange:  opts && opts.onChange,
+                onAfterAdd: opts && opts.onAfterAdd
             });
-
-            function add(value) {
-                const v = (value !== undefined ? value : textEl.value).trim();
-                if (v && !values.includes(v)) { values.push(v); persist(); }
-                textEl.value = '';
-                textEl.focus();
-                if (opts.onAfterAdd) opts.onAfterAdd();
-            }
-
-            // Replace the whole list without posting (the server already persisted it).
-            function set(list) {
-                values = Array.isArray(list) ? [...list] : [];
-                render();
-            }
-
-            // Briefly flash the chips whose labels are in `list` (case-insensitive), e.g. the
-            // ones a resume auto-fill just added, so the user can see what changed.
-            function highlight(list) {
-                const wanted = new Set((list || []).map(v => String(v).trim().toLowerCase()));
-                if (!wanted.size) return;
-                cloud.querySelectorAll('.tag-item').forEach(tag => {
-                    const label = tag.querySelector('.tag-item-label')?.textContent.trim().toLowerCase();
-                    if (!wanted.has(label)) return;
-                    tag.classList.remove('tag-item-new');
-                    void tag.offsetWidth;
-                    tag.classList.add('tag-item-new');
-                    tag.addEventListener('animationend', () => tag.classList.remove('tag-item-new'), { once: true });
-                });
-            }
-
-            addBtn.addEventListener('click', () => add());
-            textEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
-
-            render();
-            return { values: () => values, add, render, set, highlight };
-        }
-
-        function escHtml(s) {
-            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         }
 
         // ── Skills: tag input with AJAX autosave ─────────
@@ -137,7 +80,12 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
             {
                 onChange: (values) => {
                     postForm('/Profile/SaveSkills', { skillsJson: JSON.stringify(values) })
-                        .then(res => { if (res.success) flashSaveIndicator(document.getElementById('skillsSaveIndicator')); });
+                        .then(res => {
+                            if (!res.success) return;
+                            // The server returns the normalised list (stale duplicates merged); mirror it.
+                            if (Array.isArray(res.skills)) skillsApi.set(res.skills);
+                            flashSaveIndicator(document.getElementById('skillsSaveIndicator'));
+                        });
                 }
             });
 
@@ -147,7 +95,11 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
             {
                 onChange: (values) => {
                     postForm('/Profile/SaveTargetRoles', { targetRolesJson: JSON.stringify(values) })
-                        .then(res => { if (res.success) flashSaveIndicator(document.getElementById('rolesSaveIndicator')); });
+                        .then(res => {
+                            if (!res.success) return;
+                            if (Array.isArray(res.targetRoles)) rolesApi.set(res.targetRoles);
+                            flashSaveIndicator(document.getElementById('rolesSaveIndicator'));
+                        });
                 },
                 onAfterAdd: () => closeComboList()
             });
@@ -160,7 +112,7 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
         function renderComboList(filter) {
             const taken = rolesApi.values();
             const matches = ROLE_PRESETS.filter(r =>
-                !taken.includes(r) && r.toLowerCase().includes(filter.toLowerCase()));
+                TagInput.findDuplicate(taken, r) < 0 && r.toLowerCase().includes(filter.toLowerCase()));
 
             comboList.innerHTML = '';
             if (matches.length === 0) {

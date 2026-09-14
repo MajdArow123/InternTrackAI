@@ -23,8 +23,26 @@
         <a asp-action="Index" class="btn btn-outline-secondary">Back</a>
     </div>
 
-    <form asp-action="Edit" method="post">
+    @if (ViewBag.DuplicateWarning == true)
+    {
+        <div class="duplicate-warning mb-3" id="duplicateWarning">
+            <div class="d-flex align-items-start gap-2">
+                <div class="flex-1">
+                    <strong>Possible duplicate</strong> — you already have another application for
+                    <strong>@Model.CompanyName</strong> &mdash; <strong>@Model.RoleTitle</strong>.
+                    Review your existing applications or save anyway if this is intentional.
+                </div>
+            </div>
+            <div class="mt-2 d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-primary" id="saveAnywayBtn">Save Anyway</button>
+                <a asp-action="Index" class="btn btn-sm btn-outline-secondary">Back to Applications</a>
+            </div>
+        </div>
+    }
+
+    <form asp-action="Edit" method="post" id="appForm">
         <input type="hidden" asp-for="Id" />
+        <input type="hidden" name="forceSave" id="forceSave" value="false" />
 
         <!-- AI match data isn't editable on this page (only the analyzer on Create sets it),
              but model binding still requires these fields to round-trip the existing values —
@@ -147,5 +165,6 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script src="~/js/duplicate-warning.js" asp-append-version="true"></script>
     <script src="~/js/salary-insight.js" asp-append-version="true"></script>
 }

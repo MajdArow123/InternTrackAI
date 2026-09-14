@@ -1326,7 +1326,19 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
 }
 .tag-item-new { animation: tag-added-flash 1.6s var(--ease) both; }
 .tag-item-new button { color: inherit; }
-@media (prefers-reduced-motion: reduce) { .tag-item-new { animation-duration: .01s; } }
+
+/* The chip a duplicate collided with: a short shake plus an amber pulse. */
+@keyframes tag-dupe-flash {
+  0%   { background: var(--warning-soft); box-shadow: 0 0 0 0 rgba(255,159,10,.5); transform: translateX(0); }
+  20%  { transform: translateX(-4px); }
+  40%  { transform: translateX(4px); }
+  60%  { transform: translateX(-2px); box-shadow: 0 0 0 7px rgba(255,159,10,0); }
+  80%  { transform: translateX(0); background: var(--warning-soft); }
+  100% { background: var(--accent-soft); box-shadow: none; }
+}
+.tag-item-dupe { animation: tag-dupe-flash 1.2s var(--ease) both; }
+.tag-dupe-msg { width: 100%; }
+@media (prefers-reduced-motion: reduce) { .tag-item-new, .tag-item-dupe { animation-duration: .01s; } }
 
 .tag-item button {
   background: rgba(10,132,255,.14);

@@ -13,7 +13,7 @@ namespace InternTrackAI.Tests.Integration;
 /// <summary>
 /// Railway terminates TLS and forwards plain HTTP with X-Forwarded-Proto/-Host. Every absolute URL the
 /// app hands to the outside world (Google's redirect_uri, e-mailed reset links, the bookmarklet, the
-/// calendar feed, the public profile link) must therefore come out as https once those headers are
+/// calendar feed) must therefore come out as https once those headers are
 /// present. The test host itself speaks http://localhost, exactly like the container behind the proxy.
 ///
 /// The in-process test server reports no remote IP, and the forwarded-headers middleware trusts the
@@ -142,7 +142,7 @@ public class ForwardedProtoTests
     }
 
     [Fact]
-    public async Task Bookmarklet_calendar_feed_and_public_profile_urls_are_https_when_the_proxy_forwards_https()
+    public async Task Bookmarklet_and_calendar_feed_urls_are_https_when_the_proxy_forwards_https()
     {
         using var parent = new TestAppFactory();
         using var factory = BehindProxy(parent);
@@ -162,20 +162,5 @@ public class ForwardedProtoTests
         var profileHtml = await profile.Content.ReadAsStringAsync();
         Assert.Matches($"https://{Regex.Escape(PublicHost)}/Calendar/feed\\.ics\\?token=", profileHtml);
         Assert.DoesNotContain("http://localhost/Calendar/feed.ics", profileHtml);
-
-        // Public profile link, both from the toggle endpoint's JSON and the re-rendered profile page.
-        var antiforgery = await Http.GetAntiforgeryTokenAsync(client, "/Profile");
-        var toggle = await client.SendAsync(Proxied(HttpMethod.Post, "/Profile/TogglePublic", new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["isPublic"] = "true",
-            ["__RequestVerificationToken"] = antiforgery,
-        })));
-        Assert.Equal(HttpStatusCode.OK, toggle.StatusCode);
-        var json = await toggle.Content.ReadAsStringAsync();
-        Assert.Contains($"\"url\":\"https://{PublicHost}/p/", json);
-
-        var after = await (await client.SendAsync(Proxied(HttpMethod.Get, "/Profile"))).Content.ReadAsStringAsync();
-        Assert.Contains($"https://{PublicHost}/p/", after);
-        Assert.DoesNotContain("http://localhost/p/", after);
     }
 }

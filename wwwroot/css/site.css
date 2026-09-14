@@ -1150,7 +1150,6 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
   border: 0;
   box-shadow: 0 6px 16px rgba(10,132,255,.25);
 }
-.profile-avatar--lg { width: 104px; height: 104px; font-size: 2rem; }
 
 .profile-photo-row {
   display: flex;
@@ -1188,8 +1187,6 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
   .profile-stat-strip { gap: .75rem 1.25rem; }
 }
 
-.public-link-input { font-size: .8667rem; max-width: 440px; }
-.public-name { font-size: 1.6rem; }
 
 /* Document version rows */
 .doc-list { display: flex; flex-direction: column; gap: .5rem; }

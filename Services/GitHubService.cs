@@ -4,8 +4,8 @@ using InternTrackAI.Models;
 namespace InternTrackAI.Services;
 
 /// <summary>
-/// Fetches a user's public repos from the GitHub REST API for display on the profile and
-/// public-profile pages. Uses the unauthenticated API (60 req/hr per IP) since this only
+/// Fetches a user's public repos from the GitHub REST API for display on the profile page.
+/// Uses the unauthenticated API (60 req/hr per IP) since this only
 /// reads public data — no GitHub OAuth or token is needed.
 /// </summary>
 public class GitHubService

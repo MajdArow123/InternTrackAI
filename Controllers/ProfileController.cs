@@ -83,93 +83,6 @@ public class ProfileController : Controller
         return View(new BookmarkletViewModel { BaseUrl = baseUrl });
     }
 
-    // ── POST /Profile/TogglePublic ───────────────────────
-
-    /// <summary>
-    /// Turns the public profile link on/off. A <see cref="UserProfile.PublicSlug"/> is generated
-    /// once on first enable and then kept stable across later toggles, so a link a user already
-    /// shared doesn't break if they turn sharing off and back on.
-    /// </summary>
-    /// <returns>JSON <c>{ success, isPublic, url }</c>.</returns>
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> TogglePublic(bool isPublic)
-    {
-        var userId = UserId();
-        var profile = await GetOrCreateProfileAsync(userId);
-
-        profile.IsPublic = isPublic;
-        if (isPublic && string.IsNullOrEmpty(profile.PublicSlug))
-            profile.PublicSlug = GenerateSlug();
-
-        await _db.SaveChangesAsync();
-
-        var url = profile.PublicSlug != null
-            ? Url.Action("Public", "Profile", new { slug = profile.PublicSlug }, Request.Scheme)
-            : null;
-
-        return Json(new { success = true, isPublic = profile.IsPublic, url });
-    }
-
-    // ── POST /Profile/RegenerateLink ─────────────────────
-
-    /// <summary>Replaces the current public slug with a new one, invalidating any previously shared link.</summary>
-    /// <returns>JSON <c>{ success, url }</c>.</returns>
-    [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> RegenerateLink()
-    {
-        var userId = UserId();
-        var profile = await GetOrCreateProfileAsync(userId);
-
-        profile.PublicSlug = GenerateSlug();
-        await _db.SaveChangesAsync();
-
-        var url = Url.Action("Public", "Profile", new { slug = profile.PublicSlug }, Request.Scheme);
-        return Json(new { success = true, url });
-    }
-
-    // ── GET /p/{slug} ─────────────────────────────────────
-
-    /// <summary>
-    /// Read-only public profile view, reachable by anyone with the link — no sign-in required.
-    /// Deliberately exposes only name/photo/skills/target roles/stats, never resumes, cover
-    /// letters, email, or the raw application list. Returns 404 if the slug is unknown or the
-    /// owner has turned sharing off.
-    /// </summary>
-    [HttpGet("/p/{slug}"), AllowAnonymous]
-    public async Task<IActionResult> Public(string slug)
-    {
-        var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.PublicSlug == slug && p.IsPublic);
-        if (profile == null)
-            return NotFound();
-
-        var apps = await _db.JobApplications
-            .Where(a => a.UserId == profile.UserId)
-            .ToListAsync();
-
-        int offers = apps.Count(a => a.Status == ApplicationStatus.Offer);
-        double successRate = apps.Count > 0 ? Math.Round(offers * 100.0 / apps.Count, 1) : 0;
-
-        var vm = new PublicProfileViewModel
-        {
-            DisplayName = !string.IsNullOrWhiteSpace(profile.DisplayName) ? profile.DisplayName!
-                        : !string.IsNullOrWhiteSpace(profile.FullName) ? profile.FullName!
-                        : "Anonymous",
-            PhotoPath = profile.PhotoFileName != null
-                ? $"/uploads/photos/{profile.PhotoFileName}?v={profile.PhotoVersion}"
-                : null,
-            Skills = ParseTagJson(profile.SkillsJson),
-            TargetRoles = ParseTagJson(profile.TargetRolesJson),
-            TotalApplications = apps.Count,
-            SuccessRate = successRate,
-            GitHubUsername = profile.GitHubUsername
-        };
-
-        if (!string.IsNullOrWhiteSpace(profile.GitHubUsername))
-            vm.GitHubRepos = await _github.GetPublicReposAsync(profile.GitHubUsername);
-
-        return View(vm);
-    }
-
     // ── POST /Profile/SaveInfo ───────────────────────────
 
     /// <summary>
@@ -637,9 +550,6 @@ public class ProfileController : Controller
 
     /// <summary>Resolves the current signed-in user's id from the auth claims.</summary>
     private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-
-    /// <summary>Short, URL-safe, non-enumerable slug for public profile links.</summary>
-    private static string GenerateSlug() => Guid.NewGuid().ToString("N")[..10];
 
     /// <summary>Fetches the user's profile row, creating (but not yet saving) an empty one if none exists.</summary>
     private async Task<UserProfile> GetOrCreateProfileAsync(string userId)

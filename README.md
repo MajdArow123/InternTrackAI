@@ -57,7 +57,6 @@ If you'd rather sign in manually:
 **Profile and account**
 
 - 👤 **Profile** — photo, basic info, skill and target-role chips, versioned resumes and cover letters with an active version, and your public GitHub repos
-- 🔗 **Public profile** — an optional read-only page with your name, skills, target roles, and stats, on a regenerable link
 - 🌗 **Dark / light mode** — Apple-style design system with soft surfaces, pill buttons, and a frosted navbar; the toggle persists across sessions
 - ⌨️ **Keyboard shortcuts** — press `?` anywhere for the list
 - 🔐 **Account management** — register, sign in, forgot/reset password, display name, and change password via ASP.NET Core Identity

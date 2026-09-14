@@ -30,14 +30,8 @@ public class UserProfile
     // Target job titles the user is pursuing, same JSON-column rationale as SkillsJson.
     public string? TargetRolesJson { get; set; }
 
-    // Controls whether /p/{PublicSlug} is reachable by anonymous visitors. The slug itself is
-    // generated lazily the first time the profile is made public, and persists across
-    // public/private toggles so a previously shared link keeps working when re-enabled.
-    public bool IsPublic { get; set; }
-    public string? PublicSlug { get; set; }
-
-    // GitHub username shown as a "Projects" section on both the private and public profile
-    // pages, with a handful of repos pulled live from the public GitHub API.
+    // GitHub username shown as a "Projects" section on the profile page, with a handful of
+    // repos pulled live from the public GitHub API.
     public string? GitHubUsername { get; set; }
 
     // Days after applying (or after the last contact) before an application in Applied shows up

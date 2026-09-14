@@ -1,6 +1,6 @@
 // Profile page behaviour: upload drop zones, skill/target-role chip inputs with AJAX
 // autosave, the role preset combobox, basic-info save, resume AI analyze, score button
-// loading state, and the public-profile link controls. Loaded from Views/Profile/Index.cshtml.
+// loading state, and the calendar-link controls. Loaded from Views/Profile/Index.cshtml.
 (function () {
 // Upload drop zones: show the chosen filename and highlight on drag-over.
 document.querySelectorAll('.upload-zone').forEach(function (zone) {
@@ -332,37 +332,6 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
                         showAppToast('success', 'Calendar link regenerated. Re-subscribe with the new URL.');
                     });
             });
-        });
-
-        // ── Public Profile Link ──────────────────────────
-        const publicToggle  = document.getElementById('publicProfileToggle');
-        const publicLinkRow = document.getElementById('publicLinkRow');
-        const publicLinkInput = document.getElementById('publicLinkInput');
-        const copyLinkBtn   = document.getElementById('copyPublicLinkBtn');
-        const regenLinkBtn  = document.getElementById('regenLinkBtn');
-        const publicLinkIndicator = document.getElementById('publicLinkIndicator');
-
-        publicToggle?.addEventListener('change', () => {
-            postForm('/Profile/TogglePublic', { isPublic: publicToggle.checked })
-                .then(res => {
-                    if (!res.success) return;
-                    if (res.url) publicLinkInput.value = res.url;
-                    publicLinkRow.classList.toggle('d-none', !res.isPublic);
-                });
-        });
-
-        copyLinkBtn?.addEventListener('click', () => {
-            if (!publicLinkInput.value) return;
-            navigator.clipboard.writeText(publicLinkInput.value).then(() => flashSaveIndicator(publicLinkIndicator));
-        });
-
-        regenLinkBtn?.addEventListener('click', () => {
-            postForm('/Profile/RegenerateLink', {})
-                .then(res => {
-                    if (!res.success) return;
-                    publicLinkInput.value = res.url;
-                    flashSaveIndicator(publicLinkIndicator);
-                });
         });
 
     })();

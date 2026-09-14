@@ -43,50 +43,8 @@
             <p class="lp-fine">Free to use. Your data stays in your own account.</p>
         }
 
-        <!-- Static dashboard preview -->
-        <div class="lp-shot" aria-hidden="true">
-            <div class="lp-shot-nav">
-                <b><span class="brand-dot"></span>InternTrackAI</b>
-                <span class="on">Dashboard</span><span>Applications</span><span>Cover Letter</span><span>Profile</span>
-            </div>
-            <div class="lp-shot-body">
-                <div class="lp-shot-head"><h3>Dashboard</h3><span>Last 6 months</span></div>
-                <div class="lp-shot-stats">
-                    <div class="lp-mini-card lp-stat"><div class="l">Total applications</div><div class="n">47</div><div class="d"><span class="up">+6</span> this month</div></div>
-                    <div class="lp-mini-card lp-stat"><div class="l">Interview</div><div class="n">9</div><div class="d"><span class="up">19%</span> response rate</div></div>
-                    <div class="lp-mini-card lp-stat"><div class="l">Offer</div><div class="n">2</div><div class="d">Shopify, Wealthsimple</div></div>
-                    <div class="lp-mini-card lp-stat"><div class="l">Success rate</div><div class="n">4.3<span class="u">%</span></div><div class="d">Offers &divide; applications</div></div>
-                </div>
-                <div class="lp-shot-row">
-                    <div class="lp-mini-card">
-                        <h4>Applications over time</h4>
-                        <div class="lp-bars">
-                            <i style="--v:30%"></i><i style="--v:45%"></i><i style="--v:40%"></i><i style="--v:70%"></i><i style="--v:55%"></i><i style="--v:85%"></i><i style="--v:65%"></i><i style="--v:95%"></i><i style="--v:60%"></i><i style="--v:80%"></i><i style="--v:100%"></i><i style="--v:78%"></i>
-                        </div>
-                    </div>
-                    <div class="lp-mini-card">
-                        <h4>Board</h4>
-                        <div class="lp-board">
-                            <div class="lp-board-col">
-                                <div class="lp-board-head"><span>Applied</span><span class="status-badge badge-applied">2</span></div>
-                                <div class="lp-board-card"><div class="t"><b>TD</b><span>.NET Developer Co-op</span></div></div>
-                                <div class="lp-board-card"><div class="t"><b>Kinaxis</b><span>Software Developer Intern</span></div><span class="match-ring match-ring--tier-4" style="--p:72"><span>72</span></span></div>
-                            </div>
-                            <div class="lp-board-col">
-                                <div class="lp-board-head"><span>Interview</span><span class="status-badge badge-interview">2</span></div>
-                                <div class="lp-board-card"><div class="t"><b>RBC</b><span>Software Developer Co-op</span></div><span class="match-ring match-ring--tier-5" style="--p:84"><span>84</span></span></div>
-                                <div class="lp-board-card"><div class="t"><b>Manulife</b><span>Backend Developer Co-op</span></div></div>
-                            </div>
-                            <div class="lp-board-col">
-                                <div class="lp-board-head"><span>Offer</span><span class="status-badge badge-offer">2</span></div>
-                                <div class="lp-board-card"><div class="t"><b>Shopify</b><span>Backend Developer Intern</span></div><span class="match-ring match-ring--tier-5" style="--p:91"><span>91</span></span></div>
-                                <div class="lp-board-card"><div class="t"><b>Wealthsimple</b><span>Full Stack Intern</span></div></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Interactive app preview: Dashboard / Applications / Cover Letter / Profile tabs -->
+        <partial name="_HeroPreview" />
     </div>
 </section>
 
@@ -241,3 +199,7 @@
         </div>
     </div>
 </footer>
+
+@section Scripts {
+    <script src="~/js/landing-preview.js" asp-append-version="true"></script>
+}

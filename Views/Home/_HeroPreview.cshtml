@@ -1,0 +1,210 @@
+@*
+    Landing hero preview: a fake app frame whose mini navbar swaps between four static mocks
+    (Dashboard, Applications board, Cover Letter generator, Profile). Sample data is fictional
+    and shared across the tabs. Tab behaviour lives in wwwroot/js/landing-preview.js.
+*@
+<div class="lp-shot" id="lp-preview">
+    <div class="lp-shot-nav" role="tablist" aria-label="Preview a section of the app">
+        <b><span class="brand-dot"></span><span class="lp-shot-brand">InternTrackAI</span></b>
+        <button type="button" role="tab" id="lp-tab-dashboard"    class="on" aria-selected="true"  aria-controls="lp-panel-dashboard"    tabindex="0">Dashboard</button>
+        <button type="button" role="tab" id="lp-tab-applications" aria-selected="false" aria-controls="lp-panel-applications" tabindex="-1">Applications</button>
+        <button type="button" role="tab" id="lp-tab-cover"        aria-selected="false" aria-controls="lp-panel-cover"        tabindex="-1">Cover Letter</button>
+        <button type="button" role="tab" id="lp-tab-profile"      aria-selected="false" aria-controls="lp-panel-profile"      tabindex="-1">Profile</button>
+    </div>
+    <div class="lp-shot-panels">
+
+        <!-- ── Dashboard ─────────────────────────────────────────── -->
+        <div class="lp-shot-body lp-shot-panel is-active" role="tabpanel" id="lp-panel-dashboard" aria-labelledby="lp-tab-dashboard">
+            <div class="lp-shot-head"><h3>Dashboard</h3><span>Last 6 months</span></div>
+            <div class="lp-shot-stats">
+                <div class="lp-mini-card lp-stat"><div class="l">Total applications</div><div class="n">47</div><div class="d"><span class="up">+6</span> this month</div></div>
+                <div class="lp-mini-card lp-stat"><div class="l">Interview</div><div class="n">9</div><div class="d"><span class="up">19%</span> response rate</div></div>
+                <div class="lp-mini-card lp-stat"><div class="l">Offer</div><div class="n">2</div><div class="d">Shopify, Wealthsimple</div></div>
+                <div class="lp-mini-card lp-stat"><div class="l">Success rate</div><div class="n">4.3<span class="u">%</span></div><div class="d">Offers &divide; applications</div></div>
+            </div>
+            <div class="lp-shot-row">
+                <div class="lp-mini-card">
+                    <h4>Applications over time</h4>
+                    <div class="lp-bars">
+                        <i style="--v:30%"></i><i style="--v:45%"></i><i style="--v:40%"></i><i style="--v:70%"></i><i style="--v:55%"></i><i style="--v:85%"></i><i style="--v:65%"></i><i style="--v:95%"></i><i style="--v:60%"></i><i style="--v:80%"></i><i style="--v:100%"></i><i style="--v:78%"></i>
+                    </div>
+                </div>
+                <div class="lp-mini-card">
+                    <h4>Board</h4>
+                    <div class="lp-board">
+                        <div class="lp-board-col">
+                            <div class="lp-board-head"><span>Applied</span><span class="status-badge badge-applied">2</span></div>
+                            <div class="lp-board-card"><div class="t"><b>TD</b><span>.NET Developer Co-op</span></div></div>
+                            <div class="lp-board-card"><div class="t"><b>Kinaxis</b><span>Software Developer Intern</span></div><span class="match-ring match-ring--tier-4" style="--p:72"><span>72</span></span></div>
+                        </div>
+                        <div class="lp-board-col">
+                            <div class="lp-board-head"><span>Interview</span><span class="status-badge badge-interview">2</span></div>
+                            <div class="lp-board-card"><div class="t"><b>RBC</b><span>Software Developer Co-op</span></div><span class="match-ring match-ring--tier-5" style="--p:84"><span>84</span></span></div>
+                            <div class="lp-board-card"><div class="t"><b>Manulife</b><span>Backend Developer Co-op</span></div></div>
+                        </div>
+                        <div class="lp-board-col">
+                            <div class="lp-board-head"><span>Offer</span><span class="status-badge badge-offer">2</span></div>
+                            <div class="lp-board-card"><div class="t"><b>Shopify</b><span>Backend Developer Intern</span></div><span class="match-ring match-ring--tier-5" style="--p:91"><span>91</span></span></div>
+                            <div class="lp-board-card"><div class="t"><b>Wealthsimple</b><span>Full Stack Intern</span></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Applications (Board view) ─────────────────────────── -->
+        <div class="lp-shot-body lp-shot-panel" role="tabpanel" id="lp-panel-applications" aria-labelledby="lp-tab-applications" aria-hidden="true">
+            <div class="lp-shot-head"><h3>Applications</h3><span>47 applications total</span></div>
+            <div class="lp-pills">
+                <span class="filter-pill active">All <span class="filter-pill-count">47</span></span>
+                <span class="filter-pill filter-pill-saved lp-pill-status"><span class="filter-pill-dot"></span>Saved</span>
+                <span class="filter-pill filter-pill-applied lp-pill-status"><span class="filter-pill-dot"></span>Applied</span>
+                <span class="filter-pill filter-pill-interview lp-pill-status"><span class="filter-pill-dot"></span>Interview</span>
+                <span class="filter-pill filter-pill-offer lp-pill-status"><span class="filter-pill-dot"></span>Offer</span>
+                <span class="view-toggle"><span class="filter-pill">List</span><span class="filter-pill active">Board</span></span>
+            </div>
+            <div class="lp-board lp-board--4">
+                <div class="lp-board-col">
+                    <div class="lp-board-head"><span>Saved</span><span class="status-badge badge-saved">21</span></div>
+                    <div class="lp-board-card"><div class="t"><b>TD</b><span>Data Engineering Co-op</span></div></div>
+                    <div class="lp-board-card"><div class="t"><b>Kinaxis</b><span>QA Automation Intern</span></div><span class="match-ring match-ring--tier-4" style="--p:68"><span>68</span></span><div class="tags"><span class="board-tag board-tag--warning">Due in 3 days</span></div></div>
+                    <div class="lp-board-card"><div class="t"><b>Manulife</b><span>Data Analyst Intern</span></div></div>
+                    <div class="lp-board-more">+18 more</div>
+                </div>
+                <div class="lp-board-col">
+                    <div class="lp-board-head"><span>Applied</span><span class="status-badge badge-applied">13</span></div>
+                    <div class="lp-board-card"><div class="t"><b>TD</b><span>.NET Developer Co-op</span></div><div class="tags"><span class="board-tag board-tag--warning">Follow up</span></div></div>
+                    <div class="lp-board-card"><div class="t"><b>Kinaxis</b><span>Software Developer Intern</span></div><span class="match-ring match-ring--tier-4" style="--p:72"><span>72</span></span></div>
+                    <div class="lp-board-card"><div class="t"><b>Wealthsimple</b><span>Platform Engineering Intern</span></div><span class="match-ring match-ring--tier-3" style="--p:55"><span>55</span></span></div>
+                    <div class="lp-board-more">+10 more</div>
+                </div>
+                <div class="lp-board-col">
+                    <div class="lp-board-head"><span>Interview</span><span class="status-badge badge-interview">9</span></div>
+                    <div class="lp-board-card"><div class="t"><b>RBC</b><span>Software Developer Co-op</span></div><span class="match-ring match-ring--tier-5" style="--p:84"><span>84</span></span><div class="tags"><span class="board-tag board-tag--accent">Interview Wed 2:00 PM</span></div></div>
+                    <div class="lp-board-card"><div class="t"><b>Manulife</b><span>Backend Developer Co-op</span></div></div>
+                    <div class="lp-board-card"><div class="t"><b>RBC</b><span>Data Science Co-op</span></div><span class="match-ring match-ring--tier-4" style="--p:77"><span>77</span></span></div>
+                    <div class="lp-board-more">+6 more</div>
+                </div>
+                <div class="lp-board-col">
+                    <div class="lp-board-head"><span>Offer</span><span class="status-badge badge-offer">2</span></div>
+                    <div class="lp-board-card"><div class="t"><b>Shopify</b><span>Backend Developer Intern</span></div><span class="match-ring match-ring--tier-5" style="--p:91"><span>91</span></span><div class="tags"><span class="board-tag">$32/hr</span></div></div>
+                    <div class="lp-board-card"><div class="t"><b>Wealthsimple</b><span>Full Stack Intern</span></div></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Cover Letter generator ────────────────────────────── -->
+        <div class="lp-shot-body lp-shot-panel" role="tabpanel" id="lp-panel-cover" aria-labelledby="lp-tab-cover" aria-hidden="true">
+            <div class="lp-shot-head"><h3>Cover letters</h3><span>Personalised to each job</span></div>
+            <div class="lp-shot-row lp-shot-row--cl">
+                <div class="lp-mini-card">
+                    <h4>Generate a cover letter</h4>
+                    <div class="lp-label">Job application</div>
+                    <div class="lp-input lp-select">Shopify &mdash; Backend Developer Intern</div>
+                    <div class="lp-help">The AI will use this application's job description and your active resume.</div>
+                    <div class="lp-label">Extra notes <span>(optional)</span></div>
+                    <div class="lp-input lp-textarea">Mention the Checkout team and keep it under 300 words.</div>
+                    <div class="lp-frag-actions">
+                        <span class="btn btn-primary btn-sm">Generate cover letter</span>
+                        <span class="lp-powered">Powered by GPT-4o mini</span>
+                    </div>
+                </div>
+                <div class="lp-mini-card">
+                    <div class="lp-card-top"><h4>Generated cover letter</h4><span class="word-count">196 words</span></div>
+                    <div class="lp-help lp-help--meta">Shopify &middot; Backend Developer Intern &middot; draft 2</div>
+                    <div class="lp-aibox">
+                        <b><i></i>InternTrackAI</b>
+                        <p>I'm applying for the Backend Developer Intern role on the Checkout team. In my last co-op I built a PostgreSQL-backed REST API in ASP.NET Core that handled concurrent order writes without duplication, the same problem your posting describes under "high-traffic systems".</p>
+                        <p>At school I lead a four-person team shipping a Ruby service that processes 40,000 events a day, where I own the schema, migrations, and on-call rotation. I'd bring the same care for correctness to Shopify's checkout pipeline.</p>
+                        <p>I'd welcome the chance to talk about how I can contribute this summer. Thank you for your time and consideration.</p>
+                    </div>
+                    <div class="lp-frag-actions">
+                        <span class="btn btn-primary btn-sm">Improve letter</span>
+                        <span class="btn lp-ghost btn-sm">Save to profile</span>
+                        <span class="btn lp-ghost btn-sm">Download PDF</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Profile (top of page) ─────────────────────────────── -->
+        <div class="lp-shot-body lp-shot-panel" role="tabpanel" id="lp-panel-profile" aria-labelledby="lp-tab-profile" aria-hidden="true">
+            <div class="lp-shot-head"><h3>Profile</h3><span>Your career information, documents, and AI tools</span></div>
+            <div class="lp-shot-row lp-shot-row--profile">
+                <div class="lp-profile-left">
+                    <div class="lp-mini-card">
+                        <div class="lp-photo-row">
+                            <span class="lp-avatar">
+                                <span class="lp-avatar-init">JL</span>
+                                <span class="profile-avatar-overlay">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                    <span>Change</span>
+                                </span>
+                                <span class="lp-avatar-badge">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                </span>
+                            </span>
+                            <div class="lp-identity">
+                                <div class="lp-name">Jordan Lee</div>
+                                <div class="lp-email">jordan.lee&#64;example.edu</div>
+                            </div>
+                        </div>
+                        <div class="profile-stat-strip lp-stats">
+                            <div class="profile-stat"><span class="profile-stat-num">47</span><span class="profile-stat-label">Total</span></div>
+                            <div class="profile-stat"><span class="profile-stat-num">21</span><span class="profile-stat-label"><span class="profile-stat-dot dot-saved"></span>Saved</span></div>
+                            <div class="profile-stat"><span class="profile-stat-num">13</span><span class="profile-stat-label"><span class="profile-stat-dot dot-applied"></span>Applied</span></div>
+                            <div class="profile-stat"><span class="profile-stat-num">9</span><span class="profile-stat-label"><span class="profile-stat-dot dot-interview"></span>Interview</span></div>
+                            <div class="profile-stat"><span class="profile-stat-num">2</span><span class="profile-stat-label"><span class="profile-stat-dot dot-offer"></span>Offer</span></div>
+                            <div class="profile-stat"><span class="profile-stat-num text-success">4.3<span class="profile-stat-unit">%</span></span><span class="profile-stat-label">Success rate</span></div>
+                        </div>
+                    </div>
+                    <div class="lp-mini-card">
+                        <div class="lp-card-top"><h4>Skills</h4><span class="lp-saved">Saved &#10003;</span></div>
+                        <div class="tag-manager lp-tags-mock">
+                            <div class="tag-input-row"><span class="tag-text-input">e.g. Python</span><span class="tag-add-btn">Add</span></div>
+                            <div class="tag-cloud">
+                                <span class="tag-item"><span class="tag-item-label">C#</span><i>&times;</i></span>
+                                <span class="tag-item"><span class="tag-item-label">ASP.NET Core</span><i>&times;</i></span>
+                                <span class="tag-item"><span class="tag-item-label">PostgreSQL</span><i>&times;</i></span>
+                                <span class="tag-item"><span class="tag-item-label">Ruby</span><i>&times;</i></span>
+                                <span class="tag-item"><span class="tag-item-label">REST APIs</span><i>&times;</i></span>
+                                <span class="tag-item"><span class="tag-item-label">Docker</span><i>&times;</i></span>
+                                <span class="tag-item"><span class="tag-item-label">Git</span><i>&times;</i></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="lp-mini-card">
+                    <div class="lp-card-top"><h4>Resume</h4><span class="lp-help lp-help--meta">2 versions</span></div>
+                    <div class="doc-list lp-docs">
+                        <div class="doc-row doc-active">
+                            <span class="doc-version-badge">v2</span>
+                            <div class="doc-info">
+                                <div class="doc-filename">Backend-focused</div>
+                                <div class="doc-meta">Jordan_Lee_Resume_v2.pdf &middot; Sep 2, 2026 &middot; 142 KB &middot; 12 sent &middot; 25% response rate</div>
+                            </div>
+                            <div class="doc-actions"><span class="active-label">Active</span><span class="btn btn-sm btn-outline-secondary doc-btn">Download</span></div>
+                        </div>
+                        <div class="doc-row">
+                            <span class="doc-version-badge">v1</span>
+                            <div class="doc-info">
+                                <div class="doc-filename">General</div>
+                                <div class="doc-meta">Jordan_Lee_Resume.pdf &middot; Jun 14, 2026 &middot; 138 KB &middot; 35 sent &middot; 17% response rate</div>
+                            </div>
+                            <div class="doc-actions"><span class="btn btn-sm btn-outline-primary doc-btn">Set active</span><span class="btn btn-sm btn-outline-secondary doc-btn">Download</span></div>
+                        </div>
+                    </div>
+                    <div class="analyze-row lp-analyze">
+                        <div class="resume-ai-buttons">
+                            <span class="btn btn-primary analyze-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l1.8 5.5L19 9l-5.2 1.5L12 16l-1.8-5.5L5 9l5.2-1.5z"/></svg>Analyze with AI</span>
+                            <span class="btn btn-primary analyze-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>Score my resume</span>
+                        </div>
+                        <p class="lp-help"><strong>Analyze</strong> fills in your name, skills, and target roles from the active resume. <strong>Score</strong> rates it with strengths and specific improvements.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+<p class="lp-shot-hint">Click the tabs to preview each section.</p>

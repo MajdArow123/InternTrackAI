@@ -1,6 +1,20 @@
 @model InternTrackAI.Models.ViewModels.ProfileViewModel
-@{ var clock = await Clocks.GetAsync(); }
-    <!-- ── Resume: versions, drop zone, AI analyze, AI score ── -->
+@using System.Globalization
+@{
+    var clock = await Clocks.GetAsync();
+
+    // Score ring vars (the AI score result renders inside this card, under the AI buttons)
+    const double Circ = 339.29;
+    int scoreDashOff = (int)Circ;
+    string scoreColor = "maybe";
+    if (Model.ScoreResult?.Success == true)
+    {
+        scoreDashOff = (int)(Circ * (1.0 - Model.ScoreResult.Score / 100.0));
+        scoreColor   = Model.ScoreResult.Score >= 70 ? "apply" : Model.ScoreResult.Score >= 40 ? "maybe" : "noapply";
+    }
+    string CircStr = Circ.ToString("F2", CultureInfo.InvariantCulture);
+}
+    <!-- ── Resume: versions, drop zone, AI analyze + AI score (one card) ── -->
     <div class="form-card mb-3 resume-hero-card @(Model.Resumes.Any() ? "has-resume" : "")" id="resumeHeroCard">
         <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
             <p class="form-section-title mb-0">Resume</p>
@@ -85,15 +99,94 @@
 
         @if (Model.Resumes.Any(r => r.IsActive))
         {
-            <div class="mt-3 pt-3 analyze-row">
-                <button type="button" class="btn btn-primary analyze-btn" id="analyzeBtn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2l1.8 5.5L19 9l-5.2 1.5L12 16l-1.8-5.5L5 9l5.2-1.5z"/>
-                    </svg>
-                    <span id="analyzeBtnLabel">Analyze with AI</span>
-                </button>
-                <span class="form-hint mt-0">Auto-fills your name, skills, and target roles from your active resume</span>
+            <div class="mt-3 pt-3 analyze-row" id="resumeAiRow">
+                <div class="resume-ai-buttons">
+                    <button type="button" class="btn btn-primary analyze-btn" id="analyzeBtn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12 2l1.8 5.5L19 9l-5.2 1.5L12 16l-1.8-5.5L5 9l5.2-1.5z"/>
+                        </svg>
+                        <span id="analyzeBtnLabel">Analyze with AI</span>
+                    </button>
+                    <form asp-action="ScoreResume" method="post" class="d-inline" id="scoreForm">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-primary analyze-btn" id="scoreBtn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+                            </svg>
+                            Score my resume
+                        </button>
+                    </form>
+                </div>
+                <p class="form-hint mt-2 mb-0 w-100 resume-ai-hint">
+                    <strong>Analyze</strong> fills in your name, skills, and target roles from the active resume (adds, never removes).
+                    <strong>Score</strong> rates it with strengths and specific improvements.
+                    <span class="resume-ai-powered">Powered by GPT-4o mini</span>
+                </p>
                 <div id="analyzeError" class="match-error-banner mt-2 w-100" style="display:none"></div>
             </div>
+
+            @if (Model.ScoreResult != null)
+            {
+                <div class="resume-score-result mt-3" id="resumeScoreResult">
+                @if (Model.ScoreResult.Success)
+                {
+                    <div class="match-score-card">
+                        <div class="match-score-left">
+                            <div class="score-ring-wrap">
+                                <svg class="score-svg" viewBox="0 0 140 140">
+                                    <circle class="score-track" cx="70" cy="70" r="54" />
+                                    <circle class="score-fill score-fill--@scoreColor"
+                                            cx="70" cy="70" r="54"
+                                            style="--ring-offset:@scoreDashOff;stroke-dasharray:@CircStr" />
+                                </svg>
+                                <div class="score-label">
+                                    <span class="score-number">@Model.ScoreResult.Score</span>
+                                    <span class="score-unit">%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="match-score-right">
+                            <p class="match-score-title">Resume quality score</p>
+                            <p class="match-summary">@Model.ScoreResult.Summary</p>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mt-0">
+                        @if (Model.ScoreResult.Strengths.Any())
+                        {
+                            <div class="col-md-6">
+                                <div class="form-card form-card-inset">
+                                    <p class="form-section-title section-title--strengths">Strengths</p>
+                                    <ul class="match-strengths-list">
+                                        @foreach (var s in Model.ScoreResult.Strengths)
+                                        { <li>@s</li> }
+                                    </ul>
+                                </div>
+                            </div>
+                        }
+                        @if (Model.ScoreResult.Improvements.Any())
+                        {
+                            <div class="col-md-6">
+                                <div class="form-card form-card-inset">
+                                    <p class="form-section-title section-title--improvements">Improvements</p>
+                                    <ul class="match-strengths-list">
+                                        @foreach (var imp in Model.ScoreResult.Improvements)
+                                        { <li>@imp</li> }
+                                    </ul>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="match-error-banner">@Model.ScoreResult.Error</div>
+                }
+                </div>
+            }
+        }
+        else
+        {
+            <p class="form-hint mt-3 mb-0">Upload a resume and set it as active to unlock <strong>Analyze with AI</strong> and <strong>Score my resume</strong>.</p>
         }
     </div>

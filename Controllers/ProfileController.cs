@@ -92,7 +92,7 @@ public class ProfileController : Controller
     /// </summary>
     /// <returns>JSON <c>{ success, error }</c> — <c>error</c> is set if <paramref name="fullName"/> is blank or <paramref name="timeZoneId"/> is not a zone this host knows.</returns>
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> SaveInfo(string? fullName, string? displayName, int? age, string? country, string? phoneNumber, string? githubUsername, string? timeZoneId)
+    public async Task<IActionResult> SaveInfo(string? fullName, string? displayName, string? country, string? phoneNumber, string? githubUsername, string? timeZoneId)
     {
         if (string.IsNullOrWhiteSpace(fullName))
             return Json(new { success = false, error = "Full name is required." });
@@ -104,7 +104,6 @@ public class ProfileController : Controller
 
         profile.FullName       = fullName.Trim();
         profile.DisplayName    = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
-        profile.Age            = age;
         profile.Country        = country?.Trim();
         profile.PhoneNumber    = phoneNumber?.Trim();
         profile.GitHubUsername = string.IsNullOrWhiteSpace(githubUsername) ? null : githubUsername.Trim().TrimStart('@');

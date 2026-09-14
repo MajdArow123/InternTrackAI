@@ -45,14 +45,14 @@
     }
 
     <partial name="_IdentityCard" model="Model" />
+    @* The resume feeds the AI tools and the auto-filled profile fields below, so it comes first. *@
+    <partial name="_Resume" model="Model" />
     <partial name="_Bookmarklet" />
     <partial name="_ConnectedAccounts" model="Model" />
     <partial name="_Reminders" model="Model" />
     <partial name="_Calendar" model="Model" />
     <partial name="_BasicInfo" model="Model" />
     <partial name="_SkillsRoles" model="Model" />
-    <partial name="_Resume" model="Model" />
-    <partial name="_ResumeScore" model="Model" />
     <partial name="_GitHubProjects" model="Model" />
 
 </div>

@@ -267,8 +267,8 @@ document.querySelectorAll('.file-pick-input').forEach(function (input) {
             });
         }
 
-        // Scroll to score result if present
-        const scoreCard = document.querySelector('.match-score-card');
+        // Scroll to score result if present (it renders inside the Resume card after a full-page POST)
+        const scoreCard = document.getElementById('resumeScoreResult');
         if (scoreCard) {
             setTimeout(() => scoreCard.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
         }

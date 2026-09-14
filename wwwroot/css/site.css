@@ -1279,6 +1279,13 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
 .analyze-row { border-top: 1px solid var(--border); display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; }
 .analyze-btn { display: inline-flex; align-items: center; gap: .45rem; }
 .analyze-btn:disabled { cursor: not-allowed; }
+.resume-ai-buttons { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+.resume-ai-hint { font-size: .8rem; }
+.resume-ai-powered { color: var(--muted-2); font-size: .75rem; margin-left: .35rem; white-space: nowrap; }
+@media (max-width: 575.98px) {
+  .resume-ai-buttons, .resume-ai-buttons form, .resume-ai-buttons .analyze-btn { width: 100%; }
+  .resume-ai-buttons .analyze-btn { justify-content: center; }
+}
 .analyze-spinner { width: 13px; height: 13px; border-width: 2px; }
 
 .form-card-inset { box-shadow: none; background: var(--surface-2); }

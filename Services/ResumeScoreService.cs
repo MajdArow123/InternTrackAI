@@ -14,6 +14,7 @@ public class ResumeScoreService
 {
     private readonly HttpClient _http;
     private readonly string _apiKey;
+    private readonly string _endpoint;   // OpenAI:BaseUrl (default api.openai.com) so local verification can stub it
     private readonly ILogger<ResumeScoreService> _logger;
 
     private static readonly JsonSerializerOptions _camel = new()
@@ -25,6 +26,7 @@ public class ResumeScoreService
     {
         _http = http;
         _apiKey = config["OpenAI:ApiKey"] ?? string.Empty;
+        _endpoint = (config["OpenAI:BaseUrl"]?.TrimEnd('/') ?? "https://api.openai.com") + "/v1/chat/completions";
         _logger = logger;
     }
 
@@ -79,7 +81,7 @@ public class ResumeScoreService
         };
 
         var json = JsonSerializer.Serialize(body, _camel);
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
+        using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 

@@ -38,6 +38,10 @@ public class DashboardViewModel
     // Rendered only when ResumeAnalytics.ShowCard (two or more resume versions).
     public InternTrackAI.Services.ResumeAnalytics ResumeAnalytics { get; set; } = new();
 
+    // "Skills you're missing most" card: aggregated MissingSkillsJson from SkillGapService. Not rendered while
+    // SkillGaps.Hide (fewer than 3 analyzed applications); Dashboard.cshtml serializes it into a JSON island for the chart.
+    public SkillGapViewModel SkillGaps { get; set; } = new();
+
     // "Inbox suggestions" card: pending StatusSuggestions (with Application loaded), newest email first.
     // Rendered above Attention only when non-empty; absent entirely without a Gmail connection.
     public List<StatusSuggestion> Suggestions { get; set; } = new();

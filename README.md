@@ -47,6 +47,7 @@ If you'd rather sign in manually:
 - ✅ **Bulk actions** — select rows to change status, delete, or compare up to three applications side by side
 - 📊 **Dashboard** — headline stats, an applications-over-time chart, a pipeline funnel, top companies, and an **Attention** card
 - 📈 **Resume performance** — every application records which resume version it was sent with (defaults to the active resume, changeable on Create/Edit), and the dashboard compares versions side by side: applications sent, response rate (Interview or Offer), interviews, offers and average match score, with a computed one-line takeaway such as *"Backend focus has the best response rate so far (63% across 8 applications)"*. Rows with fewer than 5 applications are greyed as low confidence; resumes can be named inline on the profile, where each one also shows its sent count and response rate
+- 🧩 **Skills you're missing most** — the dashboard aggregates the missing skills stored by every resume match (Applied or later; Saved is left out) into a ranked bar chart with a computed takeaway such as *"Docker came up in 6 of your 11 analyzed applications (55%)"*. Skills are compared case-insensitively and obvious variants are merged through a small alias map (Postgres → PostgreSQL, K8s → Kubernetes); pills filter by target role without a reload, and clicking a bar lists the applications behind it, each opening its drawer. No AI calls, and the card stays hidden until 3 applications have match data
 - 🔔 **Follow-up reminders and deadline tracking** — one rule set (`ReminderService`) flags applications that are overdue (deadline passed, still Saved), due soon (deadline within 7 days), waiting on a reply (Applied for longer than your follow-up window, 3–30 days, set on the profile), or have an interview in the next 14 days. They show up on the dashboard with *Mark contacted* / *Snooze 3 days* buttons, as chips on the board, in the drawer, and behind a **Needs attention** filter on the list
 - 📅 **Calendar export** — a private iCalendar feed URL (subscribe from Google Calendar or Apple Calendar; regenerate it any time) with every deadline, interview, and follow-up date, plus a one-click *Add to calendar* file for a single application
 - 🌍 **Per-user time zone** — pick your IANA zone on the profile page; interview times, follow-up dates, note timestamps and every "N days" reminder are entered and shown in that zone while storage stays UTC, and the calendar feed emits interviews as local time with `TZID` + `VTIMEZONE` so Google and Apple Calendar show the right hour
@@ -93,6 +94,10 @@ If you'd rather sign in manually:
 | Resume performance — which resume version gets responses |
 |---|
 | ![Resume performance card](docs/screenshots/resume_performance.png) |
+
+| Skills you're missing most — aggregated gaps across analyzed postings |
+|---|
+| ![Skill gap card](docs/screenshots/skill_gaps.png) |
 
 | Add Application — AI Analysis + Resume Match |
 |---|
@@ -178,7 +183,7 @@ The live instance runs on [Railway](https://railway.app), built directly from th
 - **Health check** — `GET /health` returns `{"status":"Healthy"}` (HTTP 200) when the database answers and 503 otherwise. `railway.toml` already sets `healthcheckPath = "/health"`; if you configure the service by hand, set **Settings → Deploy → Healthcheck Path** to `/health`.
 - **Logging** — Serilog writes structured lines to the console (which Railway captures): one line per request with method, path, status, duration, and user id. No bodies, headers, cookies, or secrets are logged. Override levels with a `Serilog__MinimumLevel__Default` variable if needed.
 - **Gmail sync job** — `GmailSyncHostedService` syncs every connected Gmail account every 30 minutes (`Gmail__SyncIntervalMinutes`), one account at a time so one expired token never blocks the others. It logs counts only, never email content, and stays idle when the Google keys are absent (the startup log says which).
-- **Demo account reset** — `DemoResetService` can wipe the demo account nightly and reseed 15 realistic applications, notes, three pending inbox suggestions, and a saved cover letter (the profile and active resume are kept; a second labelled resume version is added and the applications are split between the two so the Resume performance card shows a comparison). It is off unless `Demo__AutoReset=true`. Sign in as the `Admin__Email` account and open `/Admin/ResetDemo` to run the same reseed by hand and check the result before turning the nightly job on. The startup log states whether auto-reset is enabled.
+- **Demo account reset** — `DemoResetService` can wipe the demo account nightly and reseed 15 realistic applications, notes, three pending inbox suggestions, and a saved cover letter (the profile and active resume are kept; a second labelled resume version is added and the applications are split between the two so the Resume performance card shows a comparison; the two demo target roles are added to the profile and the seeded missing skills give the skill gap card a clear top skill, a mid tier and a tail). It is off unless `Demo__AutoReset=true`. Sign in as the `Admin__Email` account and open `/Admin/ResetDemo` to run the same reseed by hand and check the result before turning the nightly job on. The startup log states whether auto-reset is enabled.
 
 To deploy your own copy: create a Railway project, add a PostgreSQL service, attach a volume (mounted at `/data`), point Railway at this repo, and set these variables on the service — `railway.toml` already configures the build and health check.
 

@@ -21,7 +21,9 @@ public sealed record DemoResetResult(bool UserFound, string? Email, int Applicat
 /// spanning every status, match tier, and Attention category (overdue, deadline soon, follow-up
 /// due, upcoming interview) is recreated along with a few notes and one saved letter. Two resume
 /// versions are guaranteed ("Backend focus", the active one, and "General") and the applications
-/// are split between them so the dashboard's Resume performance card shows a real comparison.
+/// are split between them so the dashboard's Resume performance card shows a real comparison. The two
+/// <see cref="TargetRoles"/> are merged into the profile, and the seeded missing skills give the skill gap card a clear
+/// top skill (Docker, 6 of 11), a mid tier (Go, C++) and a tail of singles spread across both roles.
 /// Used by <see cref="DemoResetService"/> nightly and by <c>POST /Admin/ResetDemo</c> on demand.
 /// </summary>
 public class DemoSeeder
@@ -66,6 +68,7 @@ public class DemoSeeder
         await _purger.PurgeAsync(user.Id, keepProfile: true, keepActiveDocuments: true);
 
         var (primary, secondary) = await EnsureResumesAsync(user.Id, ct);
+        await EnsureTargetRolesAsync(user.Id, ct);
 
         var apps = BuildApplications(user.Id, DateTime.UtcNow.Date);
         AssignResumes(apps, primary.Id, secondary.Id);
@@ -85,6 +88,32 @@ public class DemoSeeder
             user.Id, apps.Count, notes.Count, letters.Count, suggestions.Count, primary.Id, secondary.Id, sw.ElapsedMilliseconds);
 
         return new DemoResetResult(true, email, apps.Count, notes.Count, letters.Count, suggestions.Count, sw.Elapsed);
+    }
+
+    // ── Target roles ─────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Target roles the skill gap card's role filter splits on. Seeded role titles are worded so each tag matches a
+    /// few applications (whole words) and the rest land in "Other": Shopify/Duolingo/Google and Notion/Figma.
+    /// </summary>
+    public static readonly string[] TargetRoles = { "Software Engineering Intern", "Frontend Engineering Intern" };
+
+    /// <summary>Adds <see cref="TargetRoles"/> to the kept profile (never removes the admin's own tags); creates the profile row if missing.</summary>
+    private async Task EnsureTargetRolesAsync(string userId, CancellationToken ct)
+    {
+        var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct);
+        if (profile is null)
+        {
+            profile = new UserProfile { UserId = userId };
+            _db.UserProfiles.Add(profile);
+        }
+
+        var (merged, added) = ProfileTags.Merge(ProfileTags.FromJson(profile.TargetRolesJson), TargetRoles);
+        if (added.Count > 0)
+        {
+            profile.TargetRolesJson = ProfileTags.ToJson(merged);
+            await _db.SaveChangesAsync(ct);
+        }
     }
 
     // ── Resume versions ──────────────────────────────────────────────────────
@@ -219,22 +248,22 @@ public class DemoSeeder
         // ── Interview ──
         App(userId, today, "Stripe", "Backend Engineering Intern", "San Francisco, CA", WorkMode.Hybrid, ApplicationStatus.Interview,
             deadlineInDays: 12, appliedDaysAgo: 18, salary: "$52/hr", link: "https://stripe.com/jobs/listing/backend-engineering-intern",
-            description: "Stripe's Payments Infrastructure team is hiring a summer intern to build and ship services that move billions of dollars a day. You will write production code in Java and Go, design APIs used by other engineering teams, and work closely with a mentor on a scoped project from design review to launch.\n\nRequirements: strong fundamentals in data structures and algorithms; experience with at least one statically typed language; familiarity with SQL and REST APIs; interest in distributed systems and reliability. Nice to have: Kubernetes, gRPC, observability tooling.",
+            description: "Stripe's Payments Infrastructure team is hiring a summer intern to build and ship services that move billions of dollars a day. You will write production code in Java and Go, design APIs used by other engineering teams, and work closely with a mentor on a scoped project from design review to launch.\n\nRequirements: strong fundamentals in data structures and algorithms; experience with at least one statically typed language; familiarity with SQL and REST APIs; interest in distributed systems and reliability. Nice to have: Docker, Kubernetes, gRPC, observability tooling.",
             score: 84, summary: "Strong fit. Your Java and PostgreSQL experience maps directly onto the Payments Infrastructure stack, and your REST API project shows the design skills the posting asks for. Kubernetes and gRPC are the main gaps, but both are listed as nice-to-have.",
-            matching: new[] { "Java", "SQL", "REST APIs", "Data Structures", "Git", "Distributed Systems" }, missing: new[] { "Go", "Kubernetes", "gRPC" },
+            matching: new[] { "Java", "SQL", "REST APIs", "Data Structures", "Git", "Distributed Systems" }, missing: new[] { "Go", "Kubernetes", "gRPC", "Docker" },
             interviewAt: today.AddDays(3).AddHours(14)),                       // upcoming interview on the dashboard/board
 
         App(userId, today, "Shopify", "Software Engineering Intern (Ruby/Rails)", "Toronto, ON", WorkMode.Remote, ApplicationStatus.Interview,
             deadlineInDays: 20, appliedDaysAgo: 25, salary: "CA$45/hr", link: "https://www.shopify.com/careers/engineering-intern",
-            description: "Join a product team at Shopify building the tools millions of merchants use every day. Interns own a feature end to end in Ruby on Rails and React, participate in code review, and ship to production in their first month.\n\nWe look for: experience with a web framework (Rails, Django, Express, or similar); comfort with JavaScript and a component library; understanding of relational databases; strong written communication for an async, remote-first team.",
+            description: "Join a product team at Shopify building the tools millions of merchants use every day. Interns own a feature end to end in Ruby on Rails and React, participate in code review, and ship to production in their first month.\n\nWe look for: experience with a web framework (Rails, Django, Express, or similar); comfort with JavaScript and a component library; understanding of relational databases; experience shipping services in Docker containers; strong written communication for an async, remote-first team.",
             score: 71, summary: "Good fit. You have solid web fundamentals and React experience, and your Django project demonstrates MVC framework skills that transfer to Rails. Learning Ruby syntax before the interview would strengthen the technical round.",
-            matching: new[] { "React", "JavaScript", "SQL", "MVC Frameworks", "Git" }, missing: new[] { "Ruby", "Ruby on Rails", "GraphQL" }),
+            matching: new[] { "React", "JavaScript", "SQL", "MVC Frameworks", "Git" }, missing: new[] { "Ruby", "Ruby on Rails", "GraphQL", "Docker" }),
 
         App(userId, today, "Datadog", "Site Reliability Engineering Intern", "New York, NY", WorkMode.OnSite, ApplicationStatus.Interview,
             deadlineInDays: 9, appliedDaysAgo: 14, salary: "$48/hr", link: "https://careers.datadoghq.com/detail/sre-intern",
-            description: "Datadog's SRE interns keep one of the largest observability platforms in the world running smoothly. You will automate operational work in Python and Go, improve deployment pipelines, and participate in a shadow on-call rotation with a senior engineer.\n\nRequirements: Linux fundamentals, scripting in Python or Bash, understanding of networking basics (TCP/IP, DNS, HTTP). Preferred: Terraform, Kubernetes, experience with monitoring tools.",
+            description: "Datadog's SRE interns keep one of the largest observability platforms in the world running smoothly. You will automate operational work in Python and Go, improve deployment pipelines, and participate in a shadow on-call rotation with a senior engineer.\n\nRequirements: Linux fundamentals, scripting in Python or Bash, understanding of networking basics (TCP/IP, DNS, HTTP). Preferred: Docker, Terraform, Kubernetes, experience with monitoring tools.",
             score: 58, summary: "Moderate fit. Your Python scripting and Linux coursework cover the core requirements, but the role leans on infrastructure tooling (Terraform, Kubernetes) that does not appear on your resume. Highlight any deployment or CI work you have done.",
-            matching: new[] { "Python", "Linux", "Bash", "Networking", "Git" }, missing: new[] { "Terraform", "Kubernetes", "Go", "Monitoring Tools" },
+            matching: new[] { "Python", "Linux", "Bash", "Networking", "Git" }, missing: new[] { "Terraform", "Kubernetes", "Go", "Monitoring Tools", "Docker" },
             interviewAt: today.AddDays(6).AddHours(10).AddMinutes(30)),
 
         // ── Offer ──
@@ -242,13 +271,13 @@ public class DemoSeeder
             deadlineInDays: -3, appliedDaysAgo: 41, salary: "$50/hr", link: "https://www.notion.so/careers/frontend-intern",
             description: "Notion is looking for a frontend intern to work on the core editor experience. You will build performant, accessible UI in TypeScript and React, collaborate with designers on interaction details, and measure the impact of your work with product analytics.\n\nYou should have: strong TypeScript/JavaScript skills, React experience, an eye for detail, and familiarity with browser performance profiling. Bonus: experience with rich text editors or collaborative software.",
             score: 91, summary: "Excellent fit. Your TypeScript and React work, including the collaborative whiteboard project, lines up almost exactly with the editor team's needs. Accessibility experience is a differentiator most candidates lack.",
-            matching: new[] { "TypeScript", "React", "JavaScript", "Accessibility", "CSS", "Testing" }, missing: new[] { "Performance Profiling" }),
+            matching: new[] { "TypeScript", "React", "JavaScript", "Accessibility", "CSS", "Testing" }, missing: new[] { "Performance Profiling", "Rich Text Editors" }),
 
-        App(userId, today, "Figma", "Product Engineering Intern", "New York, NY", WorkMode.Hybrid, ApplicationStatus.Offer,
+        App(userId, today, "Figma", "Frontend Engineering Intern", "New York, NY", WorkMode.Hybrid, ApplicationStatus.Offer,
             deadlineInDays: -10, appliedDaysAgo: 48, salary: "$49/hr", link: "https://www.figma.com/careers/product-engineering-intern",
-            description: "Figma's product engineering interns ship user-facing features across the design tool and FigJam. Expect to work in TypeScript, React, and C++ (for the rendering engine), pair frequently with engineers, and demo your work to the whole company.\n\nRequirements: proficiency in TypeScript or JavaScript, comfort learning a large codebase, strong product sense. Nice to have: WebGL, C++, or experience building creative tools.",
+            description: "Figma's frontend engineering interns ship user-facing features across the design tool and FigJam. Expect to work in TypeScript, React, and C++ (for the rendering engine), pair frequently with engineers, and demo your work to the whole company.\n\nRequirements: proficiency in TypeScript or JavaScript, comfort learning a large codebase, strong product sense. Nice to have: WebGL, C++, browser performance profiling, or experience building creative tools.",
             score: 77, summary: "Good fit. Your frontend skills cover most of the role, and your interest in creative tooling comes through in your portfolio. C++ and WebGL are gaps, but the posting treats them as bonuses.",
-            matching: new[] { "TypeScript", "React", "JavaScript", "Product Thinking", "Git" }, missing: new[] { "C++", "WebGL" }),
+            matching: new[] { "TypeScript", "React", "JavaScript", "Product Thinking", "Git" }, missing: new[] { "C++", "WebGL", "Performance Profiling" }),
 
         // ── Applied ──
         App(userId, today, "Airbnb", "iOS Engineering Intern", "San Francisco, CA", WorkMode.Hybrid, ApplicationStatus.Applied,
@@ -259,15 +288,15 @@ public class DemoSeeder
 
         App(userId, today, "Cloudflare", "Systems Engineering Intern", "Austin, TX", WorkMode.OnSite, ApplicationStatus.Applied,
             deadlineInDays: 16, appliedDaysAgo: 9, salary: "$47/hr", link: "https://www.cloudflare.com/careers/systems-intern",
-            description: "Cloudflare's systems interns work on the edge network that serves a large fraction of the internet. Projects involve Rust and Go services, Linux networking, and performance work at scale.\n\nRequirements: systems programming experience (C, C++, Rust, or Go), understanding of networking and operating systems, Linux proficiency. Preferred: eBPF, DPDK, or kernel contributions.",
+            description: "Cloudflare's systems interns work on the edge network that serves a large fraction of the internet. Projects involve Rust and Go services, Linux networking, and performance work at scale.\n\nRequirements: systems programming experience (C, C++, Rust, or Go), understanding of networking and operating systems, Linux proficiency. Preferred: Docker and container networking, eBPF, DPDK, or kernel contributions.",
             score: 46, summary: "Moderate fit. Your operating systems coursework and C experience give you a foundation, but the team wants Rust or Go and deeper networking work. Consider a small Rust project before the interview stage.",
-            matching: new[] { "C", "Linux", "Operating Systems", "Networking" }, missing: new[] { "Rust", "Go", "eBPF", "Performance Engineering" }),
+            matching: new[] { "C", "Linux", "Operating Systems", "Networking" }, missing: new[] { "Rust", "Go", "eBPF", "Performance Engineering", "Docker" }),
 
-        App(userId, today, "Duolingo", "Software Engineer Intern, Learning Platform", "Pittsburgh, PA", WorkMode.OnSite, ApplicationStatus.Applied,
+        App(userId, today, "Duolingo", "Software Engineering Intern, Learning Platform", "Pittsburgh, PA", WorkMode.OnSite, ApplicationStatus.Applied,
             deadlineInDays: 24, appliedDaysAgo: 6, salary: "$45/hr", link: "https://careers.duolingo.com/jobs/swe-intern",
-            description: "Help build the backend that powers lessons for hundreds of millions of learners. You will work in Python and Java on high-throughput services, design experiments with data scientists, and ship to production every week.\n\nRequirements: Python or Java, SQL, understanding of REST services. Preferred: experience with A/B testing, Kafka, or AWS.",
+            description: "Help build the backend that powers lessons for hundreds of millions of learners. You will work in Python and Java on high-throughput services, design experiments with data scientists, and ship to production every week.\n\nRequirements: Python or Java, SQL, understanding of REST services. Preferred: Docker, experience with A/B testing, Kafka, or AWS.",
             score: 79, summary: "Good fit. Python, Java, and SQL are all present on your resume, and your capstone shows experiment design. AWS exposure would round out the profile.",
-            matching: new[] { "Python", "Java", "SQL", "REST APIs", "Data Analysis" }, missing: new[] { "AWS", "Kafka" }),
+            matching: new[] { "Python", "Java", "SQL", "REST APIs", "Data Analysis" }, missing: new[] { "AWS", "Kafka", "Docker" }),
 
         App(userId, today, "Snowflake", "Database Engineering Intern", "Bellevue, WA", WorkMode.Hybrid, ApplicationStatus.Applied,
             deadlineInDays: 40, appliedDaysAgo: 3, salary: "$55/hr", link: "https://careers.snowflake.com/us/en/job/db-intern",
@@ -309,9 +338,9 @@ public class DemoSeeder
 
         App(userId, today, "Palantir", "Forward Deployed Software Engineer Intern", "Denver, CO", WorkMode.OnSite, ApplicationStatus.Rejected,
             deadlineInDays: -35, appliedDaysAgo: 75, salary: "$50/hr", link: "https://www.palantir.com/careers/fdse-intern",
-            description: "Forward Deployed Software Engineers embed with customers to solve their hardest data problems using Palantir Foundry. Interns build data pipelines and applications in Python, TypeScript, and SQL, and present directly to customer stakeholders.\n\nRequirements: strong programming and communication skills, comfort with ambiguity, willingness to travel. Preferred: experience with data engineering, Spark, or building customer-facing applications.",
+            description: "Forward Deployed Software Engineers embed with customers to solve their hardest data problems using Palantir Foundry. Interns build data pipelines and applications in Python, TypeScript, and SQL, and present directly to customer stakeholders.\n\nRequirements: strong programming and communication skills, comfort with ambiguity, willingness to travel. Preferred: experience with data engineering, Spark, Docker, or building customer-facing applications.",
             score: 27, summary: "Weak fit. Your technical skills partially overlap, but the role is primarily about data engineering at scale and customer-facing delivery, neither of which appears in your experience.",
-            matching: new[] { "Python", "SQL", "Communication" }, missing: new[] { "Spark", "Data Engineering", "Customer Delivery", "TypeScript" }),
+            matching: new[] { "Python", "SQL", "Communication" }, missing: new[] { "Spark", "Data Engineering", "Customer Delivery", "TypeScript", "Docker" }),
     };
 
     private static List<ApplicationNote> BuildNotes(string userId, List<JobApplication> apps)

@@ -429,6 +429,18 @@
         });
     });
 
+    // Deep link: /JobApplications#open-42 opens that application's drawer (used by the dashboard's skill gap
+    // card). The fragment survives the list→board cookie redirect, so it works in either view.
+    const deepLink = /^#open-(\d+)$/.exec(location.hash);
+    if (deepLink) {
+        const target = document.querySelector('.app-row[data-app-id="' + deepLink[1] + '"]');
+        history.replaceState(null, '', location.pathname + location.search);
+        if (target) {
+            target.scrollIntoView({ block: 'center' });
+            openDrawer(target);
+        }
+    }
+
     closeBtn.addEventListener('click', closeDrawer);
     closeFooterBtn.addEventListener('click', closeDrawer);
     backdrop.addEventListener('click', closeDrawer);

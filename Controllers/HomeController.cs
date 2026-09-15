@@ -24,10 +24,13 @@ public class HomeController : Controller
     private readonly UserClockProvider _clocks;
     private readonly ResumeAnalyticsService _resumeAnalytics;
     private readonly SuggestionService _suggestions;
+    private readonly SkillGapService _skillGaps;
 
     public HomeController(ILogger<HomeController> logger, ApplicationDbContext context, ReminderService reminders,
-                          UserClockProvider clocks, ResumeAnalyticsService resumeAnalytics, SuggestionService suggestions)
+                          UserClockProvider clocks, ResumeAnalyticsService resumeAnalytics, SuggestionService suggestions,
+                          SkillGapService skillGaps)
     {
+        _skillGaps = skillGaps;
         _suggestions = suggestions;
         _logger = logger;
         _context = context;
@@ -101,6 +104,7 @@ public class HomeController : Controller
             AttentionTotal       = attention.Count,
             ResumeAnalytics      = ResumeAnalyticsService.Build(resumes, applications),
             Suggestions          = await _suggestions.PendingAsync(uid),
+            SkillGaps            = await _skillGaps.GetSkillGapsAsync(uid),
             HasProfileBasics     = profile != null && !string.IsNullOrWhiteSpace(profile.FullName)
                                     && !string.IsNullOrWhiteSpace(profile.SkillsJson) && profile.SkillsJson != "[]",
             HasResume            = hasResume

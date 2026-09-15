@@ -101,6 +101,7 @@ builder.Services.AddHostedService<DemoResetService>();
 // upcoming interview); the dashboard, list, board, drawer and calendar feed all go through it.
 builder.Services.AddScoped<ReminderService>();
 builder.Services.AddScoped<ResumeAnalyticsService>();   // "Resume performance" card + profile stats
+builder.Services.AddScoped<SkillGapService>();          // "Skills you're missing most" card (stored data only, no AI)
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<UserClockProvider>();
 

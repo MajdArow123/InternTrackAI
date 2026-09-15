@@ -38,8 +38,15 @@
 
 @section Scripts {
 <script type="application/json" id="appsOverTimeData">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ApplicationsOverTime.Select(kv => new { label = kv.Key, value = kv.Value })))</script>
+@if (!Model.SkillGaps.Hide)
+{
+    var sg = Model.SkillGaps;
+    var buckets = new[] { sg.All }.Concat(sg.Roles).Concat(sg.Other is null ? Array.Empty<InternTrackAI.Models.ViewModels.SkillGapBucket>() : new[] { sg.Other });
+<script type="application/json" id="skillGapData">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(new { analyzed = sg.AnalyzedApplications, buckets, applications = sg.Applications }, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)))</script>
+}
 <script src="~/lib/chart.js/chart.umd.min.js"></script>
 <script src="~/js/dashboard.js" asp-append-version="true"></script>
+<script src="~/js/skill-gap.js" asp-append-version="true"></script>
 <script src="~/js/reminders.js" asp-append-version="true"></script>
 <script src="~/js/suggestions.js" asp-append-version="true"></script>
 }

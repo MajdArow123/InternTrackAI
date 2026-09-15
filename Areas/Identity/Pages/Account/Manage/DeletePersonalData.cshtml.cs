@@ -17,13 +17,16 @@ public class DeletePersonalDataModel : PageModel
     private readonly SignInManager<IdentityUser> _signInManager;
     private readonly UserDataPurger _purger;
     private readonly ILogger<DeletePersonalDataModel> _logger;
+    private readonly IConfiguration _config;
 
     public DeletePersonalDataModel(
         UserManager<IdentityUser> userManager,
         SignInManager<IdentityUser> signInManager,
         UserDataPurger purger,
-        ILogger<DeletePersonalDataModel> logger)
+        ILogger<DeletePersonalDataModel> logger,
+        IConfiguration config)
     {
+        _config = config;
         _userManager = userManager;
         _signInManager = signInManager;
         _purger = purger;
@@ -33,6 +36,9 @@ public class DeletePersonalDataModel : PageModel
     [BindProperty] public InputModel Input { get; set; } = new();
 
     public bool RequirePassword { get; set; }
+
+    /// <summary>Read-only for the shared demo account; POSTs never reach the handler (DemoAccountGuardFilter).</summary>
+    public bool IsDemoAccount => ConfiguredAccounts.IsDemoUser(User, _config);
 
     public class InputModel
     {

@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using InternTrackAI.Services;
 
 namespace InternTrackAI.Areas.Identity.Pages.Account.Manage;
 
@@ -9,14 +10,19 @@ public class ChangePasswordModel : PageModel
 {
     private readonly UserManager<IdentityUser> _userManager;
     private readonly SignInManager<IdentityUser> _signInManager;
+    private readonly IConfiguration _config;
 
-    public ChangePasswordModel(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager)
+    public ChangePasswordModel(UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager, IConfiguration config)
     {
+        _config = config;
         _userManager = userManager;
         _signInManager = signInManager;
     }
 
     [TempData] public string? StatusMessage { get; set; }
+
+    /// <summary>Read-only for the shared demo account; POSTs never reach the handler (DemoAccountGuardFilter).</summary>
+    public bool IsDemoAccount => ConfiguredAccounts.IsDemoUser(User, _config);
 
     [BindProperty] public InputModel Input { get; set; } = new();
 

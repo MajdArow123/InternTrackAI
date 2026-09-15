@@ -55,7 +55,7 @@ The installed global `dotnet-ef` is 10.0.2 against EF Core 9.0.20 packages.
 | Path | Purpose |
 |---|---|
 | `Program.cs` | All DI, DB provider switch, auto-migrate, forwarded headers, pipeline, `/health` |
-| `Areas/Identity/Pages/Account/` | Scaffolded Login, Register, ForgotPassword, ResetPassword(+Confirmation), Manage (Index, ChangePassword, DeletePersonalData) |
+| `Areas/Identity/Pages/Account/` | Scaffolded Login, Register, ForgotPassword, ResetPassword(+Confirmation), Manage (Index, ChangePassword, DeletePersonalData). Identity UI also serves its non-scaffolded library pages (Manage/Email, EnableAuthenticator, ExternalLogins, …); `Areas/Identity/DemoAccountGuardFilter.cs` guards the Manage folder for the demo account |
 | `Controllers/` | 13 MVC controllers (section 5) |
 | `Data/ApplicationDbContext.cs` | DbSets, FK behaviours, UTC `DateTime` converters |
 | `Data/Migrations/` | EF migrations, authored on SQLite, applied to Postgres in prod |
@@ -99,7 +99,7 @@ Also anonymous: `/health` (`MapHealthChecks(...).AllowAnonymous()`), Identity Lo
 
 OpenAI callers are marked **[AI]**. All read `OpenAI:ApiKey` and treat blank or `your-openai-api-key-here` as "not configured". Only `ProfileExtractorService`, `ResumeScoreService` and `OpenAiStatusClassifier` honour `OpenAI:BaseUrl` (stub endpoint for local verification); the rest hardcode `https://api.openai.com`.
 
-- `ConfiguredAccounts.cs` — the only way to read/match `Demo:Email` and `Admin:Email`: trims config values, compares ignoring case and whitespace, resolves users via `FindByEmailAsync` then `FindByNameAsync`. Used by DemoSeeder, DemoResetService, AdminController, AccountController, `AiRateLimiting.IsDemoEmail`.
+- `ConfiguredAccounts.cs` — the only way to read/match `Demo:Email` and `Admin:Email`: trims config values, compares ignoring case and whitespace, resolves users via `FindByEmailAsync` then `FindByNameAsync`. Used by DemoSeeder, DemoResetService, AdminController, AccountController, `AiRateLimiting.IsDemoEmail`/`IsDemoUser`, `DemoAccountGuardFilter` and the Manage page models (`IsDemoUser`, `DemoUnavailableMessage`).
 - `AiRateLimiting.cs` — `AiRateLimitOptions`, singleton `AiUsageLimiter` (per-user fixed-window buckets) and the `"ai"` policy + 429 handling. Registered via `AddAiRateLimiting` in Program.cs.
 - `JobAnalyzerService.cs` **[AI]** — text or URL (fetches page via named client `UrlFetcher`, strips HTML, 8000 chars) → company, role, location, salary, skills, deadline, interview date. `AnalyzeAsync` is `virtual` with a CancellationToken so tests subclass it. Called by AnalyzerController, CaptureController.
 - `ResumeMatcherService.cs` **[AI]** — resume text vs job description → score 0–100, tier (`RecommendationFor`: ≥60 APPLY, ≥40 MAYBE, ≥20 CONSIDER SKIPPING, else SKIP), matching/missing skills, strengths, summary. Static `ExtractPdfText` (PdfPig) is used by Profile, CoverLetter and InterviewPrep controllers. Called by `ProfileController.AutoMatch`.
@@ -240,7 +240,7 @@ Account, demo, admin
 
 ## 10. Testing
 
-- Run: `dotnet test InternTrackAI.sln`. Current count: **435 tests, all passing** (2026-09-15, ~17 s; the 3 `PostgresMigrationTests` are no-ops unless `INTERNTRACK_PG_CONNECTION` is set). CI runs the same on every push/PR to `main`.
+- Run: `dotnet test InternTrackAI.sln`. Current count: **454 tests, all passing** (2026-09-15, ~17 s; the 3 `PostgresMigrationTests` are no-ops unless `INTERNTRACK_PG_CONNECTION` is set). CI runs the same on every push/PR to `main`.
 - `Integration/TestAppFactory.cs` boots the real `Program` in environment `Testing` against a private SQLite in-memory connection and a temp `UPLOADS_PATH`. Helpers and fakes in `Integration/`: `Http.cs` (antiforgery token scraping, `RegisterAsync` via the real Register page), `GmailFakes.cs` (`FakeGoogleOAuthClient`, `FakeGmailClient`, `FakeStatusClassifier`, `GmailTestHost`), `FakeProfileExtractor.cs`, `TestPdf.cs` (generates real text PDFs). Replace services with `WithWebHostBuilder` + `RemoveAll`. Assert on `WebUtility.HtmlDecode`d HTML (Razor entity-encodes non-ASCII).
 - Tests must never reach OpenAI or Google: the `Testing` environment loads no user-secrets, so no API key is present, and Google-facing clients are faked. Keep it that way.
 - Convention: every new endpoint that takes an id gets an ownership test (foreign user's id → 404, data unchanged). Existing ones: `OwnershipTests.cs`, `BoardEndpointTests.cs`, `CalendarTests.cs`, `SuggestionEndpointTests.cs`, `GmailConnectTests.cs`. Gap: `Profile/RenameResume` has no foreign-id test.
@@ -284,13 +284,13 @@ Deliberate — do not "fix":
 - The public profile (`/p/{slug}`, commit c155efe, migration `RemovePublicProfile`) and uploaded cover letters on the profile (bbb5f48, `RemoveUploadedCoverLetters`) were removed on purpose; profile Age too (`RemoveAgeFromProfile`). Don't reintroduce them. AI-generated cover letters are a separate, current feature.
 - Skill gap role matching (`SkillGapService.MatchesRole`) is deterministic and literal-word based: a strict majority of the tag's non-filler words must appear in the role title after a fixed suffix table (`Stem`) and compound joining. No synonyms, role families, fuzzy distance or AI. Commit daf2533 relaxed it once, from "every word" to this strict-majority rule; that is the agreed rule. Do not loosen it further or add synonyms to make demo data split nicely — change the seed (`DemoSeeder.TargetRoles`) instead. Only Applied-or-later applications count; `"[]"` counts as analyzed; card hidden under 3 analyzed.
 - Google OAuth consent screen stays in Testing mode (100 test users); only the `gmail.readonly` scope is ever requested; email bodies are never stored.
-- Demo account: Gmail Connect refused, resume auto-fill skipped, tighter AI limit.
+- Demo account: Gmail Connect refused, resume auto-fill skipped, tighter AI limit. On Identity/Account/Manage, `DemoAccountGuardFilter` (registered in Program.cs on the whole folder) refuses every POST to credential pages (change password, set password, change email, delete account, all 2FA pages, external logins) with a redirect to Manage and a "Not available on the demo account." toast; ChangePassword and DeletePersonalData render read-only with the notice, the library pages redirect. Display name (Manage/Index) and PersonalData stay open. `DemoAccountGuardTests.Every_manage_page_is_either_guarded_or_explicitly_allowed` fails if an Identity UI upgrade adds an unclassified page.
 - No status history: analytics use current status (Interview/Offer = response).
 - Antiforgery failures and other 400s surface as 404 because status-code pages re-execute through `/Home/NotFound`.
 
 Genuinely unfinished or known issues:
 - Compare modal prints Status as the enum integer (`applications.js` reads `data-status`, rendered as `(int)item.Status` in `_Table.cshtml`).
-- Identity Manage pages (change password, delete account) have no demo-account guard.
+- Forgot/Reset password and ConfirmEmailChange are not demo-guarded; they need a token that is only ever written to the server log (console email).
 - `Views/InterviewPrep/Prep.cshtml` still carries an inline script (~170 lines) not yet moved to `wwwroot/js`.
 - `GmailConnection.LastHistoryId` is recorded but incremental `history.list` sync is not implemented.
 - Skill caps on matcher output are prompt-only; no server-side validation of the JSON skill columns.

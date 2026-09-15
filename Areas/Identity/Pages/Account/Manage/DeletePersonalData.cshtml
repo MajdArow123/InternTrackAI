@@ -37,11 +37,19 @@
     </div>
 
     <div class="form-card danger-confirm-card">
-        <p class="mb-3 danger-confirm-text">
-            Deleting your account cannot be undone. Confirm your password to continue.
-        </p>
+        @if (Model.IsDemoAccount)
+        {
+            <p class="form-hint mb-3" data-demo-guard="delete">@InternTrackAI.Services.ConfiguredAccounts.DemoUnavailableMessage</p>
+        }
+        else
+        {
+            <p class="mb-3 danger-confirm-text">
+                Deleting your account cannot be undone. Confirm your password to continue.
+            </p>
+        }
         <form method="post">
             @Html.AntiForgeryToken()
+            <fieldset disabled="@Model.IsDemoAccount">
             <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
             @if (Model.RequirePassword)
             {
@@ -56,6 +64,7 @@
                 <button type="submit" class="btn btn-danger px-4">Delete my account</button>
                 <a asp-page="./Index" class="btn btn-outline-secondary">Cancel</a>
             </div>
+            </fieldset>
         </form>
     </div>
 

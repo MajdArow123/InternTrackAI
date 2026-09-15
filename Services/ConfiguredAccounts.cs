@@ -25,6 +25,17 @@ public static class ConfiguredAccounts
     public const string DemoEmailKey  = "Demo:Email";
     public const string AdminEmailKey = "Admin:Email";
 
+    /// <summary>Shown wherever an action is switched off for the shared demo account.</summary>
+    public const string DemoUnavailableMessage = "Not available on the demo account.";
+
+    /// <summary>True when the signed-in principal is the shared demo account (its email claim, else its user name).</summary>
+    public static bool IsDemoUser(System.Security.Claims.ClaimsPrincipal? user, IConfiguration config)
+    {
+        if (user?.Identity?.IsAuthenticated != true) return false;
+        var demo = Read(config, DemoEmailKey);
+        return Matches(user.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value, demo) || Matches(user.Identity.Name, demo);
+    }
+
     /// <summary>The trimmed value of <paramref name="key"/>, or null when it is missing or blank.</summary>
     public static string? Read(IConfiguration config, string key)
     {

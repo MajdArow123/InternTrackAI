@@ -43,7 +43,14 @@
                 <span class="status-badge badge-interview">Not verified</span>
             }
         </div>
-        <p class="form-hint mb-0 mt-2">Email changes require re-registration. Contact support if needed.</p>
+        @if (Model.IsDemoAccount)
+        {
+            <p class="form-hint mb-0 mt-2" data-demo-guard="email">@InternTrackAI.Services.ConfiguredAccounts.DemoUnavailableMessage</p>
+        }
+        else
+        {
+            <p class="form-hint mb-0 mt-2">Email changes require re-registration. Contact support if needed.</p>
+        }
     </div>
 
     <!-- Display Name -->
@@ -70,15 +77,31 @@
     <!-- Password -->
     <div class="form-card mb-3">
         <p class="form-section-title">Password</p>
-        <p class="form-hint mb-3">Keep your account secure with a strong password.</p>
-        <a asp-page="./ChangePassword" class="btn btn-outline-secondary">Change password</a>
+        @if (Model.IsDemoAccount)
+        {
+            <p class="form-hint mb-3" data-demo-guard="password">@InternTrackAI.Services.ConfiguredAccounts.DemoUnavailableMessage</p>
+            <button type="button" class="btn btn-outline-secondary" disabled>Change password</button>
+        }
+        else
+        {
+            <p class="form-hint mb-3">Keep your account secure with a strong password.</p>
+            <a asp-page="./ChangePassword" class="btn btn-outline-secondary">Change password</a>
+        }
     </div>
 
     <!-- Danger Zone -->
     <div class="form-card mb-3 danger-zone-card">
         <p class="form-section-title text-danger">Danger zone</p>
-        <p class="form-hint mb-3">Permanently delete your account and all associated data.</p>
-        <a asp-page="./DeletePersonalData" class="btn btn-outline-danger">Delete account</a>
+        @if (Model.IsDemoAccount)
+        {
+            <p class="form-hint mb-3" data-demo-guard="delete">@InternTrackAI.Services.ConfiguredAccounts.DemoUnavailableMessage</p>
+            <button type="button" class="btn btn-outline-danger" disabled>Delete account</button>
+        }
+        else
+        {
+            <p class="form-hint mb-3">Permanently delete your account and all associated data.</p>
+            <a asp-page="./DeletePersonalData" class="btn btn-outline-danger">Delete account</a>
+        }
     </div>
 
 </div>

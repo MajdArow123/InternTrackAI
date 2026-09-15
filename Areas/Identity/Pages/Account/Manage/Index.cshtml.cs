@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
+using InternTrackAI.Services;
 
 namespace InternTrackAI.Areas.Identity.Pages.Account.Manage;
 
@@ -13,12 +14,15 @@ public class IndexModel : PageModel
     private readonly UserManager<IdentityUser> _userManager;
     private readonly SignInManager<IdentityUser> _signInManager;
     private readonly ApplicationDbContext _db;
+    private readonly IConfiguration _config;
 
     public IndexModel(
         UserManager<IdentityUser> userManager,
         SignInManager<IdentityUser> signInManager,
-        ApplicationDbContext db)
+        ApplicationDbContext db,
+        IConfiguration config)
     {
+        _config = config;
         _userManager = userManager;
         _signInManager = signInManager;
         _db = db;
@@ -26,6 +30,9 @@ public class IndexModel : PageModel
 
     public string Email { get; set; } = string.Empty;
     public bool IsEmailConfirmed { get; set; }
+
+    /// <summary>The shared demo account: email, password and delete are shown as unavailable (enforced by DemoAccountGuardFilter).</summary>
+    public bool IsDemoAccount => ConfiguredAccounts.IsDemoUser(User, _config);
 
     [TempData] public string? StatusMessage { get; set; }
 

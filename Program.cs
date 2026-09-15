@@ -132,6 +132,12 @@ builder.Services.AddHttpClient("UrlFetcher")
     .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddControllersWithViews();
 
+// The shared demo account can't change its password or email, turn on two-factor, link logins or delete itself.
+// Applied to the whole Manage folder so Identity UI's built-in (non-scaffolded) pages are covered too.
+builder.Services.AddRazorPages(options => options.Conventions.AddAreaFolderApplicationModelConvention(
+    "Identity", InternTrackAI.Areas.Identity.DemoAccountGuardFilter.ManageFolder,
+    model => model.Filters.Add(new InternTrackAI.Areas.Identity.DemoAccountGuardFilter())));
+
 // ── Health checks ────────────────────────────────────────────────────────────
 // /health verifies the database connection (Railway's health check path points here).
 builder.Services.AddHealthChecks()

@@ -156,7 +156,7 @@ public class FollowUpEndpointTests
             await db.SaveChangesAsync();
             return 0;
         });
-        var id = await h.SeedAppAsync(uid, a => a.LastContactAt = DateTime.UtcNow.AddDays(-3));
+        var id = await h.SeedAppAsync(uid, a => { a.LastContactAt = DateTime.UtcNow.AddDays(-3); a.Deadline = DateTime.UtcNow.Date.AddDays(-5); });
         await h.WithDb(async db =>
         {
             db.GeneratedCoverLetters.Add(new GeneratedCoverLetter { UserId = uid, JobApplicationId = id, Content = "I have shipped Go services to production.", IsActive = true, VersionNumber = 1 });
@@ -181,6 +181,8 @@ public class FollowUpEndpointTests
         Assert.Contains("I have shipped Go services to production.", prompt);        // cover letter
         Assert.Contains("Recruiter Dana said to email her directly.", prompt);      // note
         Assert.Contains("SECOND FOLLOW-UP", prompt);                                  // LastContactAt after DateApplied
+        Assert.Contains("(passed).", prompt);                                         // deadline carried from the application
+        Assert.Contains("ASK: " + FollowUpService.AskInstruction(FollowUpAsk.AnythingFurther), prompt);
         Assert.DoesNotContain("416-555-0100", prompt);                                // profile phone never read
         Assert.Equal(FollowUpService.GenerateSystemPrompt, h.OpenAi.SystemPrompt());
         Assert.Contains("json_object", h.OpenAi.Requests[0]);

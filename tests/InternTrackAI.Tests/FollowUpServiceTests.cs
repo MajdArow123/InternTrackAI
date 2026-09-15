@@ -189,12 +189,62 @@ public class FollowUpServiceTests
     [InlineData("\"The posting mentions microservices and API design, which is what I spent last term building in ASP.NET Core.\"")]
     [InlineData("Never say or judge how well the applicant fits")]
     [InlineData("If the only detail available is a bare skill name with no context, name the skill and what the applicant used it for")]
-    [InlineData("The last sentence before the sign-off is one light, specific ask: whether there is an update on timing, whether they need anything further from the applicant, or confirmation that the application is still under review.")]
+    [InlineData("The last sentence before the sign-off is exactly one light, specific ask, and SITUATION names which one; never choose a different one.")]
+    [InlineData("a LONG WAIT (30 or more days) asks for confirmation that the application is still under review")]
+    [InlineData("otherwise a SECOND FOLLOW-UP asks whether they need anything further from the applicant")]
+    [InlineData("otherwise a FIRST FOLLOW-UP asks whether there is an update on timing when the deadline has passed or none was recorded, and whether they need anything further from the applicant while the deadline is still ahead")]
     [InlineData("\"I look forward to any updates you may have\" or \"Please let me know if you need anything else\"")]
+    [InlineData("say it in the applicant's own plain words. Never quote or near-quote the posting's phrasing")]
+    [InlineData("Bad: \"experience building APIs in any backend framework\". Good: \"you're looking for someone who's built REST APIs\".")]
     public void Both_system_prompts_state_the_rules(string rule)
     {
         Assert.Contains(rule, FollowUpService.GenerateSystemPrompt);
         Assert.Contains(rule, FollowUpService.ImproveSystemPrompt);
+    }
+
+    // ── The closing ask is decided by the situation, never by the model ──
+
+    public static TheoryData<string, int?, int?, int?, FollowUpAsk, string> AskCases => new()
+    {
+        // name, applied days ago, last contact days ago, deadline in days, expected ask, SITUATION ask line
+        { "first, no deadline",              10, null, null, FollowUpAsk.Timing,           "ASK: end by asking whether there is an update on timing." },
+        { "first, deadline passed",          10, null,   -2, FollowUpAsk.Timing,           "ASK: end by asking whether there is an update on timing." },
+        { "first, deadline still ahead",     10, null,    5, FollowUpAsk.AnythingFurther,  "ASK: end by asking whether they need anything further from the applicant." },
+        { "first, deadline is today",        10, null,    0, FollowUpAsk.AnythingFurther,  "ASK: end by asking whether they need anything further from the applicant." },
+        { "second follow-up",                14,    6, null, FollowUpAsk.AnythingFurther,  "ASK: end by asking whether they need anything further from the applicant." },
+        { "second, deadline passed",         14,    6,   -3, FollowUpAsk.AnythingFurther,  "ASK: end by asking whether they need anything further from the applicant." },
+        { "long wait",                       40, null, null, FollowUpAsk.StillUnderReview, "ASK: end with a request to confirm that the application is still under review." },
+        { "long wait beats second follow-up", 40,  10,  -20, FollowUpAsk.StillUnderReview, "ASK: end with a request to confirm that the application is still under review." },
+    };
+
+    [Theory]
+    [MemberData(nameof(AskCases))]
+    public void Situation_names_exactly_one_ask_from_the_mapping(string name, int? appliedDaysAgo, int? contactDaysAgo, int? deadlineInDays, FollowUpAsk expected, string askLine)
+    {
+        var c = Ctx(x => x with
+        {
+            DateApplied      = appliedDaysAgo is { } a ? Today.AddDays(-a) : null,
+            LastContactLocal = contactDaysAgo is { } l ? Today.AddDays(-l).AddHours(10) : null,
+            Deadline         = deadlineInDays is { } d ? Today.AddDays(d) : null,
+        });
+        Assert.True(expected == c.Ask, name);
+
+        var situation = FollowUpService.Situation(c);
+        Assert.EndsWith(askLine, situation);
+        Assert.Equal(1, Count(situation, "ASK: "));
+        Assert.Equal(askLine, "ASK: " + FollowUpService.AskInstruction(expected));
+    }
+
+    [Fact]
+    public void Situation_states_the_deadline_and_the_long_wait_no_longer_picks_its_own_ask()
+    {
+        Assert.Contains("The posting's application deadline was Sep 13, 2026 (passed).", FollowUpService.Situation(Ctx(c => c with { Deadline = Today.AddDays(-2) })));
+        Assert.Contains("The posting's application deadline is Sep 20, 2026 (still ahead).", FollowUpService.Situation(Ctx(c => c with { Deadline = Today.AddDays(5) })));
+        Assert.Contains("No application deadline was recorded.", FollowUpService.Situation(Ctx()));
+
+        var longWait = FollowUpService.Situation(Ctx(c => c with { DateApplied = Today.AddDays(-40) }));
+        Assert.DoesNotContain("still open", longWait);
+        Assert.DoesNotContain("decision has been made", longWait);
     }
 
     [Theory]
@@ -315,21 +365,24 @@ public class FollowUpServiceTests
         Assert.StartsWith("Hello,", d.Body);
         Assert.Contains("on September 5", d.Body);
         Assert.Contains("The posting asks for Java and SQL, which are both on my resume.", d.Body);
-        Assert.EndsWith("Is there an update on timing for next steps, or anything further you need from me?\n\nBest,\nAlex Johnson", d.Body);
+        Assert.EndsWith("Is there an update on timing for next steps?\n\nBest,\nAlex Johnson", d.Body);
         Assert.True(d.Body.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries).Length < 150);
 
+        // The demo draft ends on the same situation-mapped ask the prompt demands.
+        var ahead = FollowUpService.DemoDraft(Ctx(c => c with { Deadline = Today.AddDays(4) })).Body;
+        Assert.EndsWith("Is there anything further you need from me?\n\nBest,\nAlex Johnson", ahead);
         var second = FollowUpService.DemoDraft(Ctx(c => c with { LastContactLocal = Today.AddDays(-3) })).Body;
         Assert.Contains("earlier note", second);
-        Assert.Contains("Could you confirm whether my application is still under review?", second);
-        var longWait = FollowUpService.DemoDraft(Ctx(c => c with { DateApplied = Today.AddDays(-45) })).Body;
+        Assert.EndsWith("Is there anything further you need from me?\n\nBest,\nAlex Johnson", second);
+        var longWait = FollowUpService.DemoDraft(Ctx(c => c with { DateApplied = Today.AddDays(-45), LastContactLocal = Today.AddDays(-10) })).Body;
         Assert.Contains("close the loop", longWait);
-        Assert.Contains("Is the role still open, or has a decision been made?", longWait);
+        Assert.Contains("Could you confirm that my application is still under review?", longWait);
         Assert.EndsWith("Best,", FollowUpService.DemoDraft(Ctx(c => c with { SenderName = null })).Body);
         Assert.DoesNotContain("The posting asks for", FollowUpService.DemoDraft(Ctx()).Body);   // no matching skills: no made-up link
 
         // None of the banned wording or filler closings, in any branch.
         var banned = new[] { "align", "resonat", "drawn to", "perfect fit", "great fit", "excited about", "writing to", "hope this email", "hope you are", "hope you're", "checking in", "look forward", "let me know if you need" };
-        foreach (var body in new[] { d.Body, second, longWait })
+        foreach (var body in new[] { d.Body, ahead, second, longWait })
             foreach (var b in banned)
                 Assert.DoesNotContain(b, body, StringComparison.OrdinalIgnoreCase);
     }

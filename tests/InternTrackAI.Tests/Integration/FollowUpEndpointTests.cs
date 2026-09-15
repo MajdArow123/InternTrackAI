@@ -380,6 +380,49 @@ public class FollowUpEndpointTests
         Assert.Empty(h.OpenAi.Requests);
     }
 
+    [Fact]
+    public async Task Demo_canned_responses_take_no_permit_from_the_demo_ai_bucket()
+    {
+        var demoEmail = $"demo-{Guid.NewGuid():N}@example.test";
+        using var h = new Host(("Demo:Email", demoEmail), ("Demo:Password", "irrelevant-1!"),
+            ("RateLimiting:AI:PermitLimit", "50"), ("RateLimiting:AI:DemoPermitLimit", "1"));
+        var (demo, token, uid) = await h.UserAsync(demoEmail);
+        var id = await h.SeedAppAsync(uid);
+
+        // Well past the demo's single permit: every canned draft and refused improve still answers normally.
+        for (var i = 0; i < 4; i++)
+        {
+            var draft = await demo.SendAsync(Post($"/JobApplications/{id}/followup", token));
+            Assert.Equal(HttpStatusCode.OK, draft.StatusCode);
+            Assert.True((await Json(draft)).GetProperty("demo").GetBoolean());
+
+            var improve = await demo.SendAsync(Post($"/JobApplications/{id}/followup/improve", token, new { subject = "s", body = "Hello", instruction = "shorter" }));
+            Assert.Equal(HttpStatusCode.OK, improve.StatusCode);
+            Assert.True((await Json(improve)).GetProperty("demoRestricted").GetBoolean());
+        }
+
+        // The bucket is untouched: the one permit is still there for an endpoint that does call OpenAI, then it's gone.
+        Assert.Equal(HttpStatusCode.BadRequest, (await demo.PostAsJsonAsync("/Analyzer/Analyze", new { jobDescription = "" })).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await demo.PostAsJsonAsync("/Analyzer/Analyze", new { jobDescription = "" })).StatusCode);
+        Assert.Empty(h.OpenAi.Requests);
+    }
+
+    [Fact]
+    public async Task Permit_exemption_is_demo_only_regular_users_are_still_limited_after_demo_traffic()
+    {
+        var demoEmail = $"demo-{Guid.NewGuid():N}@example.test";
+        using var h = new Host(("Demo:Email", demoEmail), ("Demo:Password", "irrelevant-1!"), ("RateLimiting:AI:PermitLimit", "1"));
+        var (demo, demoToken, demoId) = await h.UserAsync(demoEmail);
+        var demoApp = await h.SeedAppAsync(demoId);
+        for (var i = 0; i < 3; i++)
+            Assert.Equal(HttpStatusCode.OK, (await demo.SendAsync(Post($"/JobApplications/{demoApp}/followup", demoToken))).StatusCode);
+
+        var (user, token, uid) = await h.UserAsync();
+        var id = await h.SeedAppAsync(uid);
+        Assert.Equal(HttpStatusCode.OK, (await user.SendAsync(Post($"/JobApplications/{id}/followup", token))).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await user.SendAsync(Post($"/JobApplications/{id}/followup", token))).StatusCode);
+    }
+
     // ── Where the button renders ──
 
     [Fact]

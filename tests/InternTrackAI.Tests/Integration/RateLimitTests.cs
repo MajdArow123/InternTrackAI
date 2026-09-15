@@ -105,6 +105,24 @@ public class RateLimitTests
         Assert.Contains("reached the limit of 1 AI requests", html);
     }
 
+    /// <summary>
+    /// [NoAiCallForDemo] lets the demo account skip the AI bucket, so it may only sit on rate-limited actions whose demo
+    /// branch never reaches OpenAI. The list is pinned: adding the attribute elsewhere must be a deliberate change here.
+    /// </summary>
+    [Fact]
+    public void Demo_permit_exemption_is_only_on_the_reviewed_canned_actions()
+    {
+        var marked = typeof(Program).Assembly.GetTypes()
+            .Where(t => typeof(Microsoft.AspNetCore.Mvc.ControllerBase).IsAssignableFrom(t))
+            .SelectMany(t => t.GetMethods().Where(m => m.IsDefined(typeof(InternTrackAI.Services.NoAiCallForDemoAttribute), false)))
+            .ToList();
+
+        Assert.Equal(new[] { "FollowUpController.Generate", "FollowUpController.Improve" },
+            marked.Select(m => $"{m.DeclaringType!.Name}.{m.Name}").OrderBy(n => n));
+        Assert.All(marked, m => Assert.True(m.IsDefined(typeof(Microsoft.AspNetCore.RateLimiting.EnableRateLimitingAttribute), false),
+            $"{m.Name} is exempt for the demo but not rate-limited at all"));
+    }
+
     [Fact]
     public async Task Non_ai_endpoints_are_not_rate_limited()
     {

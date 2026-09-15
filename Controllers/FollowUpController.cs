@@ -11,7 +11,8 @@ namespace InternTrackAI.Controllers;
 /// one-line instruction, via <see cref="FollowUpService"/>. Both endpoints are JSON fetch calls from
 /// <c>wwwroot/js/follow-up.js</c>, antiforgery-checked (token in the header), rate-limited by the shared "ai" policy
 /// and owner-scoped (another user's id is a 404). Nothing is stored: the draft only lives in the modal.
-/// The demo account gets a pre-written draft and no revisions, so it never spends credits.
+/// The demo account gets a pre-written draft and no revisions, so it never spends credits; both actions carry
+/// <see cref="NoAiCallForDemoAttribute"/>, so those demo responses don't take a permit either.
 /// </summary>
 [Authorize]
 public class FollowUpController : Controller
@@ -35,6 +36,7 @@ public class FollowUpController : Controller
     [HttpPost("JobApplications/{id:int}/followup")]
     [ValidateAntiForgeryToken]
     [EnableRateLimiting(AiRateLimiting.PolicyName)]
+    [NoAiCallForDemo]
     public async Task<IActionResult> Generate(int id, CancellationToken ct)
     {
         var context = await _followUps.BuildContextAsync(id, UserId(), await _clocks.GetAsync(), ct);
@@ -66,6 +68,7 @@ public class FollowUpController : Controller
     [HttpPost("JobApplications/{id:int}/followup/improve")]
     [ValidateAntiForgeryToken]
     [EnableRateLimiting(AiRateLimiting.PolicyName)]
+    [NoAiCallForDemo]
     public async Task<IActionResult> Improve(int id, [FromBody] ImproveRequest? req, CancellationToken ct)
     {
         var context = await _followUps.BuildContextAsync(id, UserId(), await _clocks.GetAsync(), ct);

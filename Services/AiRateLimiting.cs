@@ -26,6 +26,15 @@ public class AiRateLimitOptions
 }
 
 /// <summary>
+/// Marks an "ai"-limited action whose demo-account branch answers with a canned or refused response and never calls
+/// OpenAI (e.g. the follow-up draft). For the demo account the policy then takes no permit, so browsing those
+/// features doesn't use up the demo's AI allowance. Everyone else is limited as usual. Only put it on actions that
+/// check <see cref="ConfiguredAccounts.IsDemoUser"/> before any model call.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, Inherited = false)]
+public sealed class NoAiCallForDemoAttribute : Attribute { }
+
+/// <summary>
 /// The per-user AI bucket itself, shared by the HTTP policy below and by code that calls OpenAI
 /// outside a request (the Gmail sync). One fixed-window limiter per user id; a demo user gets the
 /// tighter <see cref="AiRateLimitOptions.DemoPermitLimit"/>. Registered as a singleton.
@@ -92,6 +101,9 @@ public static class AiRateLimiting
 {
     public const string PolicyName = "ai";
 
+    /// <summary>Partition for demo requests to <see cref="NoAiCallForDemoAttribute"/> actions; distinct from every user-id key so it never shares a cached limiter.</summary>
+    private const string DemoCannedPartition = "demo-canned";
+
     public static IServiceCollection AddAiRateLimiting(this IServiceCollection services, IConfiguration config)
     {
         services.Configure<AiRateLimitOptions>(config.GetSection(AiRateLimitOptions.SectionName));
@@ -107,6 +119,10 @@ public static class AiRateLimiting
                 var userId  = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
                 var key     = userId ?? ("ip:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"));
                 var isDemo  = IsDemoUser(httpContext, config);
+
+                // Endpoint routing has already run (UseRouting precedes UseRateLimiter), so the action's metadata is here.
+                if (isDemo && httpContext.GetEndpoint()?.Metadata.GetMetadata<NoAiCallForDemoAttribute>() is not null)
+                    return RateLimitPartition.GetNoLimiter(DemoCannedPartition);
 
                 return RateLimitPartition.Get(key, _ => limiter.ForUser(key, isDemo));
             });

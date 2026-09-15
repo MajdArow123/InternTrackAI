@@ -93,8 +93,8 @@ public class DemoSeeder
     // ── Target roles ─────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Target roles the skill gap card's role filter splits on. Seeded role titles are worded so each tag matches a
-    /// few applications (whole words) and the rest land in "Other": Shopify/Duolingo/Google and Notion/Figma.
+    /// Target roles the skill gap card's role filter splits on (SkillGapService.MatchesRole). With the seeded titles:
+    /// Shopify, Duolingo, Google and Palantir → Software Engineering; Notion → Frontend; the other six → "Other".
     /// </summary>
     public static readonly string[] TargetRoles = { "Software Engineering Intern", "Frontend Engineering Intern" };
 
@@ -273,9 +273,9 @@ public class DemoSeeder
             score: 91, summary: "Excellent fit. Your TypeScript and React work, including the collaborative whiteboard project, lines up almost exactly with the editor team's needs. Accessibility experience is a differentiator most candidates lack.",
             matching: new[] { "TypeScript", "React", "JavaScript", "Accessibility", "CSS", "Testing" }, missing: new[] { "Performance Profiling", "Rich Text Editors" }),
 
-        App(userId, today, "Figma", "Frontend Engineering Intern", "New York, NY", WorkMode.Hybrid, ApplicationStatus.Offer,
+        App(userId, today, "Figma", "Product Engineering Intern", "New York, NY", WorkMode.Hybrid, ApplicationStatus.Offer,
             deadlineInDays: -10, appliedDaysAgo: 48, salary: "$49/hr", link: "https://www.figma.com/careers/product-engineering-intern",
-            description: "Figma's frontend engineering interns ship user-facing features across the design tool and FigJam. Expect to work in TypeScript, React, and C++ (for the rendering engine), pair frequently with engineers, and demo your work to the whole company.\n\nRequirements: proficiency in TypeScript or JavaScript, comfort learning a large codebase, strong product sense. Nice to have: WebGL, C++, browser performance profiling, or experience building creative tools.",
+            description: "Figma's product engineering interns ship user-facing features across the design tool and FigJam. Expect to work in TypeScript, React, and C++ (for the rendering engine), pair frequently with engineers, and demo your work to the whole company.\n\nRequirements: proficiency in TypeScript or JavaScript, comfort learning a large codebase, strong product sense. Nice to have: WebGL, C++, browser performance profiling, or experience building creative tools.",
             score: 77, summary: "Good fit. Your frontend skills cover most of the role, and your interest in creative tooling comes through in your portfolio. C++ and WebGL are gaps, but the posting treats them as bonuses.",
             matching: new[] { "TypeScript", "React", "JavaScript", "Product Thinking", "Git" }, missing: new[] { "C++", "WebGL", "Performance Profiling" }),
 
@@ -292,7 +292,7 @@ public class DemoSeeder
             score: 46, summary: "Moderate fit. Your operating systems coursework and C experience give you a foundation, but the team wants Rust or Go and deeper networking work. Consider a small Rust project before the interview stage.",
             matching: new[] { "C", "Linux", "Operating Systems", "Networking" }, missing: new[] { "Rust", "Go", "eBPF", "Performance Engineering", "Docker" }),
 
-        App(userId, today, "Duolingo", "Software Engineering Intern, Learning Platform", "Pittsburgh, PA", WorkMode.OnSite, ApplicationStatus.Applied,
+        App(userId, today, "Duolingo", "Software Engineer Intern, Learning Platform", "Pittsburgh, PA", WorkMode.OnSite, ApplicationStatus.Applied,
             deadlineInDays: 24, appliedDaysAgo: 6, salary: "$45/hr", link: "https://careers.duolingo.com/jobs/swe-intern",
             description: "Help build the backend that powers lessons for hundreds of millions of learners. You will work in Python and Java on high-throughput services, design experiments with data scientists, and ship to production every week.\n\nRequirements: Python or Java, SQL, understanding of REST services. Preferred: Docker, experience with A/B testing, Kafka, or AWS.",
             score: 79, summary: "Good fit. Python, Java, and SQL are all present on your resume, and your capstone shows experiment design. AWS exposure would round out the profile.",

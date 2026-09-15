@@ -24,8 +24,10 @@ namespace InternTrackAI.Services;
 /// <item>Counts are distinct applications: a skill listed twice in one application counts once.</item>
 /// <item>Display name: the alias map's canonical spelling for aliased skills, otherwise the most common casing
 /// seen (ties go to the spelling seen first).</item>
-/// <item>Role buckets: an application belongs to a target-role tag when every word of the tag appears as a whole
-/// word in its role title (case-insensitive). It can belong to several; one matching none goes to "Other".</item>
+/// <item>Role buckets: an application belongs to a target-role tag when a strict majority of the tag's significant
+/// words (filler like "intern", "co-op", "senior", "II" ignored) appear in its role title, after both sides are
+/// suffix-normalised ("engineer" = "engineering", "developer" = "development"). Deterministic: no AI, no fuzzy
+/// distance. An application can belong to several tags; one matching none goes to "Other".</item>
 /// </list>
 /// </summary>
 public class SkillGapService
@@ -69,6 +71,44 @@ public class SkillGapService
     });
 
     private static readonly Regex Words = new(@"[\p{L}\p{N}+#]+", RegexOptions.Compiled);
+
+    // ── Role matching tables (see MatchesRole / Stem) ─────
+
+    /// <summary>
+    /// Words that say nothing about what kind of role it is: seniority, internship/co-op markers, levels, seasons,
+    /// and connectives. Compared before stemming, so list each spelling.
+    /// </summary>
+    public static readonly IReadOnlySet<string> RoleFillerWords = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "intern", "interns", "internship", "internships", "coop", "coops", "trainee", "apprentice",
+        "junior", "jr", "senior", "sr", "i", "ii", "iii", "iv", "entrylevel", "new", "grad", "graduate", "student",
+        "summer", "fall", "autumn", "winter", "spring",
+        "and", "of", "the", "for", "to", "a", "an", "in", "at", "with",
+    };
+
+    /// <summary>Two-word role terms written either joined, hyphenated or spaced; all three become the joined form.</summary>
+    private static readonly (Regex Pattern, string Joined)[] RoleCompounds =
+        new[] { ("front", "end"), ("back", "end"), ("full", "stack"), ("dev", "ops"), ("co", "op"), ("entry", "level") }
+            .Select(p => (new Regex($@"\b{p.Item1}[\s\-‐-–]*{p.Item2}\b", RegexOptions.Compiled), p.Item1 + p.Item2))
+            .ToArray();
+
+    /// <summary>
+    /// Ordered suffix rules for <see cref="Stem"/>; the first match wins, so longer suffixes come before the shorter
+    /// ones they end with ("eers" before "ers" before "s"). "eer" maps to itself so "engineer" is not cut to "engine".
+    /// </summary>
+    private static readonly (string Suffix, string Replacement)[] SuffixRules =
+    {
+        ("ytical", "y"), ("ytics", "y"), ("yzers", "y"), ("yzer", "y"), ("ytic", "y"), ("ysis", "y"), ("ysts", "y"), ("yze", "y"), ("yst", "y"),
+        ("ntific", "n"), ("ntists", "n"), ("ntist", "n"), ("nces", "n"), ("nce", "n"),
+        ("eering", "eer"), ("eers", "eer"), ("eer", "eer"),
+        ("ations", "at"), ("ation", "at"),
+        ("ments", ""), ("ment", ""),
+        ("ings", ""), ("ing", ""),
+        ("ers", ""), ("er", ""),
+        ("ors", ""), ("or", ""),
+        ("ies", "y"),
+        ("s", ""),
+    };
 
     private readonly ApplicationDbContext _db;
 
@@ -170,13 +210,39 @@ public class SkillGapService
         return Aliases.TryGetValue(lower, out var canonical) ? canonical.ToLowerInvariant() : lower;
     }
 
-    /// <summary>True when every word of <paramref name="tag"/> appears as a whole word in <paramref name="roleTitle"/>.</summary>
+    /// <summary>
+    /// True when a strict majority of the tag's significant words appear in the role title, comparing
+    /// <see cref="Stem"/>med whole words. Significant = not in <see cref="RoleFillerWords"/>. So "Software Engineer"
+    /// matches "Software Engineering Intern" (2 of 2), "Data Analyst" does not match "Business Analyst" (1 of 2),
+    /// and a three-word tag needs two. A tag made only of filler words never matches.
+    /// </summary>
     public static bool MatchesRole(string? roleTitle, string? tag)
     {
-        var tagWords = WordsOf(tag);
-        if (tagWords.Count == 0) return false;
-        var titleWords = WordsOf(roleTitle);
-        return tagWords.All(titleWords.Contains);
+        var significant = RoleWords(tag).Where(w => !RoleFillerWords.Contains(w)).Select(Stem).Distinct().ToList();
+        if (significant.Count == 0) return false;
+        var title = RoleWords(roleTitle).Select(Stem).ToHashSet();
+        return significant.Count(title.Contains) * 2 > significant.Count;
+    }
+
+    /// <summary>
+    /// Deterministic suffix normalisation for role words: the first matching rule in <see cref="SuffixRules"/> is
+    /// applied once (only if at least three letters remain), then a trailing "e" is dropped from words longer than
+    /// four letters. It only has to map related forms to the same key, not to a real root:
+    /// engineer/engineering → "engineer", develop/developer/development → "develop", analyst/analytics/analysis →
+    /// "analy", science/scientist → "scien", manage/manager/management → "manag".
+    /// </summary>
+    public static string Stem(string word)
+    {
+        var w = word.ToLowerInvariant();
+        foreach (var (suffix, replacement) in SuffixRules)
+        {
+            if (!w.EndsWith(suffix, StringComparison.Ordinal)) continue;
+            if (suffix == "s" && (w.EndsWith("ss") || w.EndsWith("us") || w.EndsWith("is"))) break;
+            var stem = w[..^suffix.Length] + replacement;
+            if (stem.Length >= 3) w = stem;
+            break;
+        }
+        return w.Length > 4 && w.EndsWith('e') ? w[..^1] : w;
     }
 
     /// <summary>
@@ -245,10 +311,14 @@ public class SkillGapService
     private static int Percent(int count, int total) =>
         total == 0 ? 0 : (int)Math.Round(count * 100.0 / total, MidpointRounding.AwayFromZero);
 
-    private static HashSet<string> WordsOf(string? text) =>
-        text is null
-            ? new HashSet<string>()
-            : Words.Matches(text).Select(m => m.Value.ToLowerInvariant()).ToHashSet();
+    /// <summary>Lower-cased words of a role title or tag, with <see cref="RoleCompounds"/> joined first and bare numbers dropped.</summary>
+    private static List<string> RoleWords(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return new();
+        var s = text.ToLowerInvariant();
+        foreach (var (pattern, joined) in RoleCompounds) s = pattern.Replace(s, joined);
+        return Words.Matches(s).Select(m => m.Value).Where(w => !w.All(char.IsDigit)).ToList();
+    }
 
     private static Dictionary<string, string> BuildAliases(Dictionary<string, string[]> groups)
     {

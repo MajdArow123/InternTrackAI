@@ -185,14 +185,71 @@ public class SkillGapServiceTests
     }
 
     [Fact]
-    public void Role_matching_is_whole_word_and_case_insensitive()
+    public void Software_engineer_matches_software_engineering_intern()
     {
-        Assert.True(SkillGapService.MatchesRole("Site Reliability ENGINEERING Intern", "engineering intern"));
-        Assert.True(SkillGapService.MatchesRole("Intern, Software Engineering", "Software Engineering Intern"));  // any order
-        Assert.False(SkillGapService.MatchesRole("Software Engineer Intern", "Software Engineering Intern"));    // "Engineer" is not "Engineering"
-        Assert.False(SkillGapService.MatchesRole("Javascript Developer", "Java Developer"));
-        Assert.False(SkillGapService.MatchesRole("Data Intern", "   "));
+        Assert.True(SkillGapService.MatchesRole("Software Engineering Intern", "Software Engineer"));
+        Assert.True(SkillGapService.MatchesRole("Software Engineer Intern, Learning Platform", "Software Engineering Intern"));
     }
+
+    [Fact]
+    public void Frontend_developer_matches_front_end_development_co_op()
+    {
+        Assert.True(SkillGapService.MatchesRole("Front-End Development Co-op", "Frontend Developer"));
+        Assert.True(SkillGapService.MatchesRole("Frontend Developer", "Front End Developer"));   // spaced tag, joined title
+    }
+
+    [Fact]
+    public void Data_analyst_does_not_match_business_analyst()
+    {
+        Assert.False(SkillGapService.MatchesRole("Business Analyst", "Data Analyst"));
+        Assert.True(SkillGapService.MatchesRole("Data Analytics Intern", "Data Analyst"));        // analyst ~ analytics
+    }
+
+    [Fact]
+    public void Role_matching_is_case_insensitive_order_free_and_whole_word()
+    {
+        Assert.True(SkillGapService.MatchesRole("Intern, SOFTWARE engineering", "software engineering intern"));
+        Assert.False(SkillGapService.MatchesRole("Javascript Developer", "Java Developer"));      // no substring matches
+        Assert.False(SkillGapService.MatchesRole("Software Developer Intern", "Software Engineer")); // 1 of 2 is not a majority
+    }
+
+    [Fact]
+    public void Filler_words_are_ignored_and_a_filler_only_tag_never_matches()
+    {
+        Assert.True(SkillGapService.MatchesRole("Backend Engineer II", "Senior Backend Engineer"));
+        Assert.True(SkillGapService.MatchesRole("Summer 2027 Data Science Internship", "Junior Data Scientist"));
+        Assert.False(SkillGapService.MatchesRole("Software Engineering Intern", "Senior Intern II"));
+        Assert.False(SkillGapService.MatchesRole("Data Intern", "   "));
+        Assert.False(SkillGapService.MatchesRole(null, "Data Scientist"));
+    }
+
+    [Fact]
+    public void Three_word_tags_need_two_matching_words()
+    {
+        Assert.True(SkillGapService.MatchesRole("Machine Learning Intern", "Machine Learning Engineer"));
+        Assert.False(SkillGapService.MatchesRole("Site Reliability Engineering Intern", "Machine Learning Engineer"));
+    }
+
+    [Theory]
+    [InlineData("engineer", "engineering")]
+    [InlineData("engineers", "engineer")]
+    [InlineData("develop", "developer")]
+    [InlineData("developer", "development")]
+    [InlineData("analyst", "analytics")]
+    [InlineData("analysis", "analyst")]
+    [InlineData("scientist", "science")]
+    [InlineData("manager", "management")]
+    [InlineData("operations", "operator")]
+    public void Stem_maps_related_forms_to_one_key(string a, string b) =>
+        Assert.Equal(SkillGapService.Stem(a), SkillGapService.Stem(b));
+
+    [Theory]
+    [InlineData("engineer", "engine")]
+    [InlineData("business", "busy")]
+    [InlineData("java", "javascript")]
+    [InlineData("data", "database")]
+    public void Stem_keeps_unrelated_words_apart(string a, string b) =>
+        Assert.NotEqual(SkillGapService.Stem(a), SkillGapService.Stem(b));
 
     [Fact]
     public void Other_is_null_when_every_application_matches_a_role_or_there_are_no_roles()
@@ -313,7 +370,15 @@ public class SkillGapServiceTests
         Assert.Equal(new[] { "Docker", "Go", "C++" }, vm.All.Skills.Take(3).Select(s => s.Skill));
         Assert.Contains(vm.All.Skills, s => s.Count == 1);
         Assert.True(vm.ShowRoleFilter);
-        Assert.All(vm.Roles, r => Assert.True(r.Analyzed >= 2, r.Label));
+
+        // Original job titles, looser rule: every assignment is one a person would make from the title alone.
+        string[] Companies(SkillGapBucket b) => b.Skills.SelectMany(s => s.ApplicationIds).Distinct()
+            .Select(id => vm.Applications[id].Company).OrderBy(c => c).ToArray();
+        var swe      = Assert.Single(vm.Roles, r => r.Label == "Software Engineering Intern");
+        var frontend = Assert.Single(vm.Roles, r => r.Label == "Frontend Engineering Intern");
+        Assert.Equal(new[] { "Duolingo", "Google", "Palantir", "Shopify" }, Companies(swe));   // incl. "Software Engineer Intern" titles
+        Assert.Equal(new[] { "Notion" }, Companies(frontend));
         Assert.NotNull(vm.Other);
+        Assert.Equal(new[] { "Airbnb", "Cloudflare", "Datadog", "Figma", "Snowflake", "Stripe" }, Companies(vm.Other!));
     }
 }

@@ -148,7 +148,7 @@
             btn.dataset.skill = s.skill;
             btn.setAttribute('aria-controls', 'skillGapPanel');
             btn.setAttribute('aria-expanded', i === selected ? 'true' : 'false');
-            btn.setAttribute('aria-label', s.skill + ': missing from ' + s.count + ' of ' + current.analyzed + ' analyzed applications. Show applications.');
+            btn.setAttribute('aria-label', s.skill + ': missing from ' + s.count + ' of ' + current.analyzed + ' analyzed application' + (current.analyzed === 1 ? '' : 's') + '. Show applications.');
             if (i === selected) btn.classList.add('is-selected');
             item.appendChild(btn);
             hitsHost.appendChild(item);

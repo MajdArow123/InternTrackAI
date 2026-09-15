@@ -20,7 +20,7 @@ namespace InternTrackAI.Controllers;
 /// Manages the user's career portfolio: personal info, profile photo, skills/target-role tags,
 /// resume version history (upload, activate, delete, download), the resume → profile auto-fill
 /// (automatic after an upload, manual via "Analyze with AI"), AI resume scoring, and the AI
-/// resume-match endpoint used by the Job Application create page.
+/// resume-match endpoint used by the Job Application create page, and the "Rewrite a bullet" tool.
 /// </summary>
 [Authorize]
 public class ProfileController : Controller
@@ -30,6 +30,7 @@ public class ProfileController : Controller
     private readonly UploadStorage _uploads;
     private readonly ResumeScoreService _scorer;
     private readonly ResumeMatcherService _matcher;
+    private readonly ResumeRewriteService _rewriter;
     private readonly ProfileAutoFillService _autoFill;
     private readonly AiUsageLimiter _aiLimiter;
     private readonly GitHubService _github;
@@ -43,6 +44,7 @@ public class ProfileController : Controller
         UploadStorage uploads,
         ResumeScoreService scorer,
         ResumeMatcherService matcher,
+        ResumeRewriteService rewriter,
         ProfileAutoFillService autoFill,
         AiUsageLimiter aiLimiter,
         GitHubService github,
@@ -57,6 +59,7 @@ public class ProfileController : Controller
         _uploads = uploads;
         _scorer = scorer;
         _matcher = matcher;
+        _rewriter = rewriter;
         _autoFill = autoFill;
         _aiLimiter = aiLimiter;
         _github = github;
@@ -544,6 +547,60 @@ public class ProfileController : Controller
         });
     }
 
+    // ── POST /Profile/RewriteBullet (AJAX) ───────────────
+
+    public sealed class RewriteBulletRequest
+    {
+        public string? Bullet { get; set; }
+        public int ApplicationId { get; set; }
+    }
+
+    /// <summary>
+    /// "Rewrite a bullet": 2–3 rewrites of one pasted resume bullet aimed at one of the user's applications, via
+    /// <see cref="ResumeRewriteService"/>. JSON fetch from <c>wwwroot/js/bullet-rewriter.js</c> (antiforgery token in the
+    /// header). Owner-scoped: another user's application is a 404. An application without a stored job description gets
+    /// <c>needsDescription</c> and a link to edit it. The demo account gets fixed sample rewrites without a model call,
+    /// so the action carries <see cref="NoAiCallForDemoAttribute"/>. Nothing is stored.
+    /// </summary>
+    /// <returns>JSON <c>{ success, variants:[{text, angle}], demo, sampleBullet }</c> or <c>{ success:false, error, field?, needsDescription?, editUrl? }</c>.</returns>
+    [HttpPost, ValidateAntiForgeryToken]
+    [EnableRateLimiting(AiRateLimiting.PolicyName)]
+    [NoAiCallForDemo]
+    public async Task<IActionResult> RewriteBullet([FromBody] RewriteBulletRequest? req, CancellationToken ct)
+    {
+        var bullet = ResumeRewriteService.NormalizeBullet(req?.Bullet);
+        if (bullet.Length == 0)
+            return Json(new { success = false, field = "bullet", error = "Paste a bullet to rewrite." });
+        if (bullet.Length > ResumeRewriteService.MaxBulletChars)
+            return Json(new { success = false, field = "bullet", error = $"Keep the bullet under {ResumeRewriteService.MaxBulletChars} characters. Rewrite one bullet at a time." });
+
+        var context = await _rewriter.BuildContextAsync(req!.ApplicationId, UserId(), ct);
+        if (context is null)
+            return NotFound(new { success = false, error = "Application not found." });
+        if (!context.HasJobDescription)
+            return Json(new
+            {
+                success = false,
+                needsDescription = true,
+                editUrl = Url.Action("Edit", "JobApplications", new { id = context.ApplicationId }),
+                error = ResumeRewriteService.NoJobDescriptionError
+            });
+
+        if (AiRateLimiting.IsDemoUser(User, _config))
+            return Json(new
+            {
+                success = true,
+                demo = true,
+                sampleBullet = ResumeRewriteService.DemoSampleBullet,
+                variants = ResumeRewriteService.DemoVariants().Select(v => new { text = v.Text, angle = v.Angle })
+            });
+
+        var result = await _rewriter.RewriteAsync(bullet, context, ct);
+        return result.Success
+            ? Json(new { success = true, demo = false, variants = result.Variants.Select(v => new { text = v.Text, angle = v.Angle }) })
+            : Json(new { success = false, error = result.Error });
+    }
+
     // ── Helpers ──────────────────────────────────────────
 
     /// <summary>Resolves the current signed-in user's id from the auth claims.</summary>
@@ -622,6 +679,11 @@ public class ProfileController : Controller
             GmailConfigured = gmailConfigured,
             GmailConnection = gmail,
             IsDemoAccount   = AiRateLimiting.IsDemoEmail(user?.Email, _config),
+            RewriteApplications = apps
+                .Where(a => !string.IsNullOrWhiteSpace(a.JobDescription))
+                .OrderByDescending(a => a.Id)
+                .Select(a => new RewriteApplicationOption(a.Id, a.CompanyName, a.RoleTitle))
+                .ToList(),
             ResumeStats   = ResumeAnalyticsService.Build(resumes, apps).ByResumeId,
             Profile       = profile,
             Email         = user?.Email,

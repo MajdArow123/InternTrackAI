@@ -117,7 +117,7 @@ public class RateLimitTests
             .SelectMany(t => t.GetMethods().Where(m => m.IsDefined(typeof(InternTrackAI.Services.NoAiCallForDemoAttribute), false)))
             .ToList();
 
-        Assert.Equal(new[] { "FollowUpController.Generate", "FollowUpController.Improve" },
+        Assert.Equal(new[] { "FollowUpController.Generate", "FollowUpController.Improve", "ProfileController.RewriteBullet" },
             marked.Select(m => $"{m.DeclaringType!.Name}.{m.Name}").OrderBy(n => n));
         Assert.All(marked, m => Assert.True(m.IsDefined(typeof(Microsoft.AspNetCore.RateLimiting.EnableRateLimitingAttribute), false),
             $"{m.Name} is exempt for the demo but not rate-limited at all"));

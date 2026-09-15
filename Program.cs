@@ -123,6 +123,7 @@ builder.Services.AddHttpClient<ResumeMatcherService>();
 builder.Services.AddHttpClient<ResumeScoreService>();
 builder.Services.AddHttpClient<CoverLetterGeneratorService>();
 builder.Services.AddHttpClient<FollowUpService>();   // "Draft follow-up" modal (no storage)
+builder.Services.AddHttpClient<ResumeRewriteService>();   // "Rewrite a bullet" on the profile Resume card (no storage)
 builder.Services.AddHttpClient<InterviewPrepService>();
 builder.Services.AddHttpClient<IProfileExtractor, ProfileExtractorService>();
 builder.Services.AddScoped<ProfileAutoFillService>();

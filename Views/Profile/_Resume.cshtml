@@ -189,4 +189,7 @@
         {
             <p class="form-hint mt-3 mb-0">Upload a resume and set it as active to unlock <strong>Analyze with AI</strong> and <strong>Score my resume</strong>.</p>
         }
+
+        @* Paste-only, so it works with or without a resume on file. *@
+        <partial name="_BulletRewriter" model="Model" />
     </div>

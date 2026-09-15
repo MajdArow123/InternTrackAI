@@ -49,4 +49,10 @@ public class ProfileViewModel
     public GmailConnection? GmailConnection { get; set; }
     // The shared demo account can't link a real inbox: Connect renders disabled with a tooltip.
     public bool IsDemoAccount { get; set; }
+
+    // "Rewrite a bullet": the user's applications that have a stored job description, newest first.
+    public List<RewriteApplicationOption> RewriteApplications { get; set; } = new();
 }
+
+/// <summary>One entry in the bullet rewriter's application selector.</summary>
+public sealed record RewriteApplicationOption(int Id, string CompanyName, string RoleTitle);

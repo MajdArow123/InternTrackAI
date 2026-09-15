@@ -223,6 +223,13 @@
 
         // Reminder actions (handled by reminders.js through data-reminder-action)
         document.querySelectorAll('#app-drawer [data-reminder-action]').forEach(function (b) { b.dataset.appId = data.id; });
+        const followUpBtn = document.getElementById('drawer-followup-btn');
+        if (followUpBtn) {
+            followUpBtn.dataset.appId   = data.id;
+            followUpBtn.dataset.company = data.company || '';
+            followUpBtn.dataset.role    = data.role || '';
+            followUpBtn.hidden = appRow.dataset.followUpDue !== '1';
+        }
         const calBtn = document.getElementById('drawer-calendar-btn');
         if (calBtn) {
             calBtn.href   = '/Calendar/application/' + data.id + '.ics';

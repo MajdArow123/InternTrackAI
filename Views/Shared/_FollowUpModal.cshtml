@@ -1,0 +1,70 @@
+<!-- ── Draft follow-up modal (wwwroot/js/follow-up.js; opened by any [data-followup-open] button) ──
+     Same overlay/card/header as the compare and import modals; the editor reuses the cover letter page's
+     textarea, word count, improve box and error banner. Every model string is set with textContent/value. -->
+<div id="followup-overlay" class="compare-modal-overlay" aria-hidden="true">
+    <div class="compare-modal followup-modal" id="followup-dialog" role="dialog" aria-modal="true"
+         aria-labelledby="followup-title" aria-describedby="followup-context" tabindex="-1">
+        <div class="compare-modal-header">
+            <div class="followup-heading">
+                <h2 class="compare-modal-title" id="followup-title">Follow-up email</h2>
+                <p class="followup-context" id="followup-context"></p>
+            </div>
+            <button type="button" class="compare-modal-close" id="followup-close" aria-label="Close">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+        </div>
+
+        <div class="followup-body">
+            <p class="visually-hidden" id="followup-status" aria-live="polite"></p>
+
+            <div class="followup-loading" id="followup-loading" hidden aria-hidden="true">
+                <div class="skeleton-line followup-skeleton-subject"></div>
+                <div class="skeleton-line followup-skeleton-body"></div>
+            </div>
+
+            <div class="followup-error" id="followup-error" role="alert" hidden>
+                <p class="match-error-banner mb-0" id="followup-error-text"></p>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="followup-retry">Retry</button>
+            </div>
+
+            <p class="cl-info-banner mb-0" id="followup-demo-note" hidden>
+                Example draft. The demo account shows a pre-written email instead of calling the AI.
+            </p>
+
+            <div class="followup-editor" id="followup-editor" hidden>
+                <div>
+                    <label class="form-label" for="followup-subject">Subject</label>
+                    <div class="followup-subject-row">
+                        <input type="text" class="form-control" id="followup-subject" maxlength="200" autocomplete="off" />
+                        <button type="button" class="btn btn-outline-secondary" id="followup-copy-subject">Copy subject</button>
+                    </div>
+                </div>
+                <div>
+                    <div class="d-flex align-items-center justify-content-between">
+                        <label class="form-label" for="followup-text">Email</label>
+                        <span class="word-count" id="followup-words" aria-live="off"></span>
+                    </div>
+                    <textarea class="form-control cl-output followup-textarea" id="followup-text" rows="11" spellcheck="true"></textarea>
+                </div>
+                <div class="cl-improve-box">
+                    <label class="form-section-title form-section-title--sm mb-2 d-block" for="followup-instruction">Improve with AI</label>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <input type="text" class="form-control flex-grow-1 improve-input" id="followup-instruction" maxlength="300" autocomplete="off"
+                               placeholder="Make it shorter, mention my Python experience…" aria-describedby="followup-improve-hint" />
+                        <button type="button" class="btn btn-outline-primary" id="followup-regenerate">Regenerate</button>
+                    </div>
+                    <p class="form-hint mt-1 mb-0" id="followup-improve-hint">Leave it empty for a fresh draft.</p>
+                    <p class="cl-info-banner mt-2 mb-0" id="followup-demo-restricted" hidden></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="followup-footer">
+            <p class="followup-footnote">Review before sending — check the details are right.</p>
+            <div class="followup-footer-actions">
+                <button type="button" class="btn btn-outline-secondary" id="followup-cancel">Close</button>
+                <button type="button" class="btn btn-primary" id="followup-copy" disabled>Copy email</button>
+            </div>
+        </div>
+    </div>
+</div>

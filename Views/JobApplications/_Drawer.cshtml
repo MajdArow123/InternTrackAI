@@ -80,6 +80,8 @@
                     </div>
                 </div>
                 <div class="drawer-reminder-actions">
+                    <!-- Only while a follow-up is due (app-drawer.js reads the row's data-follow-up-due); follow-up.js opens the modal. -->
+                    <button type="button" class="btn btn-sm btn-primary" id="drawer-followup-btn" data-followup-open data-app-id="" hidden>Draft follow-up</button>
                     <button type="button" class="btn btn-sm btn-outline-primary" id="drawer-contacted-btn" data-reminder-action="contacted" data-app-id="">Mark contacted</button>
                     <button type="button" class="btn btn-sm btn-outline-secondary" id="drawer-snooze-btn" data-reminder-action="snooze" data-app-id="">Snooze follow-up 3 days</button>
                     <a class="btn btn-sm btn-outline-secondary" id="drawer-calendar-btn" href="#" hidden>Add to calendar</a>

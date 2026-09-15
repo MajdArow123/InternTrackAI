@@ -36,6 +36,11 @@
 
 </div>
 
+@if (Model.TotalApplications > 0)
+{
+    <partial name="_FollowUpModal" />
+}
+
 @section Scripts {
 <script type="application/json" id="appsOverTimeData">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ApplicationsOverTime.Select(kv => new { label = kv.Key, value = kv.Value })))</script>
 @if (!Model.SkillGaps.Hide)
@@ -48,5 +53,6 @@
 <script src="~/js/dashboard.js" asp-append-version="true"></script>
 <script src="~/js/skill-gap.js" asp-append-version="true"></script>
 <script src="~/js/reminders.js" asp-append-version="true"></script>
+<script src="~/js/follow-up.js" asp-append-version="true"></script>
 <script src="~/js/suggestions.js" asp-append-version="true"></script>
 }

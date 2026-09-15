@@ -144,6 +144,15 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
         Assert.DoesNotContain($"data-app-id=\"{_f.BobAppId}\"", html);
     }
 
+    // ── Follow-up drafts ──
+    [Fact]
+    public async Task FollowUp_Generate_and_Improve_POST()
+    {
+        await Assert404(await _f.Alice.SendAsync(_f.JsonPost($"/JobApplications/{_f.BobAppId}/followup", new { })));
+        await Assert404(await _f.Alice.SendAsync(_f.JsonPost($"/JobApplications/{_f.BobAppId}/followup/improve", new { subject = "Hi", body = "Draft text", instruction = "shorter" })));
+        await AssertBobAppUntouched();
+    }
+
     // ── CoverLetter ──
     [Fact] public async Task CoverLetter_Generate_GET_with_foreign_appId() => await Assert404(await _f.Alice.GetAsync($"/CoverLetter/Generate?appId={_f.BobAppId}"));
     [Fact] public async Task CoverLetter_Download_GET()  => await Assert404(await _f.Alice.GetAsync($"/CoverLetter/Download/{_f.BobLetterId}"));

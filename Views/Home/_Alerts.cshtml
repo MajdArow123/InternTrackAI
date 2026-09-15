@@ -25,6 +25,7 @@
                         @if (item.Kind == ReminderKind.FollowUpDue)
                         {
                             <div class="attention-actions">
+                                <button type="button" class="btn btn-sm btn-primary" data-followup-open data-app-id="@app.Id" data-company="@app.CompanyName" data-role="@app.RoleTitle">Draft follow-up</button>
                                 <button type="button" class="btn btn-sm btn-outline-primary" data-reminder-action="contacted" data-app-id="@app.Id">Mark contacted</button>
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-reminder-action="snooze" data-app-id="@app.Id">Snooze 3 days</button>
                             </div>

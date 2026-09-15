@@ -4258,12 +4258,58 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .attention-item--danger  .attention-kind { color: var(--danger-text); }
 .attention-item--warning .attention-kind { color: var(--warning-text); }
 .attention-item--accent  .attention-kind { color: var(--accent-text); }
-.attention-actions { display: flex; gap: .4rem; flex: none; flex-wrap: wrap; }
+/* Shrinkable (not flex: none) so the three follow-up buttons wrap inside a narrow row instead of overflowing it. */
+.attention-actions { display: flex; gap: .4rem; flex: 0 1 auto; max-width: 100%; flex-wrap: wrap; }
 .attention-empty { margin: 0; padding: .35rem 0; color: var(--muted); font-size: .9333rem; }
 
 .board-tag--accent { background: var(--accent-soft); color: var(--accent-text); }
 .filter-pill-attention .filter-pill-dot { background: var(--warning); }
 .drawer-reminder-actions { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .75rem; }
+
+/* ── Follow-up draft modal (Views/Shared/_FollowUpModal.cshtml, wwwroot/js/follow-up.js) ──
+   Rides on .compare-modal (overlay, card, sticky header); the footer sticks to the bottom of the same scroller. */
+.followup-modal { max-width: 640px; scroll-padding-block: 6rem 5.5rem; }   /* scrollIntoView clears the sticky header and footer */
+.followup-modal:focus { outline: none; }
+.followup-heading { min-width: 0; }
+.followup-context { margin: .15rem 0 0; font-size: .8667rem; color: var(--muted); overflow-wrap: anywhere; }
+.followup-body { display: flex; flex-direction: column; gap: 1rem; padding: 1.1rem 1.35rem; }
+.followup-editor { display: flex; flex-direction: column; gap: 1rem; transition: opacity var(--duration) var(--ease); }
+.followup-editor[hidden] { display: none; }
+.followup-editor.is-updating { opacity: .55; }
+.followup-replaced #followup-subject,
+.followup-replaced .followup-textarea { animation: followup-refresh .4s var(--ease); }
+@keyframes followup-refresh { from { opacity: .3; } to { opacity: 1; } }
+.followup-subject-row { display: flex; gap: .5rem; }
+.followup-subject-row .form-control { flex: 1; min-width: 0; }
+.followup-subject-row .btn { white-space: nowrap; }
+.followup-textarea { min-height: 260px; padding: 1rem; line-height: 1.65; }
+.followup-loading { display: flex; flex-direction: column; gap: .75rem; }
+.followup-loading[hidden] { display: none; }
+.followup-skeleton-body { height: 240px; border-radius: var(--radius-md); }
+.followup-error { display: flex; flex-direction: column; align-items: flex-start; gap: .6rem; }
+.followup-error[hidden] { display: none; }
+.followup-error .match-error-banner { width: 100%; }
+.followup-footer {
+  position: sticky; bottom: 0; z-index: 1;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .6rem 1rem;
+  padding: .9rem 1.35rem; border-top: 1px solid var(--border); background: var(--card);
+}
+.followup-footnote { margin: 0; font-size: .8rem; color: var(--muted); }
+.followup-footer-actions { display: flex; gap: .5rem; margin-left: auto; }
+@media (max-width: 575px) {
+  .followup-modal { scroll-padding-block: 6rem 8.5rem; }
+  .followup-body { padding: 1rem; }
+  .followup-footer { padding: .8rem 1rem; }
+  .followup-footer-actions { width: 100%; }
+  .followup-footer-actions .btn { flex: 1; }
+  .followup-textarea { min-height: 220px; }
+  .followup-skeleton-body { height: 200px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .followup-editor { transition: none; }
+  .followup-replaced #followup-subject,
+  .followup-replaced .followup-textarea { animation: none; }
+}
 .reminder-days-input { max-width: 6.5rem; }
 .calendar-howto { padding-left: 1.1rem; font-size: .8667rem; color: var(--text-2); display: flex; flex-direction: column; gap: .25rem; }
 

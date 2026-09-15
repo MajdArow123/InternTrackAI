@@ -56,7 +56,7 @@ The installed global `dotnet-ef` is 10.0.2 against EF Core 9.0.20 packages.
 |---|---|
 | `Program.cs` | All DI, DB provider switch, auto-migrate, forwarded headers, pipeline, `/health` |
 | `Areas/Identity/Pages/Account/` | Scaffolded Login, Register, ForgotPassword, ResetPassword(+Confirmation), Manage (Index, ChangePassword, DeletePersonalData). Identity UI also serves its non-scaffolded library pages (Manage/Email, EnableAuthenticator, ExternalLogins, …); `Areas/Identity/DemoAccountGuardFilter.cs` guards the Manage folder for the demo account |
-| `Controllers/` | 13 MVC controllers (section 5) |
+| `Controllers/` | 14 MVC controllers (section 5) |
 | `Data/ApplicationDbContext.cs` | DbSets, FK behaviours, UTC `DateTime` converters |
 | `Data/Migrations/` | EF migrations, authored on SQLite, applied to Postgres in prod |
 | `Helpers/` | View helpers: `StatusDisplay` (badges/icons/tiers), `ResumeDisplay`, `ProfileDisplay` (initials/photo URL) |
@@ -86,6 +86,7 @@ No global authorization fallback: anything without `[Authorize]` is anonymous. "
 | `ProfileController` | `/Profile`, `/Profile/Bookmarklet`, SaveInfo, SaveReminderSettings, RegenerateCalendarToken, UploadPhoto, RemovePhoto, SaveSkills, SaveTargetRoles, UploadResume, SetActiveResume, RenameResume, DeleteResume, DownloadResume/{id}, AnalyzeResume (ai), ScoreResume (ai), AutoMatch (ai, `[IgnoreAntiforgeryToken]`) | `[Authorize]`. Profile, photo (2 MB, jpg/jpeg/png/webp), resumes (PDF, 5 MB, magic bytes checked), tags, calendar token. UploadResume is **not** rate-limited so the upload always succeeds; it takes one permit from `AiUsageLimiter` manually for auto-fill (skipped entirely on the demo account) |
 | `CoverLetterController` | `/CoverLetter/Generate`, `GenerateAjax` (ai), `ImproveAjax` (ai), Save, Delete/{id}, SetActive/{id}, Download/{id} (.txt) | `[Authorize]`. AJAX actions keep `[ValidateAntiForgeryToken]` (token sent by JS) |
 | `InterviewPrepController` | `/InterviewPrep/Prep?appId`, `Generate` (ai), `CritiqueAnswer` (ai) | `[Authorize]`. One `InterviewPrepSession` per application, overwritten on regenerate; critiques not stored |
+| `FollowUpController` | `POST /JobApplications/{id}/followup`, `POST /JobApplications/{id}/followup/improve` | `[Authorize]`, ai, `[ValidateAntiForgeryToken]` (header token from `follow-up.js`), JSON. Owner-scoped 404; only `Applied` applications (`success:false` otherwise). Demo account: canned `FollowUpService.DemoDraft` (`demo:true`), improve refused with `demoRestricted:true`. Persists nothing |
 | `SalaryInsightController` | `POST /SalaryInsight/Estimate` | `[Authorize]`, ai. Used on Create and Edit |
 | `CaptureController` | `GET /Capture?url=&title=` | `[Authorize]`, ai. Bookmarklet target: validates http(s) URL ≤ 2048 chars, runs the analyzer with a `Capture:AnalyzeTimeoutSeconds` cap (default 15), redirects to Create with query-string prefill (`CapturePrefill`). Falls back to URL+title with an info toast. Saves nothing |
 | `CalendarController` | `GET /Calendar/feed.ics?token=` (`[AllowAnonymous]`), `GET /Calendar/application/{id}.ics` (`[Authorize]`) | Feed is anonymous because calendar apps fetch without cookies; the 43-char `UserProfile.CalendarToken` is the secret, wrong/missing token = 404. Uses the token owner's time zone |
@@ -97,7 +98,7 @@ Also anonymous: `/health` (`MapHealthChecks(...).AllowAnonymous()`), Identity Lo
 
 ## 6. Services
 
-OpenAI callers are marked **[AI]**. All read `OpenAI:ApiKey` and treat blank or `your-openai-api-key-here` as "not configured". Only `ProfileExtractorService`, `ResumeScoreService` and `OpenAiStatusClassifier` honour `OpenAI:BaseUrl` (stub endpoint for local verification); the rest hardcode `https://api.openai.com`.
+OpenAI callers are marked **[AI]**. All read `OpenAI:ApiKey` and treat blank or `your-openai-api-key-here` as "not configured". Only `ProfileExtractorService`, `ResumeScoreService`, `FollowUpService` and `OpenAiStatusClassifier` honour `OpenAI:BaseUrl` (stub endpoint for local verification); the rest hardcode `https://api.openai.com`.
 
 - `ConfiguredAccounts.cs` — the only way to read/match `Demo:Email` and `Admin:Email`: trims config values, compares ignoring case and whitespace, resolves users via `FindByEmailAsync` then `FindByNameAsync`. Used by DemoSeeder, DemoResetService, AdminController, AccountController, `AiRateLimiting.IsDemoEmail`/`IsDemoUser`, `DemoAccountGuardFilter` and the Manage page models (`IsDemoUser`, `DemoUnavailableMessage`).
 - `AiRateLimiting.cs` — `AiRateLimitOptions`, singleton `AiUsageLimiter` (per-user fixed-window buckets) and the `"ai"` policy + 429 handling. Registered via `AddAiRateLimiting` in Program.cs.
@@ -105,6 +106,7 @@ OpenAI callers are marked **[AI]**. All read `OpenAI:ApiKey` and treat blank or 
 - `ResumeMatcherService.cs` **[AI]** — resume text vs job description → score 0–100, tier (`RecommendationFor`: ≥60 APPLY, ≥40 MAYBE, ≥20 CONSIDER SKIPPING, else SKIP), matching/missing skills, strengths, summary. Static `ExtractPdfText` (PdfPig) is used by Profile, CoverLetter and InterviewPrep controllers. Called by `ProfileController.AutoMatch`.
 - `ResumeScoreService.cs` **[AI]** — job-independent resume score, strengths, improvements. `ProfileController.ScoreResume`.
 - `CoverLetterGeneratorService.cs` **[AI]** — `GenerateAsync` (letter dated with the user's local today) and `ImproveAsync`. CoverLetterController.
+- `FollowUpService.cs` **[AI]** — follow-up email drafts. `BuildContextAsync` (owner-scoped) assembles company/role/location/mode, DateApplied, LastContactAt (user zone), job description (3000 chars), DisplayName→FullName, skills, target roles, `MatchingSkillsJson`, active resume text (2500, emails/phones/links scrubbed), this application's cover letter (active else newest, 1500) and the latest 10 notes. Pure `BuildGeneratePrompt`/`BuildImprovePrompt` + `Situation` (FIRST vs SECOND FOLLOW-UP when LastContactAt ≥ DateApplied; LONG WAIT at ≥ `LongWaitDays` 30), untrusted text in tagged sections with tag look-alikes stripped, `Parse` (JSON `{subject, body}`, one markdown fence tolerated, anything else → `BadFormatError`), `DemoDraft`. Logs only application id + token count. FollowUpController.
 - `InterviewPrepService.cs` **[AI]** — 8–10 questions (`InterviewQuestion` records) and `CritiqueAnswerAsync`. InterviewPrepController.
 - `SalaryInsightService.cs` **[AI]** — range + note from model knowledge (not live data). SalaryInsightController.
 - `ProfileExtractorService.cs` **[AI]** — `IProfileExtractor`: name, skills, target roles from resume text. Used only via ProfileAutoFillService.
@@ -200,7 +202,7 @@ Non-colour tokens: `--radius` 16px, `--radius-md` 12px, `--radius-sm` 10px, `--r
 **Working rules from the user.**
 - Never edit `app.db` directly; data changes go through migrations or the app UI.
 - Never change passwords or `EmailConfirmed` in the database; never create accounts outside the app's Register page. Verify with throwaway accounts registered through the UI, never the demo password.
-- Don't trigger real OpenAI calls locally (a real key sits in user-secrets): run with the placeholder `OpenAI__ApiKey`, or a stub via `OpenAI__BaseUrl` for the three services that honour it.
+- Don't trigger real OpenAI calls locally (a real key sits in user-secrets): run with the placeholder `OpenAI__ApiKey`, or a stub via `OpenAI__BaseUrl` for the four services that honour it.
 
 ## 9. Features as built
 
@@ -216,6 +218,7 @@ AI tools (all rate-limited, section 8)
 - Job analyzer on Create — `AnalyzerController` → `JobAnalyzerService`; `_AnalyzerPanel`, `application-form.js`.
 - Resume match scoring after analysis, persisted via hidden inputs — `ProfileController.AutoMatch` → `ResumeMatcherService`.
 - Cover letters (generate, improve, save versions, set active, .txt download, jsPDF download client-side) — `CoverLetterController`, `CoverLetterGeneratorService`, `cover-letter.js`.
+- Follow-up email drafts: "Draft follow-up" beside Mark contacted / Snooze on FollowUpDue Attention rows and in the drawer (list + board; shown only while the row's `data-follow-up-due` is set, hidden again after Mark contacted/Snooze); modal with skeleton, subject + copy, editable body, improve/regenerate (empty instruction = fresh draft), inline error + Retry, focus trap — `FollowUpController`, `FollowUpService`, `Views/Shared/_FollowUpModal.cshtml`, `follow-up.js`. The board card itself has no button (it has no Mark contacted/Snooze), nor does Edit.
 - Interview prep + answer critique — `InterviewPrepController`, `InterviewPrepService`.
 - Salary insight on Create/Edit — `SalaryInsightController`, `SalaryInsightService`, `salary-insight.js`.
 - Resume score — `ProfileController.ScoreResume`, `ResumeScoreService`.
@@ -240,10 +243,10 @@ Account, demo, admin
 
 ## 10. Testing
 
-- Run: `dotnet test InternTrackAI.sln`. Current count: **459 tests, all passing** (2026-09-15, ~17 s; the 3 `PostgresMigrationTests` are no-ops unless `INTERNTRACK_PG_CONNECTION` is set). CI runs the same on every push/PR to `main`.
+- Run: `dotnet test InternTrackAI.sln`. Current count: **509 tests, all passing** (2026-09-15, ~18 s; the 3 `PostgresMigrationTests` are no-ops unless `INTERNTRACK_PG_CONNECTION` is set). CI runs the same on every push/PR to `main`.
 - `Integration/TestAppFactory.cs` boots the real `Program` in environment `Testing` against a private SQLite in-memory connection and a temp `UPLOADS_PATH`. Helpers and fakes in `Integration/`: `Http.cs` (antiforgery token scraping, `RegisterAsync` via the real Register page), `GmailFakes.cs` (`FakeGoogleOAuthClient`, `FakeGmailClient`, `FakeStatusClassifier`, `GmailTestHost`), `FakeProfileExtractor.cs`, `TestPdf.cs` (generates real text PDFs). Replace services with `WithWebHostBuilder` + `RemoveAll`. Assert on `WebUtility.HtmlDecode`d HTML (Razor entity-encodes non-ASCII).
 - Tests must never reach OpenAI or Google: the `Testing` environment loads no user-secrets, so no API key is present, and Google-facing clients are faked. Keep it that way.
-- Convention: every new endpoint that takes an id gets an ownership test (foreign user's id → 404, data unchanged). Existing ones: `OwnershipTests.cs`, `BoardEndpointTests.cs`, `CalendarTests.cs`, `SuggestionEndpointTests.cs`, `GmailConnectTests.cs`. Gap: `Profile/RenameResume` has no foreign-id test.
+- Convention: every new endpoint that takes an id gets an ownership test (foreign user's id → 404, data unchanged). Existing ones: `OwnershipTests.cs`, `FollowUpEndpointTests.cs`, `BoardEndpointTests.cs`, `CalendarTests.cs`, `SuggestionEndpointTests.cs`, `GmailConnectTests.cs`. Gap: `Profile/RenameResume` has no foreign-id test.
 - Migration guard: `MigrationColumnTypeTests.cs` (section 8).
 - Playwright: not part of the repo, no committed scripts or package.json. Browser verification is done ad hoc from a session scratchpad using gstack's install (`~/.claude/skills/gstack/node_modules/playwright`, symlink `node_modules` into the scratchpad; browsers cached in `~/Library/Caches/ms-playwright`). User rule: any refactor of the Applications views needs a Playwright click-through of every action on the page. Seed data through the UI (Register, CSV import, Create form hidden inputs), not the database.
 
@@ -263,7 +266,7 @@ Environment variables (to move to `docs/deployment.md` later; the README table i
 |---|---|---|
 | `DATABASE_URL`, `PORT` | injected | Postgres switch, listen port |
 | `OpenAI__ApiKey` | — | All AI features |
-| `OpenAI__BaseUrl` | api.openai.com | Stub for extractor, scorer, Gmail classifier only; local verification |
+| `OpenAI__BaseUrl` | api.openai.com | Stub for extractor, scorer, follow-up drafts, Gmail classifier only; local verification |
 | `UPLOADS_PATH` | `./uploads` | Upload root |
 | `Demo__Email`, `Demo__Password` | — | Demo login button; demo rate limit; demo guards |
 | `Demo__AutoReset`, `Demo__ResetTimeUtc` | `false`, `04:00` | Nightly demo reseed |
@@ -284,7 +287,7 @@ Deliberate — do not "fix":
 - The public profile (`/p/{slug}`, commit c155efe, migration `RemovePublicProfile`) and uploaded cover letters on the profile (bbb5f48, `RemoveUploadedCoverLetters`) were removed on purpose; profile Age too (`RemoveAgeFromProfile`). Don't reintroduce them. AI-generated cover letters are a separate, current feature.
 - Skill gap role matching (`SkillGapService.MatchesRole`) is deterministic and literal-word based: a strict majority of the tag's non-filler words must appear in the role title after a fixed suffix table (`Stem`) and compound joining. No synonyms, role families, fuzzy distance or AI. Commit daf2533 relaxed it once, from "every word" to this strict-majority rule; that is the agreed rule. Do not loosen it further or add synonyms to make demo data split nicely — change the seed (`DemoSeeder.TargetRoles`) instead. Only Applied-or-later applications count; `"[]"` counts as analyzed; card hidden under 3 analyzed.
 - Google OAuth consent screen stays in Testing mode (100 test users); only the `gmail.readonly` scope is ever requested; email bodies are never stored.
-- Demo account: Gmail Connect refused, resume auto-fill skipped, tighter AI limit. On Identity/Account/Manage, `DemoAccountGuardFilter` (registered in Program.cs on the whole folder) refuses every POST to credential pages (change password, set password, change email, delete account, all 2FA pages, external logins) with a redirect to Manage and a "Not available on the demo account." toast; ChangePassword and DeletePersonalData render read-only with the notice, the library pages redirect. Manage/Index renders read-only (display name form disabled, POST refused); `ProfileController.SaveInfo` refuses a demo display-name change (JSON `field: "displayName"`) and keeps the stored name when the disabled input is omitted. PersonalData stays open. `DemoAccountGuardTests.Every_manage_page_is_either_guarded_or_explicitly_allowed` fails if an Identity UI upgrade adds an unclassified page.
+- Demo account: Gmail Connect refused, resume auto-fill skipped, tighter AI limit, Draft follow-up returns the canned `FollowUpService.DemoDraft` and refuses improve (both still take a permit from the demo AI bucket, since the `ai` policy runs before the action). On Identity/Account/Manage, `DemoAccountGuardFilter` (registered in Program.cs on the whole folder) refuses every POST to credential pages (change password, set password, change email, delete account, all 2FA pages, external logins) with a redirect to Manage and a "Not available on the demo account." toast; ChangePassword and DeletePersonalData render read-only with the notice, the library pages redirect. Manage/Index renders read-only (display name form disabled, POST refused); `ProfileController.SaveInfo` refuses a demo display-name change (JSON `field: "displayName"`) and keeps the stored name when the disabled input is omitted. PersonalData stays open. `DemoAccountGuardTests.Every_manage_page_is_either_guarded_or_explicitly_allowed` fails if an Identity UI upgrade adds an unclassified page.
 - No status history: analytics use current status (Interview/Offer = response).
 - Antiforgery failures and other 400s surface as 404 because status-code pages re-execute through `/Home/NotFound`.
 

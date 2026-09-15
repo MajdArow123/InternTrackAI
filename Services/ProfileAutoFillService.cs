@@ -48,7 +48,8 @@ public sealed record ProfileAutoFillResult(
 }
 
 /// <summary>
-/// Reads a stored resume PDF, asks <see cref="IProfileExtractor"/> for name / skills / target roles,
+/// Takes already-extracted resume text (see <see cref="ResumeTextService"/>), asks
+/// <see cref="IProfileExtractor"/> for name / skills / target roles,
 /// and merges them into the user's profile with the add-never-remove rules: a non-empty name is never
 /// overwritten, and tags are added only when not already present (case-insensitive, see
 /// <see cref="ProfileTags"/>). Shared by the automatic run after an upload and the manual
@@ -57,37 +58,24 @@ public sealed record ProfileAutoFillResult(
 public class ProfileAutoFillService
 {
     private readonly ApplicationDbContext _db;
-    private readonly UploadStorage _uploads;
     private readonly IProfileExtractor _extractor;
     private readonly ILogger<ProfileAutoFillService> _logger;
 
-    public ProfileAutoFillService(ApplicationDbContext db, UploadStorage uploads, IProfileExtractor extractor, ILogger<ProfileAutoFillService> logger)
+    public ProfileAutoFillService(ApplicationDbContext db, IProfileExtractor extractor, ILogger<ProfileAutoFillService> logger)
     {
         _db = db;
-        _uploads = uploads;
         _extractor = extractor;
         _logger = logger;
     }
 
-    public async Task<ProfileAutoFillResult> FillFromResumeAsync(string userId, string storedPath, CancellationToken ct = default)
+    /// <summary>
+    /// Merges what the extractor finds in <paramref name="resumeText"/> into the user's profile. Callers get
+    /// the text from <see cref="ResumeTextService"/>, which is also where "no resume / unreadable / no text"
+    /// is decided — by the time we are here there is text worth sending.
+    /// </summary>
+    public async Task<ProfileAutoFillResult> FillFromTextAsync(string userId, string resumeText, CancellationToken ct = default)
     {
-        var filePath = _uploads.Resolve(storedPath);
-        if (!File.Exists(filePath))
-            return ProfileAutoFillResult.Failed("Resume file not found. Try uploading it again.");
-
-        string resumeText;
-        try
-        {
-            await using var fs = File.OpenRead(filePath);
-            resumeText = ResumeMatcherService.ExtractPdfText(fs);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Could not extract text from resume {Path} for user {UserId}.", storedPath, userId);
-            return ProfileAutoFillResult.Failed("Could not read the PDF. Make sure it is a text-based (not scanned) PDF.");
-        }
-
-        if (string.IsNullOrWhiteSpace(resumeText) || resumeText.Length < 50)
+        if (string.IsNullOrWhiteSpace(resumeText))
             return ProfileAutoFillResult.Failed("No readable text found in the PDF.");
 
         var extracted = await _extractor.ExtractAsync(resumeText, ct);

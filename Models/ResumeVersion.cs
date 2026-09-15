@@ -31,6 +31,15 @@ public class ResumeVersion
     [StringLength(60)]
     public string? Label { get; set; }
 
+    /// <summary>
+    /// The PDF's text, extracted once by <see cref="Services.ResumeTextService"/>. The file behind a version
+    /// never changes (a new upload creates a new row), so this can never go stale and needs no invalidation.
+    /// Null means "not extracted yet" — rows uploaded before this column existed, and uploads whose extraction
+    /// failed, are backfilled lazily on first read. Never write an empty string here: that would look extracted
+    /// and stop the retry. Always read it through <see cref="Services.ResumeTextService"/>, never directly.
+    /// </summary>
+    public string? ExtractedText { get; set; }
+
     /// <summary>What the UI calls this version: the label if set, otherwise the file name without ".pdf".</summary>
     [NotMapped]
     public string DisplayName => string.IsNullOrWhiteSpace(Label)

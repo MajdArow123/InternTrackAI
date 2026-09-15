@@ -99,6 +99,7 @@ builder.Services.AddHostedService<DemoResetService>();
 // ── Application services ────────────────────────────────────────────────────
 // Single source of truth for "needs attention" rules (follow-up due, deadline soon/overdue,
 // upcoming interview); the dashboard, list, board, drawer and calendar feed all go through it.
+builder.Services.AddScoped<ResumeTextService>();        // the only way to read a resume's text (extract once, store on the version)
 builder.Services.AddScoped<ReminderService>();
 builder.Services.AddScoped<ResumeAnalyticsService>();   // "Resume performance" card + profile stats
 builder.Services.AddScoped<SkillGapService>();          // "Skills you're missing most" card (stored data only, no AI)

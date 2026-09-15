@@ -32,6 +32,7 @@ public class ProfileController : Controller
     private readonly ResumeMatcherService _matcher;
     private readonly ResumeRewriteService _rewriter;
     private readonly ProfileAutoFillService _autoFill;
+    private readonly ResumeTextService _resumeText;
     private readonly AiUsageLimiter _aiLimiter;
     private readonly GitHubService _github;
     private readonly UserClockProvider _clocks;
@@ -46,6 +47,7 @@ public class ProfileController : Controller
         ResumeMatcherService matcher,
         ResumeRewriteService rewriter,
         ProfileAutoFillService autoFill,
+        ResumeTextService resumeText,
         AiUsageLimiter aiLimiter,
         GitHubService github,
         UserClockProvider clocks,
@@ -61,6 +63,7 @@ public class ProfileController : Controller
         _matcher = matcher;
         _rewriter = rewriter;
         _autoFill = autoFill;
+        _resumeText = resumeText;
         _aiLimiter = aiLimiter;
         _github = github;
         _logger = logger;
@@ -327,11 +330,13 @@ public class ProfileController : Controller
     public async Task<IActionResult> AnalyzeResume()
     {
         var userId = UserId();
-        var activeResume = await _db.ResumeVersions.FirstOrDefaultAsync(r => r.UserId == userId && r.IsActive);
-        if (activeResume == null)
+        var text = await _resumeText.GetActiveAsync(userId);
+        if (text.Status == ResumeTextStatus.NoResume)
             return Json(new { success = false, hasResume = false });
+        if (!text.Ok)
+            return Json(new { success = false, hasResume = true, error = ResumeTextError(text.Status) });
 
-        var result = await _autoFill.FillFromResumeAsync(userId, activeResume.StoredPath);
+        var result = await _autoFill.FillFromTextAsync(userId, text.Text!);
         if (!result.Success)
             return Json(new { success = false, hasResume = true, error = result.Error });
 
@@ -445,39 +450,20 @@ public class ProfileController : Controller
         var userId = UserId();
         var vm = await BuildViewModelAsync();
 
-        var activeResume = vm.Resumes.FirstOrDefault(r => r.IsActive);
-        if (activeResume == null)
+        var text = await _resumeText.GetActiveAsync(userId);
+        if (!text.Ok)
         {
-            TempData["ScoreError"] = "No active resume found. Upload a resume and set it as active first.";
+            TempData["ScoreError"] = text.Status switch
+            {
+                ResumeTextStatus.NoResume    => "No active resume found. Upload a resume and set it as active first.",
+                ResumeTextStatus.FileMissing => "Resume file not found. Try uploading it again.",
+                ResumeTextStatus.Unreadable  => "Could not read the PDF. Make sure it is a text-based (not scanned) PDF.",
+                _                            => "No readable text found in the PDF."
+            };
             return RedirectToAction(nameof(Index));
         }
 
-        var filePath = _uploads.Resolve(activeResume.StoredPath);
-        if (!System.IO.File.Exists(filePath))
-        {
-            TempData["ScoreError"] = "Resume file not found. Try uploading it again.";
-            return RedirectToAction(nameof(Index));
-        }
-
-        string resumeText;
-        try
-        {
-            await using var fs = System.IO.File.OpenRead(filePath);
-            resumeText = ResumeMatcherService.ExtractPdfText(fs);
-        }
-        catch
-        {
-            TempData["ScoreError"] = "Could not read the PDF. Make sure it is a text-based (not scanned) PDF.";
-            return RedirectToAction(nameof(Index));
-        }
-
-        if (string.IsNullOrWhiteSpace(resumeText) || resumeText.Length < 50)
-        {
-            TempData["ScoreError"] = "No readable text found in the PDF.";
-            return RedirectToAction(nameof(Index));
-        }
-
-        vm.ScoreResult = await _scorer.ScoreAsync(resumeText, vm.TargetRoles);
+        vm.ScoreResult = await _scorer.ScoreAsync(text.Text!, vm.TargetRoles);
 
         // Re-load full vm and attach result
         var fullVm = await BuildViewModelAsync();
@@ -508,32 +494,19 @@ public class ProfileController : Controller
 
         var userId = UserId();
 
-        var activeResume = await _db.ResumeVersions
-            .Where(r => r.UserId == userId && r.IsActive)
-            .FirstOrDefaultAsync();
+        var text = await _resumeText.GetActiveAsync(userId);
 
-        if (activeResume == null)
+        // "No resume" and "the file went missing" are both "there is nothing to match against" to this page.
+        if (text.Status is ResumeTextStatus.NoResume or ResumeTextStatus.FileMissing)
             return Json(new { hasResume = false });
 
-        var filePath = _uploads.Resolve(activeResume.StoredPath);
-        if (!System.IO.File.Exists(filePath))
-            return Json(new { hasResume = false });
-
-        string resumeText;
-        try
-        {
-            await using var fs = System.IO.File.OpenRead(filePath);
-            resumeText = ResumeMatcherService.ExtractPdfText(fs);
-        }
-        catch
-        {
+        if (text.Status == ResumeTextStatus.Unreadable)
             return Json(new { hasResume = true, success = false, error = "Could not read the active resume." });
-        }
 
-        if (string.IsNullOrWhiteSpace(resumeText) || resumeText.Length < 50)
+        if (!text.Ok)
             return Json(new { hasResume = true, success = false, error = "No readable text in the active resume." });
 
-        var result = await _matcher.MatchAsync(resumeText, request.JobDescription);
+        var result = await _matcher.MatchAsync(text.Text!, request.JobDescription);
         return Json(new
         {
             hasResume      = true,
@@ -766,7 +739,7 @@ public class ProfileController : Controller
 
         int nextVersion = (await _db.ResumeVersions.Where(r => r.UserId == userId).MaxAsync(r => (int?)r.VersionNumber) ?? 0) + 1;
         bool firstOne = nextVersion == 1;
-        _db.ResumeVersions.Add(new ResumeVersion
+        var version = new ResumeVersion
         {
             UserId           = userId,
             VersionNumber    = nextVersion,
@@ -774,12 +747,17 @@ public class ProfileController : Controller
             StoredPath       = relativePath,
             FileSize         = file.Length,
             IsActive         = firstOne
-        });
+        };
+        _db.ResumeVersions.Add(version);
 
         await _db.SaveChangesAsync();
 
+        // Extract once, here, so no later read of this version has to parse the PDF. An unreadable PDF leaves
+        // the column null and is reported by the auto-fill toast below; the upload itself still succeeded.
+        var text = await _resumeText.StoreAsync(version);
+
         // The file is saved at this point no matter what the auto-fill does.
-        TempData["Toast"] = await AutoFillToastAsync(userId, relativePath);
+        TempData["Toast"] = await AutoFillToastAsync(userId, text);
         return RedirectToAction(nameof(Index));
     }
 
@@ -790,9 +768,14 @@ public class ProfileController : Controller
     /// profile wasn't auto-filled and points at "Analyze with AI" for a retry. One permit is taken
     /// from the user's shared "ai" bucket — the same one the AI endpoints draw from.
     /// </summary>
-    private async Task<string> AutoFillToastAsync(string userId, string storedPath)
+    private async Task<string> AutoFillToastAsync(string userId, ResumeTextResult text)
     {
         const string uploaded = "Resume uploaded";
+
+        // Nothing to send the model: say so before spending a permit on it. Same wording the auto-fill
+        // itself used to produce for these cases, so the toast copy is unchanged.
+        if (!text.Ok)
+            return $"info|{uploaded}, but your profile wasn't auto-filled ({ResumeTextError(text.Status).TrimEnd('.')}). Use Analyze with AI to retry.";
 
         if (AiRateLimiting.IsDemoUser(User, _config))
             return $"info|{uploaded}. Auto-fill is skipped on the demo account — use Analyze with AI to fill in your profile.";
@@ -808,7 +791,7 @@ public class ProfileController : Controller
         ProfileAutoFillResult result;
         try
         {
-            result = await _autoFill.FillFromResumeAsync(userId, storedPath);
+            result = await _autoFill.FillFromTextAsync(userId, text.Text!);
         }
         catch (Exception ex)
         {
@@ -825,6 +808,14 @@ public class ProfileController : Controller
 
         return $"success|{uploaded} — {result.Summary}";
     }
+
+    /// <summary>Why the active resume produced no usable text, as a full sentence for a JSON error field.</summary>
+    private static string ResumeTextError(ResumeTextStatus status) => status switch
+    {
+        ResumeTextStatus.FileMissing => "Resume file not found. Try uploading it again.",
+        ResumeTextStatus.Unreadable  => "Could not read the PDF. Make sure it is a text-based (not scanned) PDF.",
+        _                            => "No readable text found in the PDF."
+    };
 
     /// <summary>Re-sequences version numbers to 1..N after a deletion so they stay contiguous (no gaps).</summary>
     private async Task RenumberVersionsAsync(string userId)

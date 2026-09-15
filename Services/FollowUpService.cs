@@ -132,16 +132,16 @@ public class FollowUpService
 
     private readonly HttpClient _http;
     private readonly ApplicationDbContext _db;
-    private readonly UploadStorage _uploads;
+    private readonly ResumeTextService _resumeText;
     private readonly ILogger<FollowUpService> _logger;
     private readonly string _apiKey;
     private readonly string _endpoint;
 
-    public FollowUpService(HttpClient http, ApplicationDbContext db, UploadStorage uploads, IConfiguration config, ILogger<FollowUpService> logger)
+    public FollowUpService(HttpClient http, ApplicationDbContext db, ResumeTextService resumeText, IConfiguration config, ILogger<FollowUpService> logger)
     {
         _http     = http;
         _db       = db;
-        _uploads  = uploads;
+        _resumeText = resumeText;
         _logger   = logger;
         _apiKey   = config["OpenAI:ApiKey"] ?? string.Empty;
         _endpoint = (config["OpenAI:BaseUrl"]?.TrimEnd('/') ?? "https://api.openai.com") + "/v1/chat/completions";
@@ -202,25 +202,14 @@ public class FollowUpService
         };
     }
 
+    /// <summary>
+    /// The active resume's text, or null to draft without it. <see cref="ResumeTextService"/> owns the
+    /// extraction, the storage and the logging of why a PDF could not be read.
+    /// </summary>
     private async Task<string?> ActiveResumeTextAsync(string userId, CancellationToken ct)
     {
-        var stored = await _db.ResumeVersions.AsNoTracking()
-            .Where(r => r.UserId == userId && r.IsActive)
-            .Select(r => r.StoredPath)
-            .FirstOrDefaultAsync(ct);
-        if (stored is null || !_uploads.Exists(stored)) return null;
-        try
-        {
-            await using var fs = File.OpenRead(_uploads.Resolve(stored));
-            var text = ResumeMatcherService.ExtractPdfText(fs);
-            return string.IsNullOrWhiteSpace(text) ? null : text;
-        }
-        catch (Exception ex)
-        {
-            // Draft without the resume rather than fail; the type is enough to diagnose, the text is never logged.
-            _logger.LogWarning("Could not read the active resume for a follow-up draft ({Error}).", ex.GetType().Name);
-            return null;
-        }
+        var text = (await _resumeText.GetActiveAsync(userId, ct)).Text;
+        return string.IsNullOrWhiteSpace(text) ? null : text;
     }
 
     private static List<string> SkillList(string? json)

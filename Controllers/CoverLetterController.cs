@@ -21,14 +21,14 @@ public class CoverLetterController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly CoverLetterGeneratorService _generator;
-    private readonly UploadStorage _uploads;
+    private readonly ResumeTextService _resumeText;
     private readonly UserClockProvider _clocks;
 
-    public CoverLetterController(ApplicationDbContext db, CoverLetterGeneratorService generator, UploadStorage uploads, UserClockProvider clocks)
+    public CoverLetterController(ApplicationDbContext db, CoverLetterGeneratorService generator, ResumeTextService resumeText, UserClockProvider clocks)
     {
         _db        = db;
         _generator = generator;
-        _uploads   = uploads;
+        _resumeText = resumeText;
         _clocks    = clocks;
     }
 
@@ -100,20 +100,8 @@ public class CoverLetterController : Controller
                 return NotFound(new { success = false, error = "Application not found." });
         }
 
-        // Extract text from the user's active resume
-        var resumeText   = "";
-        var activeResume = await _db.ResumeVersions
-            .FirstOrDefaultAsync(r => r.UserId == uid && r.IsActive);
-
-        if (activeResume != null && _uploads.Exists(activeResume.StoredPath))
-        {
-            try
-            {
-                await using var fs = System.IO.File.OpenRead(_uploads.Resolve(activeResume.StoredPath));
-                resumeText = ResumeMatcherService.ExtractPdfText(fs);
-            }
-            catch { /* generate without resume text if extraction fails */ }
-        }
+        // Best effort: generate without resume text rather than fail if there is none to read.
+        var resumeText = (await _resumeText.GetActiveAsync(uid)).Text ?? "";
 
         // Load profile data (name, skills, target roles)
         var profile     = await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == uid);

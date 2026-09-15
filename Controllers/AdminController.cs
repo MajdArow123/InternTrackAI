@@ -26,14 +26,14 @@ public class AdminController : Controller
 
     private bool IsAdmin()
     {
-        var adminEmail = _config["Admin:Email"];
-        if (string.IsNullOrWhiteSpace(adminEmail))
+        var adminEmail = ConfiguredAccounts.Read(_config, ConfiguredAccounts.AdminEmailKey);
+        if (adminEmail is null)
         {
             _logger.LogInformation("Admin endpoint requested but Admin:Email is not configured.");
             return false;
         }
-        var email = User.FindFirstValue(ClaimTypes.Email) ?? User.Identity?.Name;
-        var ok = string.Equals(email, adminEmail, StringComparison.OrdinalIgnoreCase);
+        var ok = ConfiguredAccounts.Matches(User.FindFirstValue(ClaimTypes.Email), adminEmail)
+              || ConfiguredAccounts.Matches(User.Identity?.Name, adminEmail);
         if (!ok) _logger.LogWarning("Admin endpoint denied for user {UserId}.", User.FindFirstValue(ClaimTypes.NameIdentifier));
         return ok;
     }
@@ -44,7 +44,7 @@ public class AdminController : Controller
     {
         if (!IsAdmin()) return NotFound();
 
-        ViewBag.DemoEmail   = _config["Demo:Email"];
+        ViewBag.DemoEmail   = ConfiguredAccounts.Read(_config, ConfiguredAccounts.DemoEmailKey);
         ViewBag.AutoReset   = DemoResetService.IsEnabled(_config);
         ViewBag.ResetTime   = DemoResetService.ResetTime(_config).ToString("HH:mm");
         return View();
@@ -62,7 +62,9 @@ public class AdminController : Controller
 
         TempData["Toast"] = result.UserFound
             ? $"success|Demo account reset: {result.Applications} applications, {result.Notes} notes, {result.CoverLetters} cover letter, {result.Suggestions} inbox suggestions in {result.Elapsed.TotalSeconds:0.0}s."
-            : "error|No account matches Demo:Email — nothing was reset.";
+            : result.Email is null
+                ? "error|Demo:Email is not configured — nothing was reset."
+                : "error|No account matches Demo:Email — nothing was reset.";
 
         return RedirectToAction(nameof(ResetDemo));
     }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using InternTrackAI.Services;
 
 namespace InternTrackAI.Controllers;
 
@@ -26,7 +27,7 @@ public class AccountController : Controller
 
     /// <summary>True when both demo configuration keys are present and non-empty.</summary>
     public static bool IsDemoConfigured(IConfiguration config) =>
-        !string.IsNullOrWhiteSpace(config["Demo:Email"]) && !string.IsNullOrWhiteSpace(config["Demo:Password"]);
+        ConfiguredAccounts.Read(config, ConfiguredAccounts.DemoEmailKey) is not null && !string.IsNullOrWhiteSpace(config["Demo:Password"]);
 
     // POST /Account/DemoLogin
     [HttpPost, ValidateAntiForgeryToken]
@@ -35,18 +36,23 @@ public class AccountController : Controller
         if (!IsDemoConfigured(_config))
             return RedirectToPage("/Account/Login", new { area = "Identity" });
 
-        var email    = _config["Demo:Email"]!;
+        // The password is used verbatim (a space can be part of a password); only the address is trimmed.
+        var email    = ConfiguredAccounts.Read(_config, ConfiguredAccounts.DemoEmailKey)!;
         var password = _config["Demo:Password"]!;
 
         // Start from a clean session so a previously signed-in user lands in the demo account.
         if (User.Identity?.IsAuthenticated == true)
             await _signInManager.SignOutAsync();
 
-        var result = await _signInManager.PasswordSignInAsync(email, password, isPersistent: false, lockoutOnFailure: false);
+        // Same resolution as the demo reset (DemoSeeder), so the button and /Admin/ResetDemo always agree on the account.
+        var (user, _) = await ConfiguredAccounts.FindAsync(_signInManager.UserManager, email);
+        var result = user is null
+            ? Microsoft.AspNetCore.Identity.SignInResult.Failed
+            : await _signInManager.PasswordSignInAsync(user, password, isPersistent: false, lockoutOnFailure: false);
         if (result.Succeeded)
             return RedirectToAction("Dashboard", "Home");
 
-        _logger.LogWarning("Demo login failed for configured demo account ({Result}).", result);
+        _logger.LogWarning("Demo login failed for configured demo account (userFound={Found}, {Result}).", user is not null, result);
         TempData["Toast"] = "error|The demo account is unavailable right now. Please sign in or create an account.";
         return RedirectToPage("/Account/Login", new { area = "Identity" });
     }

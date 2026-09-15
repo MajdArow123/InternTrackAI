@@ -48,19 +48,24 @@ public class DemoSeeder
 
     public async Task<DemoResetResult> ResetAsync(CancellationToken ct = default)
     {
-        var email = _config["Demo:Email"];
-        if (string.IsNullOrWhiteSpace(email))
+        var rawEmail = _config[ConfiguredAccounts.DemoEmailKey];
+        var email    = ConfiguredAccounts.Read(_config, ConfiguredAccounts.DemoEmailKey);
+        if (email is null)
         {
             _logger.LogWarning("Demo reset requested but Demo:Email is not configured.");
             return DemoResetResult.NoUser(null);
         }
+        if (rawEmail!.Length != email.Length)
+            _logger.LogWarning("Demo:Email has surrounding whitespace ({Chars} characters trimmed); fix the variable.", rawEmail.Length - email.Length);
 
-        var user = await _users.FindByEmailAsync(email);
+        var (user, matchedBy) = await ConfiguredAccounts.FindAsync(_users, email);
         if (user == null)
         {
-            _logger.LogWarning("Demo reset requested but no account exists for the configured Demo:Email.");
+            _logger.LogWarning("Demo reset requested but no account's email or user name matches the configured Demo:Email ({Length} characters).", email.Length);
             return DemoResetResult.NoUser(email);
         }
+        if (matchedBy == ConfiguredAccountMatch.UserName)
+            _logger.LogWarning("Demo account {UserId} was found by user name, not email: its Email/NormalizedEmail does not match Demo:Email.", user.Id);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
         _logger.LogInformation("Demo reset starting for user {UserId}.", user.Id);

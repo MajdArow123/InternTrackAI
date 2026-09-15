@@ -174,13 +174,9 @@ public static class AiRateLimiting
     public static bool IsDemoUser(ClaimsPrincipal user, IConfiguration config) =>
         IsDemoEmail(user.FindFirstValue(ClaimTypes.Email) ?? user.Identity?.Name, config);
 
-    /// <summary>True when <paramref name="email"/> is the configured shared demo account.</summary>
-    public static bool IsDemoEmail(string? email, IConfiguration config)
-    {
-        var demoEmail = config["Demo:Email"];
-        if (string.IsNullOrWhiteSpace(demoEmail) || string.IsNullOrWhiteSpace(email)) return false;
-        return string.Equals(email, demoEmail, StringComparison.OrdinalIgnoreCase);
-    }
+    /// <summary>True when <paramref name="email"/> is the configured shared demo account (case- and whitespace-insensitive).</summary>
+    public static bool IsDemoEmail(string? email, IConfiguration config) =>
+        ConfiguredAccounts.IsConfigured(email, config, ConfiguredAccounts.DemoEmailKey);
 
     private static bool WantsJson(HttpRequest request)
     {

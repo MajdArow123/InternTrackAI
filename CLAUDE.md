@@ -99,6 +99,7 @@ Also anonymous: `/health` (`MapHealthChecks(...).AllowAnonymous()`), Identity Lo
 
 OpenAI callers are marked **[AI]**. All read `OpenAI:ApiKey` and treat blank or `your-openai-api-key-here` as "not configured". Only `ProfileExtractorService`, `ResumeScoreService` and `OpenAiStatusClassifier` honour `OpenAI:BaseUrl` (stub endpoint for local verification); the rest hardcode `https://api.openai.com`.
 
+- `ConfiguredAccounts.cs` — the only way to read/match `Demo:Email` and `Admin:Email`: trims config values, compares ignoring case and whitespace, resolves users via `FindByEmailAsync` then `FindByNameAsync`. Used by DemoSeeder, DemoResetService, AdminController, AccountController, `AiRateLimiting.IsDemoEmail`.
 - `AiRateLimiting.cs` — `AiRateLimitOptions`, singleton `AiUsageLimiter` (per-user fixed-window buckets) and the `"ai"` policy + 429 handling. Registered via `AddAiRateLimiting` in Program.cs.
 - `JobAnalyzerService.cs` **[AI]** — text or URL (fetches page via named client `UrlFetcher`, strips HTML, 8000 chars) → company, role, location, salary, skills, deadline, interview date. `AnalyzeAsync` is `virtual` with a CancellationToken so tests subclass it. Called by AnalyzerController, CaptureController.
 - `ResumeMatcherService.cs` **[AI]** — resume text vs job description → score 0–100, tier (`RecommendationFor`: ≥60 APPLY, ≥40 MAYBE, ≥20 CONSIDER SKIPPING, else SKIP), matching/missing skills, strengths, summary. Static `ExtractPdfText` (PdfPig) is used by Profile, CoverLetter and InterviewPrep controllers. Called by `ProfileController.AutoMatch`.
@@ -157,6 +158,8 @@ JSON columns (all `System.Text.Json`):
 ## 8. Cross-cutting rules
 
 **Ownership.** Every action taking a record id loads it with `Id == id && UserId == currentUser` and returns `NotFound()` (JSON `{success:false,error}` for fetch endpoints) on a miss — never 403, and never a silent no-op. 404 makes "not yours" indistinguishable from "doesn't exist", so ids can't be probed. Bulk endpoints silently ignore foreign ids. Foreign ids in bodies (e.g. `applicationId` on cover letter Save, `ResumeVersionId` on Create/Edit) are rejected or dropped. Every new id-taking endpoint gets a test in `tests/InternTrackAI.Tests/Integration/OwnershipTests.cs` (or the feature's endpoint test file).
+
+**Configured accounts.** Never read `Demo:Email`/`Admin:Email` with `config[...]` or compare them with `string.Equals`/`==`; go through `Services/ConfiguredAccounts.cs`. Railway variables can carry surrounding whitespace, which Identity's lookups don't trim, and a LINQ `u.Email == x` is case-sensitive on both providers. Look users up only through `UserManager` (normalised columns).
 
 **Rate limiting.** Policy `"ai"` (`Services/AiRateLimiting.cs`): one fixed window per user id (IP for anonymous), `RateLimiting:AI:PermitLimit` 20 per `WindowMinutes` 60, `DemoPermitLimit` 10 when the signed-in email equals `Demo:Email`. Shared across every AI endpoint. Rejection: 429 + `Retry-After`; JSON `{success:false, hasResume:true, rateLimited:true, error}` for JSON/XHR callers, otherwise redirect to the local referrer with an error toast. Work outside a request draws from the same `AiUsageLimiter` bucket: each Gmail classification, and resume-upload auto-fill. Every new OpenAI call must be tagged `[EnableRateLimiting(AiRateLimiting.PolicyName)]` or take a permit manually.
 
@@ -237,7 +240,7 @@ Account, demo, admin
 
 ## 10. Testing
 
-- Run: `dotnet test InternTrackAI.sln`. Current count: **417 tests, all passing** (2026-09-15, ~15 s). CI runs the same on every push/PR to `main`.
+- Run: `dotnet test InternTrackAI.sln`. Current count: **435 tests, all passing** (2026-09-15, ~17 s; the 3 `PostgresMigrationTests` are no-ops unless `INTERNTRACK_PG_CONNECTION` is set). CI runs the same on every push/PR to `main`.
 - `Integration/TestAppFactory.cs` boots the real `Program` in environment `Testing` against a private SQLite in-memory connection and a temp `UPLOADS_PATH`. Helpers and fakes in `Integration/`: `Http.cs` (antiforgery token scraping, `RegisterAsync` via the real Register page), `GmailFakes.cs` (`FakeGoogleOAuthClient`, `FakeGmailClient`, `FakeStatusClassifier`, `GmailTestHost`), `FakeProfileExtractor.cs`, `TestPdf.cs` (generates real text PDFs). Replace services with `WithWebHostBuilder` + `RemoveAll`. Assert on `WebUtility.HtmlDecode`d HTML (Razor entity-encodes non-ASCII).
 - Tests must never reach OpenAI or Google: the `Testing` environment loads no user-secrets, so no API key is present, and Google-facing clients are faked. Keep it that way.
 - Convention: every new endpoint that takes an id gets an ownership test (foreign user's id → 404, data unchanged). Existing ones: `OwnershipTests.cs`, `BoardEndpointTests.cs`, `CalendarTests.cs`, `SuggestionEndpointTests.cs`, `GmailConnectTests.cs`. Gap: `Profile/RenameResume` has no foreign-id test.

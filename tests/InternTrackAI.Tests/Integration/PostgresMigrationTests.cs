@@ -1,10 +1,12 @@
 using InternTrackAI.Data;
 using InternTrackAI.Models;
+using InternTrackAI.Services;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit.Abstractions;
 
 namespace InternTrackAI.Tests.Integration;
@@ -124,5 +126,44 @@ public class PostgresMigrationTests
         db.ApplicationNotes.Add(new ApplicationNote { UserId = "legacy", JobApplicationId = 1, Text = "new", CreatedAt = DateTime.UtcNow });
         await db.SaveChangesAsync();
         Assert.Equal(9, await db.ApplicationNotes.MaxAsync(n => n.Id));   // identity resumed after the existing max
+    }
+
+    /// <summary>
+    /// The demo/admin account lookup on real PostgreSQL: a config address with different casing and surrounding
+    /// whitespace resolves the user through <see cref="ConfiguredAccounts.FindAsync"/>, while a raw
+    /// <c>Email ==</c> comparison (never to be used for this) is case-sensitive.
+    /// </summary>
+    [Fact]
+    public async Task Configured_account_lookup_ignores_case_and_whitespace_on_PostgreSQL()
+    {
+        var conn = Environment.GetEnvironmentVariable("INTERNTRACK_PG_CONNECTION");
+        if (string.IsNullOrWhiteSpace(conn)) { _out.WriteLine("Skipped: INTERNTRACK_PG_CONNECTION is not set."); return; }
+
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddLogging();
+        services.AddDbContext<ApplicationDbContext>(o => o.UseNpgsql(conn).ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
+        services.AddIdentityCore<IdentityUser>().AddEntityFrameworkStores<ApplicationDbContext>();
+        await using var provider = services.BuildServiceProvider();
+
+        using (var scope = provider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            await db.Database.EnsureDeletedAsync();
+            await db.Database.MigrateAsync();
+            var created = await scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>()
+                .CreateAsync(new IdentityUser { UserName = "demo@interntrackai.com", Email = "demo@interntrackai.com" }, "Pg-Demo-Pass-1!");
+            Assert.True(created.Succeeded);
+        }
+
+        using (var scope = provider.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>();
+            var (user, match) = await ConfiguredAccounts.FindAsync(users, "  Demo@InternTrackAI.COM\n");
+            Assert.NotNull(user);
+            Assert.Equal(ConfiguredAccountMatch.Email, match);
+
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.False(await db.Users.AnyAsync(u => u.Email == "Demo@InternTrackAI.COM"));   // the trap ConfiguredAccounts avoids
+        }
     }
 }

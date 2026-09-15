@@ -25,7 +25,7 @@ public class DemoResetService : BackgroundService
 
     /// <summary>True when both switches are on: <c>Demo:AutoReset</c> and a configured <c>Demo:Email</c>.</summary>
     public static bool IsEnabled(IConfiguration config) =>
-        config.GetValue<bool>("Demo:AutoReset") && !string.IsNullOrWhiteSpace(config["Demo:Email"]);
+        config.GetValue<bool>("Demo:AutoReset") && ConfiguredAccounts.Read(config, ConfiguredAccounts.DemoEmailKey) is not null;
 
     /// <summary>Parses <c>Demo:ResetTimeUtc</c> ("HH:mm"), falling back to 04:00.</summary>
     public static TimeOnly ResetTime(IConfiguration config) =>
@@ -41,7 +41,7 @@ public class DemoResetService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var autoReset = _config.GetValue<bool>("Demo:AutoReset");
-        var hasEmail  = !string.IsNullOrWhiteSpace(_config["Demo:Email"]);
+        var hasEmail  = ConfiguredAccounts.Read(_config, ConfiguredAccounts.DemoEmailKey) is not null;
         var time      = ResetTime(_config);
 
         if (!IsEnabled(_config))

@@ -374,11 +374,11 @@ public class SkillGapServiceTests
         // Original job titles, looser rule: every assignment is one a person would make from the title alone.
         string[] Companies(SkillGapBucket b) => b.Skills.SelectMany(s => s.ApplicationIds).Distinct()
             .Select(id => vm.Applications[id].Company).OrderBy(c => c).ToArray();
-        var swe      = Assert.Single(vm.Roles, r => r.Label == "Software Engineering Intern");
-        var frontend = Assert.Single(vm.Roles, r => r.Label == "Frontend Engineering Intern");
-        Assert.Equal(new[] { "Duolingo", "Google", "Palantir", "Shopify" }, Companies(swe));   // incl. "Software Engineer Intern" titles
-        Assert.Equal(new[] { "Notion" }, Companies(frontend));
+        Assert.Equal(new[] { "Software Engineer", "Backend Systems Engineer", "Frontend Product Engineer" }, vm.Roles.Select(r => r.Label));
+        Assert.Equal(new[] { "Duolingo", "Google", "Palantir", "Shopify" }, Companies(vm.Roles[0]));   // Engineer and Engineering titles
+        Assert.Equal(new[] { "Cloudflare", "Stripe" }, Companies(vm.Roles[1]));
+        Assert.Equal(new[] { "Figma", "Notion" }, Companies(vm.Roles[2]));
         Assert.NotNull(vm.Other);
-        Assert.Equal(new[] { "Airbnb", "Cloudflare", "Datadog", "Figma", "Snowflake", "Stripe" }, Companies(vm.Other!));
+        Assert.Equal(new[] { "Airbnb", "Datadog", "Snowflake" }, Companies(vm.Other!));
     }
 }

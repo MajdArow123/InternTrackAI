@@ -21,9 +21,9 @@ public sealed record DemoResetResult(bool UserFound, string? Email, int Applicat
 /// spanning every status, match tier, and Attention category (overdue, deadline soon, follow-up
 /// due, upcoming interview) is recreated along with a few notes and one saved letter. Two resume
 /// versions are guaranteed ("Backend focus", the active one, and "General") and the applications
-/// are split between them so the dashboard's Resume performance card shows a real comparison. The two
-/// <see cref="TargetRoles"/> are merged into the profile, and the seeded missing skills give the skill gap card a clear
-/// top skill (Docker, 6 of 11), a mid tier (Go, C++) and a tail of singles spread across both roles.
+/// are split between them so the dashboard's Resume performance card shows a real comparison. The profile's
+/// target roles are set to <see cref="TargetRoles"/>, and the seeded missing skills give the skill gap card a clear
+/// top skill (Docker, 6 of 11), a mid tier (Go, C++) and a tail of singles.
 /// Used by <see cref="DemoResetService"/> nightly and by <c>POST /Admin/ResetDemo</c> on demand.
 /// </summary>
 public class DemoSeeder
@@ -93,12 +93,18 @@ public class DemoSeeder
     // ── Target roles ─────────────────────────────────────────────────────────
 
     /// <summary>
-    /// Target roles the skill gap card's role filter splits on (SkillGapService.MatchesRole). With the seeded titles:
-    /// Shopify, Duolingo, Google and Palantir → Software Engineering; Notion → Frontend; the other six → "Other".
+    /// Target roles the skill gap card's role filter splits on (SkillGapService.MatchesRole), chosen from what the
+    /// seeded titles actually say: apart from the four "Software Engineer(ing)" titles, each title has a single
+    /// distinctive word, so a three-word tag (two such words + "Engineer") is the widest literal match available.
+    /// Split: Software Engineer → Shopify, Duolingo, Google, Palantir; Backend Systems Engineer → Stripe, Cloudflare;
+    /// Frontend Product Engineer → Notion, Figma; Other → Datadog, Airbnb, Snowflake.
     /// </summary>
-    public static readonly string[] TargetRoles = { "Software Engineering Intern", "Frontend Engineering Intern" };
+    public static readonly string[] TargetRoles = { "Software Engineer", "Backend Systems Engineer", "Frontend Product Engineer" };
 
-    /// <summary>Adds <see cref="TargetRoles"/> to the kept profile (never removes the admin's own tags); creates the profile row if missing.</summary>
+    /// <summary>
+    /// Sets the kept profile's target roles to exactly <see cref="TargetRoles"/> (creating the profile row if missing).
+    /// Replaced rather than merged so roles a visitor added, or an earlier seed's roles, never add pills to the split.
+    /// </summary>
     private async Task EnsureTargetRolesAsync(string userId, CancellationToken ct)
     {
         var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct);
@@ -108,12 +114,8 @@ public class DemoSeeder
             _db.UserProfiles.Add(profile);
         }
 
-        var (merged, added) = ProfileTags.Merge(ProfileTags.FromJson(profile.TargetRolesJson), TargetRoles);
-        if (added.Count > 0)
-        {
-            profile.TargetRolesJson = ProfileTags.ToJson(merged);
-            await _db.SaveChangesAsync(ct);
-        }
+        profile.TargetRolesJson = ProfileTags.ToJson(TargetRoles);
+        await _db.SaveChangesAsync(ct);
     }
 
     // ── Resume versions ──────────────────────────────────────────────────────

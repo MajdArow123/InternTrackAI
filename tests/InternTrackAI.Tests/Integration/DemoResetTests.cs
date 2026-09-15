@@ -44,6 +44,7 @@ public class DemoResetTests
             var profile = await db.UserProfiles.SingleOrDefaultAsync(p => p.UserId == demoId) ?? db.UserProfiles.Add(new UserProfile { UserId = demoId }).Entity;
             profile.FullName = "Demo Person";
             profile.SkillsJson = "[\"C#\"]";
+            profile.TargetRolesJson = "[\"Frontend Engineering Intern\",\"Visitor Role\"]";   // an earlier seed's role + a visitor's
             db.ResumeVersions.Add(new ResumeVersion { UserId = demoId, VersionNumber = 1, OriginalFileName = "r.pdf", StoredPath = "resumes/" + demoId + "/r.pdf", IsActive = true });
             db.ResumeVersions.Add(new ResumeVersion { UserId = demoId, VersionNumber = 2, OriginalFileName = "visitor.pdf", StoredPath = "resumes/" + demoId + "/v.pdf", IsActive = false });
             await db.SaveChangesAsync();
@@ -84,7 +85,9 @@ public class DemoResetTests
 
             // Profile and the active resume survive; the visitor's extra resume version is gone and the
             // seeder's own second version ("General") takes its place, with the applications split between them.
-            Assert.Equal("Demo Person", (await db.UserProfiles.SingleAsync(p => p.UserId == demoId)).FullName);
+            var demoProfile = await db.UserProfiles.SingleAsync(p => p.UserId == demoId);
+            Assert.Equal("Demo Person", demoProfile.FullName);
+            Assert.Equal(DemoSeeder.TargetRoles, ProfileTags.FromJson(demoProfile.TargetRolesJson));   // replaced, not merged
             var resumes = await db.ResumeVersions.Where(r => r.UserId == demoId).OrderBy(r => r.Id).ToListAsync();
             Assert.Equal(2, resumes.Count);
             Assert.DoesNotContain(resumes, r => r.OriginalFileName == "visitor.pdf");

@@ -181,4 +181,29 @@ document.querySelectorAll('.match-ring[data-bs-toggle="tooltip"]').forEach(funct
     importOverlay?.addEventListener('click', function (e) { if (e.target === importOverlay) closeImport(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeImport(); });
 })();
+
+// Sticky table header: .is-stuck on the wrapper while the header is pinned under the navbar (site.css gives it square
+// corners, a hairline and a bottom shadow then). Stuck = the table's top has scrolled above the navbar and the table
+// still reaches below the header. Only where the header is actually sticky (md and up). Also publishes the table's
+// width as --sticky-head-w for the full-width shadow strip.
+(function () {
+    const wrapper = document.querySelector('.app-table-sticky');
+    const firstTh = wrapper?.querySelector('thead th');
+    const tableEl = wrapper?.querySelector('table');
+    if (!firstTh || !tableEl) return;
+    let queued = false;
+    function update() {
+        queued = false;
+        const styles = getComputedStyle(firstTh);
+        const navH   = parseFloat(styles.top) || 0;
+        const table  = wrapper.getBoundingClientRect();
+        const stuck  = styles.position === 'sticky' && table.top < navH && table.bottom > navH + firstTh.offsetHeight;
+        wrapper.classList.toggle('is-stuck', stuck);
+        if (stuck) wrapper.style.setProperty('--sticky-head-w', tableEl.getBoundingClientRect().width + 'px');
+    }
+    function queue() { if (!queued) { queued = true; requestAnimationFrame(update); } }
+    window.addEventListener('scroll', queue, { passive: true });
+    window.addEventListener('resize', queue);
+    update();
+})();
 })();

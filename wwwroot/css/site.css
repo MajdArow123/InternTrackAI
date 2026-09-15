@@ -126,10 +126,13 @@ html[data-theme="dark"] {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* Fade-up utility — staggered entrance */
+/* Fade-up utility — staggered entrance.
+   Fill mode is backwards, not forwards: the from-state hides the element during its delay, and once the animation ends
+   nothing stays applied. A retained end transform (even translateY(0), which is what "none" interpolates to) would make
+   the element — <main> uses this class — the containing block for position: fixed descendants and a stacking context,
+   so the drawer, bulk bar and modals would scroll with the page and sit under the sticky navbar. */
 .anim-fade-up {
-  opacity: 0;
-  animation: fadeSlideUp .45s var(--ease) forwards;
+  animation: fadeSlideUp .45s var(--ease) backwards;
 }
 .anim-d1 { animation-delay: .05s; }
 .anim-d2 { animation-delay: .10s; }
@@ -154,6 +157,8 @@ html[data-theme="dark"] {
 
 /* ── Base ────────────────────────────────────────────── */
 html { font-size: 15px; -webkit-text-size-adjust: 100%; overflow-x: hidden; } /* off-canvas drawer must not widen the page */
+/* --site-nav-h is the sticky navbar's measured height (site.js keeps it current); anchors and scrollIntoView clear it. */
+html { scroll-padding-top: var(--site-nav-h, 53px); }
 
 *,*::before,*::after { box-sizing: border-box; }
 
@@ -206,10 +211,14 @@ hr { border-color: var(--border); opacity: 1; }
 button:focus:not(:focus-visible), a:focus:not(:focus-visible), input:focus:not(:focus-visible) { box-shadow: none; }
 
 /* ── Navbar ──────────────────────────────────────────── */
-.site-nav {
+/* The sticky element is the <header> wrapper, not .site-nav: a sticky box can't leave its parent, and the
+   header is exactly the navbar's height, so a sticky .site-nav scrolled away with it. */
+body > header {
   position: sticky;
   top: 0;
   z-index: 1000;
+}
+.site-nav {
   padding: .55rem 0;
   background: rgba(238,238,241,.72);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
@@ -1127,18 +1136,46 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
 .app-table-wrapper .table tbody tr:focus-within .row-action-btn { opacity: 1; }
 @media (hover: none) { .row-action-btn { opacity: 1; } }
 
-/* Sticky table header (desktop) */
+/* Sticky table header (Applications list).
+   Background: the opaque card surface in both themes. The :root prefix out-ranks the dark-theme
+   `.app-table-wrapper .table thead th` rule and Bootstrap's transparent cell reset, so nothing shows through.
+   Layering: z-index 5 in the root stacking context — above rows, match rings and row hover (all z auto), below
+   the navbar (1000), bulk bar (1000), drawer (1030/1031) and modals (9997+). */
+:root .app-table-wrapper.app-table-sticky .table thead th { background-color: var(--card); }
+
+/* Sticky only from md up: below that the table scrolls sideways inside .table-responsive (overflow-x: auto), which
+   becomes the header's scroll container and stops it sticking to the viewport. */
 @media (min-width: 768px) {
   .app-table-sticky, .app-table-sticky .table-responsive { overflow: visible; }
   .app-table-sticky .table thead th {
     position: sticky;
-    top: 56px;
+    top: var(--site-nav-h, 53px);   /* directly under the sticky navbar */
     z-index: 5;
-    background: var(--surface-2);
-    box-shadow: 0 1px 0 var(--border);
   }
   .app-table-sticky .table thead th:first-child { border-top-left-radius: var(--radius); }
   .app-table-sticky .table thead th:last-child  { border-top-right-radius: var(--radius); }
+
+  /* Stuck (applications.js toggles .is-stuck): square corners so no row peeks past the rounded ends, plus a hairline
+     and a soft shadow so the header reads as a layer above the rows.
+     - Hairline: an inset shadow. The cells' own bottom border stays behind in the collapsed table, and Chromium
+       doesn't paint an outer box-shadow on these cells at all.
+     - Shadow: one 1px strip hung under the first cell, as wide as the table (--sticky-head-w, set by applications.js),
+       so there are no per-cell seams; clip-path keeps only the part below the header. */
+  .app-table-sticky.is-stuck .table thead th {
+    border-radius: 0;
+    box-shadow: inset 0 -1px 0 var(--border-strong);
+  }
+  .app-table-sticky.is-stuck .table thead th:first-child::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 100%;
+    width: var(--sticky-head-w, 100%);
+    height: 1px;
+    box-shadow: var(--shadow-sm);
+    clip-path: inset(0 0 -24px 0);
+    pointer-events: none;
+  }
 }
 .col-check { width: 2.75rem; }
 .col-check .form-check-input { margin: 0; cursor: pointer; }

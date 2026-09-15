@@ -118,3 +118,15 @@ document.addEventListener('submit', function (e) {
     appConfirm({ title: form.dataset.confirmTitle || 'Are you sure?', text: form.dataset.confirm, okLabel: form.dataset.confirmOk || 'Delete' })
         .then(ok => { if (ok) { form.dataset.confirmed = '1'; form.requestSubmit ? form.requestSubmit() : form.submit(); } });
 }, true);
+
+// Publishes the sticky navbar's height as --site-nav-h on <html>, so sticky table headers sit directly under it
+// and anchors / scrollIntoView clear it (site.css). Re-measured whenever the navbar resizes (breakpoints, the
+// mobile menu opening, font loading).
+(function () {
+    const header = document.querySelector('body > header');
+    if (!header) return;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty('--site-nav-h', header.getBoundingClientRect().height + 'px');
+    publish();
+    if ('ResizeObserver' in window) new ResizeObserver(publish).observe(header);
+})();

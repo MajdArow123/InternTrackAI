@@ -123,8 +123,10 @@ public class ResumeRewriteEndpointTests
         var prompt = h.OpenAi.UserPrompt();
         Assert.Contains("<job_description>\nBuild microservices for checkout.\n</job_description>", prompt);
         Assert.Contains("<bullet>\nWorked on splitting the order monolith into services\n</bullet>", prompt);
-        Assert.Contains("<applicant_skills>\nC#, Docker\n</applicant_skills>", prompt);
         Assert.Contains("Company: Shopify", prompt);
+        // The profile's skills are stored but never sent: they made the model claim skills the bullet didn't have.
+        Assert.DoesNotContain("applicant_skills", prompt);
+        Assert.DoesNotContain("Docker", prompt);
 
         var appAfter = await h.WithDb(db => db.JobApplications.AsNoTracking().SingleAsync(a => a.Id == id));
         Assert.Equal(JsonSerializer.Serialize(appsBefore), JsonSerializer.Serialize(appAfter));

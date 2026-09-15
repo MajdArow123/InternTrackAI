@@ -185,8 +185,8 @@ public class FollowUpServiceTests
     [InlineData("\"Hello,\" or \"Hi there,\"")]
     [InlineData("no phone number, email address, job title")]
     [InlineData("Output only a JSON object with exactly two string fields, \"subject\" and \"body\". No markdown, no code fences")]
-    [InlineData("a specific thing the posting asks for, next to a specific thing the applicant did")]
-    [InlineData("\"The posting mentions microservices and API design, which is what I spent last term building in ASP.NET Core.\"")]
+    [InlineData("the actual work the role involves, next to a specific thing the applicant did")]
+    [InlineData("\"Your team is building microservices and the APIs between them, which is what I spent last term building in ASP.NET Core.\"")]
     [InlineData("Never say or judge how well the applicant fits")]
     [InlineData("If the only detail available is a bare skill name with no context, name the skill and what the applicant used it for")]
     [InlineData("The last sentence before the sign-off is exactly one light, specific ask, and SITUATION names which one; never choose a different one.")]
@@ -194,8 +194,11 @@ public class FollowUpServiceTests
     [InlineData("otherwise a SECOND FOLLOW-UP asks whether they need anything further from the applicant")]
     [InlineData("otherwise a FIRST FOLLOW-UP asks whether there is an update on timing when the deadline has passed or none was recorded, and whether they need anything further from the applicant while the deadline is still ahead")]
     [InlineData("\"I look forward to any updates you may have\" or \"Please let me know if you need anything else\"")]
-    [InlineData("say it in the applicant's own plain words. Never quote or near-quote the posting's phrasing")]
-    [InlineData("Bad: \"experience building APIs in any backend framework\". Good: \"you're looking for someone who's built REST APIs\".")]
+    [InlineData("Describe the actual work the role involves (what the team builds or does), in the applicant's own plain words, not what the posting requires. Never quote, near-quote or restate the posting's requirements list.")]
+    [InlineData("Bad: \"the posting mentions experience with a web framework\". Good: \"you're building the services behind checkout\".")]
+    [InlineData("If the posting doesn't describe concrete work, lead the sentence with the applicant's own experience and don't reference the posting at all: saying nothing about the posting is better than restating its requirements list.")]
+    [InlineData("Phrase the ask as a direct question ending in a question mark, with nothing after it but the sign-off.")]
+    [InlineData("Bad: \"Please let me know if you need anything further from my side.\" Good: \"Do you need anything further from me?\"")]
     public void Both_system_prompts_state_the_rules(string rule)
     {
         Assert.Contains(rule, FollowUpService.GenerateSystemPrompt);
@@ -207,14 +210,14 @@ public class FollowUpServiceTests
     public static TheoryData<string, int?, int?, int?, FollowUpAsk, string> AskCases => new()
     {
         // name, applied days ago, last contact days ago, deadline in days, expected ask, SITUATION ask line
-        { "first, no deadline",              10, null, null, FollowUpAsk.Timing,           "ASK: end by asking whether there is an update on timing." },
-        { "first, deadline passed",          10, null,   -2, FollowUpAsk.Timing,           "ASK: end by asking whether there is an update on timing." },
-        { "first, deadline still ahead",     10, null,    5, FollowUpAsk.AnythingFurther,  "ASK: end by asking whether they need anything further from the applicant." },
-        { "first, deadline is today",        10, null,    0, FollowUpAsk.AnythingFurther,  "ASK: end by asking whether they need anything further from the applicant." },
-        { "second follow-up",                14,    6, null, FollowUpAsk.AnythingFurther,  "ASK: end by asking whether they need anything further from the applicant." },
-        { "second, deadline passed",         14,    6,   -3, FollowUpAsk.AnythingFurther,  "ASK: end by asking whether they need anything further from the applicant." },
-        { "long wait",                       40, null, null, FollowUpAsk.StillUnderReview, "ASK: end with a request to confirm that the application is still under review." },
-        { "long wait beats second follow-up", 40,  10,  -20, FollowUpAsk.StillUnderReview, "ASK: end with a request to confirm that the application is still under review." },
+        { "first, no deadline",              10, null, null, FollowUpAsk.Timing,           "ASK: end with a direct question asking whether there is an update on timing." },
+        { "first, deadline passed",          10, null,   -2, FollowUpAsk.Timing,           "ASK: end with a direct question asking whether there is an update on timing." },
+        { "first, deadline still ahead",     10, null,    5, FollowUpAsk.AnythingFurther,  "ASK: end with a direct question asking whether they need anything further from the applicant." },
+        { "first, deadline is today",        10, null,    0, FollowUpAsk.AnythingFurther,  "ASK: end with a direct question asking whether they need anything further from the applicant." },
+        { "second follow-up",                14,    6, null, FollowUpAsk.AnythingFurther,  "ASK: end with a direct question asking whether they need anything further from the applicant." },
+        { "second, deadline passed",         14,    6,   -3, FollowUpAsk.AnythingFurther,  "ASK: end with a direct question asking whether they need anything further from the applicant." },
+        { "long wait",                       40, null, null, FollowUpAsk.StillUnderReview, "ASK: end with a direct question asking them to confirm that the application is still under review." },
+        { "long wait beats second follow-up", 40,  10,  -20, FollowUpAsk.StillUnderReview, "ASK: end with a direct question asking them to confirm that the application is still under review." },
     };
 
     [Theory]
@@ -364,7 +367,7 @@ public class FollowUpServiceTests
         Assert.Contains("Backend Engineering Intern", d.Subject);
         Assert.StartsWith("Hello,", d.Body);
         Assert.Contains("on September 5", d.Body);
-        Assert.Contains("The posting asks for Java and SQL, which are both on my resume.", d.Body);
+        Assert.Contains("My resume covers Java and SQL.", d.Body);
         Assert.EndsWith("Is there an update on timing for next steps?\n\nBest,\nAlex Johnson", d.Body);
         Assert.True(d.Body.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries).Length < 150);
 
@@ -376,12 +379,18 @@ public class FollowUpServiceTests
         Assert.EndsWith("Is there anything further you need from me?\n\nBest,\nAlex Johnson", second);
         var longWait = FollowUpService.DemoDraft(Ctx(c => c with { DateApplied = Today.AddDays(-45), LastContactLocal = Today.AddDays(-10) })).Body;
         Assert.Contains("close the loop", longWait);
-        Assert.Contains("Could you confirm that my application is still under review?", longWait);
+        Assert.EndsWith("Could you confirm that my application is still under review?\n\nBest,\nAlex Johnson", longWait);
         Assert.EndsWith("Best,", FollowUpService.DemoDraft(Ctx(c => c with { SenderName = null })).Body);
-        Assert.DoesNotContain("The posting asks for", FollowUpService.DemoDraft(Ctx()).Body);   // no matching skills: no made-up link
+        Assert.DoesNotContain("My resume covers", FollowUpService.DemoDraft(Ctx()).Body);   // no matching skills: no made-up link
 
         // None of the banned wording or filler closings, in any branch.
         var banned = new[] { "align", "resonat", "drawn to", "perfect fit", "great fit", "excited about", "writing to", "hope this email", "hope you are", "hope you're", "checking in", "look forward", "let me know if you need" };
+        foreach (var body in new[] { d.Body, ahead, second, longWait })
+        {
+            Assert.DoesNotContain("posting", body, StringComparison.OrdinalIgnoreCase);    // a canned draft knows no concrete work
+            var paragraphs = body.Split("\n\n");
+            Assert.EndsWith("?", paragraphs[^2]);                                            // the ask is a direct question, last before the sign-off
+        }
         foreach (var body in new[] { d.Body, ahead, second, longWait })
             foreach (var b in banned)
                 Assert.DoesNotContain(b, body, StringComparison.OrdinalIgnoreCase);

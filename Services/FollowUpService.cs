@@ -267,7 +267,7 @@ public class FollowUpService
         "just checking in",
     };
 
-    /// <summary>Closing lines rule 6 names as filler.</summary>
+    /// <summary>Closing lines rule 7 names as filler.</summary>
     public static readonly string[] FillerClosings =
     {
         "I look forward to any updates you may have",
@@ -283,10 +283,10 @@ public class FollowUpService
         1. The body is under 150 words. Recruiters skim.
         2. Professional and warm, never servile. Never apologise for following up or for taking their time.
         3. Name the role and the company, and say when the applicant applied, using the date given.
-        4. Include exactly one concrete connection to this role, stated plainly as fact: a specific thing the posting asks for, next to a specific thing the applicant did. Good: "The posting mentions microservices and API design, which is what I spent last term building in ASP.NET Core." Bad: "My background in full-stack development aligns perfectly with this role." Never say or judge how well the applicant fits; put the two facts side by side and stop. If the only detail available is a bare skill name with no context, name the skill and what the applicant used it for (only as the data states it), never how well it aligns.
-        5. When referring to what the posting asks for, say it in the applicant's own plain words. Never quote or near-quote the posting's phrasing, especially requirement-list wording. Bad: "experience building APIs in any backend framework". Good: "you're looking for someone who's built REST APIs".
+        4. Include exactly one concrete connection to this role, stated plainly as fact: the actual work the role involves, next to a specific thing the applicant did. Good: "Your team is building microservices and the APIs between them, which is what I spent last term building in ASP.NET Core." Bad: "My background in full-stack development aligns perfectly with this role." Never say or judge how well the applicant fits; put the two facts side by side and stop. If the only detail available is a bare skill name with no context, name the skill and what the applicant used it for (only as the data states it), never how well it aligns.
+        5. Describe the actual work the role involves (what the team builds or does), in the applicant's own plain words, not what the posting requires. Never quote, near-quote or restate the posting's requirements list. Bad: "the posting mentions experience with a web framework". Good: "you're building the services behind checkout". If the posting doesn't describe concrete work, lead the sentence with the applicant's own experience and don't reference the posting at all: saying nothing about the posting is better than restating its requirements list.
         6. Never use these words or phrases, in any form, tense or contraction (for example "I'm writing to"): {Quoted(BannedPhrases, "; ")}. No generic enthusiasm or self-assessment of fit in any other wording either.
-        7. The last sentence before the sign-off is exactly one light, specific ask, and SITUATION names which one; never choose a different one. The mapping: a LONG WAIT (30 or more days) asks for confirmation that the application is still under review; otherwise a SECOND FOLLOW-UP asks whether they need anything further from the applicant; otherwise a FIRST FOLLOW-UP asks whether there is an update on timing when the deadline has passed or none was recorded, and whether they need anything further from the applicant while the deadline is still ahead. Never end on filler such as {Quoted(FillerClosings, " or ")}, or any other "I look forward to..." line.
+        7. The last sentence before the sign-off is exactly one light, specific ask, and SITUATION names which one; never choose a different one. The mapping: a LONG WAIT (30 or more days) asks for confirmation that the application is still under review; otherwise a SECOND FOLLOW-UP asks whether they need anything further from the applicant; otherwise a FIRST FOLLOW-UP asks whether there is an update on timing when the deadline has passed or none was recorded, and whether they need anything further from the applicant while the deadline is still ahead. Phrase the ask as a direct question ending in a question mark, with nothing after it but the sign-off. Bad: "Please let me know if you need anything further from my side." Good: "Do you need anything further from me?" Never end on filler such as {Quoted(FillerClosings, " or ")}, or any other "I look forward to..." line.
         8. Never invent facts. Use only what the data states. No referral unless the notes mention one. No earlier call, interview or conversation unless the notes record one. No recruiter or hiring manager name unless one appears in the notes. No claim about hiring timelines that the data does not give. No metrics, projects, skills or achievements that are not in the resume, profile or notes.
         9. Greeting: "Hi <first name>," only when the notes name the person being written to; otherwise "Hello," or "Hi there,".
         10. Sign off with a short closing (such as "Best," or "Thank you,") on its own line, then the applicant's name exactly as given in <applicant_profile>, and nothing after it: no phone number, email address, job title, links, or placeholders like [Your Name]. If no name is given, end with the closing alone.
@@ -339,7 +339,7 @@ public class FollowUpService
 
         if (c.IsLongWait)
             sb.Append("LONG WAIT: it has been ").Append(c.DaysWaiting).Append(" days, an unusually long time. Write a brief, gracious closing-the-loop check ")
-              .AppendLine("that thanks them, not an eager nudge. Under 100 words.");
+              .AppendLine("that thanks them before the final question, not an eager nudge. Under 100 words.");
 
         sb.Append("ASK: ").Append(AskInstruction(c.Ask));
 
@@ -349,9 +349,9 @@ public class FollowUpService
     /// <summary>The SITUATION line naming the one closing ask (rule on the ask mapping in <see cref="EmailRules"/>).</summary>
     public static string AskInstruction(FollowUpAsk ask) => ask switch
     {
-        FollowUpAsk.StillUnderReview => "end with a request to confirm that the application is still under review.",
-        FollowUpAsk.AnythingFurther  => "end by asking whether they need anything further from the applicant.",
-        _                            => "end by asking whether there is an update on timing."
+        FollowUpAsk.StillUnderReview => "end with a direct question asking them to confirm that the application is still under review.",
+        FollowUpAsk.AnythingFurther  => "end with a direct question asking whether they need anything further from the applicant.",
+        _                            => "end with a direct question asking whether there is an update on timing."
     };
 
     /// <summary>The user message for a fresh draft: situation, then every data section.</summary>
@@ -559,7 +559,7 @@ public class FollowUpService
 
     /// <summary>
     /// The shared demo account's draft: pre-written, filled from the same stored data, no model call. It follows the
-    /// prompt's rules (short, one plain posting-to-resume fact, none of <see cref="BannedPhrases"/>, a specific ask as the
+    /// prompt's rules (short, one plain fact from the resume and no reference to the posting, since a canned draft knows no concrete work, none of <see cref="BannedPhrases"/>, the mapped ask as a direct question on the
     /// last line, dates in the user's zone, name-only sign-off).
     /// </summary>
     public static FollowUpDraft DemoDraft(FollowUpContext c)
@@ -568,19 +568,19 @@ public class FollowUpService
         var link = skills.Count switch
         {
             0 => "",
-            1 => $" The posting asks for {skills[0]}, which is on my resume.",
-            _ => $" The posting asks for {skills[0]} and {skills[1]}, which are both on my resume."
+            1 => $" My resume covers {skills[0]}.",
+            _ => $" My resume covers {skills[0]} and {skills[1]}."
         };
 
         var applied = c.DateApplied is { } d ? $" on {d.ToString("MMMM d", Inv)}" : "";
         var opener = c.IsLongWait
-            ? $"I applied for the {c.Role} position at {c.Company}{applied} and wanted to close the loop."
+            ? $"I applied for the {c.Role} position at {c.Company}{applied} and wanted to close the loop. Thank you for considering it."
             : c.IsSecondFollowUp
                 ? $"Following my earlier note, I wanted to follow up again on my application for the {c.Role} position at {c.Company}."
                 : $"I applied for the {c.Role} position at {c.Company}{applied} and wanted to follow up.{link}";
         var ask = c.Ask switch
         {
-            FollowUpAsk.StillUnderReview => "Could you confirm that my application is still under review? Thank you either way.",
+            FollowUpAsk.StillUnderReview => "Could you confirm that my application is still under review?",
             FollowUpAsk.AnythingFurther  => "Is there anything further you need from me?",
             _                            => "Is there an update on timing for next steps?"
         };

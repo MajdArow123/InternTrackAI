@@ -185,9 +185,12 @@ public class FollowUpServiceTests
     [InlineData("\"Hello,\" or \"Hi there,\"")]
     [InlineData("no phone number, email address, job title")]
     [InlineData("Output only a JSON object with exactly two string fields, \"subject\" and \"body\". No markdown, no code fences")]
-    [InlineData("the actual work the role involves, next to a specific thing the applicant did")]
-    [InlineData("\"Your team is building microservices and the APIs between them, which is what I spent last term building in ASP.NET Core.\"")]
-    [InlineData("Never say or judge how well the applicant fits")]
+    [InlineData("the actual work the role involves, and a specific thing the applicant did")]
+    [InlineData("\"Your team is building microservices and the APIs between them. I spent last term building services and APIs in ASP.NET Core.\"")]
+    [InlineData("Do not judge fit: state what the team builds and what the applicant built as two plain statements, with no connective claiming they match")]
+    [InlineData("Bad: \"…which is similar to the work I did splitting a monolith\". Good: \"…I spent last term splitting a shipment-tracking monolith into ASP.NET Core services.\"")]
+    [InlineData("The email contains exactly one question: the ask above. No other request for updates, news or information anywhere in the email")]
+    [InlineData("Sentences like \"I'm eager to learn about any updates\" or \"I'd love to hear where things stand\" are not allowed; the direct question at the end is the only place an update is requested.")]
     [InlineData("If the only detail available is a bare skill name with no context, name the skill and what the applicant used it for")]
     [InlineData("The last sentence before the sign-off is exactly one light, specific ask, and SITUATION names which one; never choose a different one.")]
     [InlineData("a LONG WAIT (30 or more days) asks for confirmation that the application is still under review")]
@@ -245,6 +248,11 @@ public class FollowUpServiceTests
         Assert.Contains("The posting's application deadline is Sep 20, 2026 (still ahead).", FollowUpService.Situation(Ctx(c => c with { Deadline = Today.AddDays(5) })));
         Assert.Contains("No application deadline was recorded.", FollowUpService.Situation(Ctx()));
 
+        // The deadline only picks the ask: every variant carries the never-mention line, once.
+        foreach (var situation in new[] { Ctx(c => c with { Deadline = Today.AddDays(-2) }), Ctx(c => c with { Deadline = Today.AddDays(5) }), Ctx() }.Select(FollowUpService.Situation))
+            Assert.Equal(1, Count(situation, FollowUpService.DeadlineIsContextOnly));
+        Assert.Equal("The deadline is given only to decide which question to ask; never mention the deadline, or the lack of one, in the email.", FollowUpService.DeadlineIsContextOnly);
+
         var longWait = FollowUpService.Situation(Ctx(c => c with { DateApplied = Today.AddDays(-40) }));
         Assert.DoesNotContain("still open", longWait);
         Assert.DoesNotContain("decision has been made", longWait);
@@ -261,6 +269,7 @@ public class FollowUpServiceTests
     [InlineData("I hope this email finds you well")]
     [InlineData("I hope you are doing well")]
     [InlineData("just checking in")]
+    [InlineData("eager")]
     public void Banned_wording_is_listed_in_both_system_prompts(string phrase)
     {
         Assert.Contains(FollowUpService.BannedPhrases, b => b.StartsWith(phrase, StringComparison.Ordinal));
@@ -384,12 +393,14 @@ public class FollowUpServiceTests
         Assert.DoesNotContain("My resume covers", FollowUpService.DemoDraft(Ctx()).Body);   // no matching skills: no made-up link
 
         // None of the banned wording or filler closings, in any branch.
-        var banned = new[] { "align", "resonat", "drawn to", "perfect fit", "great fit", "excited about", "writing to", "hope this email", "hope you are", "hope you're", "checking in", "look forward", "let me know if you need" };
+        var banned = new[] { "eager", "similar to", "align", "resonat", "drawn to", "perfect fit", "great fit", "excited about", "writing to", "hope this email", "hope you are", "hope you're", "checking in", "look forward", "let me know if you need" };
         foreach (var body in new[] { d.Body, ahead, second, longWait })
         {
             Assert.DoesNotContain("posting", body, StringComparison.OrdinalIgnoreCase);    // a canned draft knows no concrete work
             var paragraphs = body.Split("\n\n");
-            Assert.EndsWith("?", paragraphs[^2]);                                            // the ask is a direct question, last before the sign-off
+            Assert.EndsWith("?", paragraphs[^2]);
+            Assert.Equal(1, Count(body, "?"));                                                   // exactly one question
+            Assert.DoesNotContain("deadline", body, StringComparison.OrdinalIgnoreCase);                                            // the ask is a direct question, last before the sign-off
         }
         foreach (var body in new[] { d.Body, ahead, second, longWait })
             foreach (var b in banned)

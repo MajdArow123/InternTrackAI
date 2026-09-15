@@ -597,7 +597,14 @@ public class ProfileController : Controller
 
         var result = await _rewriter.RewriteAsync(bullet, context, ct);
         return result.Success
-            ? Json(new { success = true, demo = false, variants = result.Variants.Select(v => new { text = v.Text, angle = v.Angle }) })
+            ? Json(new
+              {
+                  success  = true,
+                  demo     = false,
+                  variants = result.Variants.Select(v => new { text = v.Text, angle = v.Angle }),
+                  // Only when a guard actually dropped something: a model that simply returned two variants isn't a discard.
+                  note     = result.Discarded > 0 ? ResumeRewriteService.DiscardedNote : null
+              })
             : Json(new { success = false, error = result.Error });
     }
 

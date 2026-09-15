@@ -102,8 +102,12 @@ public class ResumeRewriteServiceTests
         Assert.Contains("Never add a technology", sp);
         Assert.Contains("must include exactly one bracketed placeholder", sp);                       // rule 4: expected, not optional
         Assert.Contains("Never state an outcome, benefit or improvement that the original bullet does not state", sp);
-        foreach (var banned in new[] { "\"enhancing [thing]\"", "\"improving [thing]\"", "\"streamlining [thing]\"", "\"optimizing [thing]\"", "\"focusing on [thing]\"" })
-            Assert.Contains(banned, sp);
+        foreach (var verb in ResumeRewriteService.BannedOutcomeVerbs)
+            Assert.Contains('"' + verb + '"', sp);
+        foreach (var noun in ResumeRewriteService.BannedEmptyNouns)
+            Assert.Contains('"' + noun + '"', sp);
+        Assert.Contains("unless the bullet itself states that result", sp);
+        Assert.Contains("unless the bullet names the same thing", sp);
         Assert.Contains("Keep shared work shared", sp);                                              // rule 7: collaboration
         Assert.Contains("as part of a team", sp);
         Assert.Contains("share more than about half of the longer one's words", sp);                 // rule 10: no near-duplicates
@@ -143,13 +147,14 @@ public class ResumeRewriteServiceTests
     public void Parses_three_variants_with_angles()
     {
         var r = ResumeRewriteService.Parse(Reply(
-            ("Split the order monolith into ASP.NET Core microservices", "Impact first"),
-            ("Decomposed an order monolith into ASP.NET Core services", "Technical detail"),
-            ("Built order microservices in ASP.NET Core", "Concise")), Bullet);
+            ("Split the order monolith into microservices, cutting deploy time by [X]%", "Impact first"),
+            ("Used ASP.NET Core to carve independent services out of a single order codebase", "Technical detail"),
+            ("Broke up an order monolith", "Concise")), Bullet);
 
         Assert.True(r.Success);
         Assert.Equal(new[] { "Impact first", "Technical detail", "Concise" }, r.Variants.Select(v => v.Angle));
-        Assert.Equal("Split the order monolith into ASP.NET Core microservices", r.Variants[0].Text);
+        Assert.Equal("Split the order monolith into microservices, cutting deploy time by [X]%", r.Variants[0].Text);
+        Assert.Equal(0, r.Discarded);
     }
 
     [Fact]
@@ -172,7 +177,6 @@ public class ResumeRewriteServiceTests
     [InlineData("{\"variants\":\"Built A; Built B\"}")]                                  // wrong shape
     [InlineData("{\"rewrites\":[{\"text\":\"Built A\"},{\"text\":\"Built B\"}]}")]       // wrong key
     [InlineData("{\"text\":\"Built A\",\"angle\":\"Concise\"}")]                          // a single variant, not an array
-    [InlineData("{\"variants\":[{\"text\":\"Built A\",\"angle\":\"Concise\"}]}")]         // only one variant
     [InlineData("{\"variants\":[\"Built A\",\"Built B\"]}")]                              // strings, not objects
     [InlineData("{\"variants\":[{\"text\":42},{\"text\":\"  \"}]}")]                      // non-string / blank text
     [InlineData("\"just a string\"")]
@@ -182,6 +186,95 @@ public class ResumeRewriteServiceTests
         Assert.False(r.Success);
         Assert.Equal(ResumeRewriteService.BadFormatError, r.Error);
         Assert.Empty(r.Variants);
+    }
+
+    /// <summary>A lone survivor is shown, not refused: one good rewrite beats "try again".</summary>
+    [Fact]
+    public void One_variant_is_enough()
+    {
+        var r = ResumeRewriteService.Parse("{\"variants\":[{\"text\":\"Built A\",\"angle\":\"Concise\"}]}", Bullet);
+        Assert.True(r.Success);
+        Assert.Equal("Built A", Assert.Single(r.Variants).Text);
+        Assert.Equal(0, r.Discarded);          // the model returned one; nothing was discarded
+    }
+
+    [Fact]
+    public void Survivors_are_kept_and_counted_when_guards_drop_the_rest()
+    {
+        var r = ResumeRewriteService.Parse(Reply(
+            ("Developed backend for a school project, enhancing functionality", "Impact first"),
+            ("Built backend for a school project with ASP.NET Core, focusing on performance", "Technical detail"),
+            ("Created backend for a school project in ASP.NET Core", "Concise")), "Worked on the backend for a school project");
+
+        Assert.True(r.Success);
+        Assert.Equal("Created backend for a school project in ASP.NET Core", Assert.Single(r.Variants).Text);
+        Assert.Equal(2, r.Discarded);
+        Assert.Equal("Some rewrites were discarded because they added results your bullet doesn't state.", ResumeRewriteService.DiscardedNote);
+    }
+
+    [Fact]
+    public void Only_an_empty_result_is_an_error()
+    {
+        var r = ResumeRewriteService.Parse(Reply(
+            ("Developed backend, enhancing functionality", "Impact first"),
+            ("Built backend, focusing on efficiency", "Technical detail")), "Worked on the backend for a school project");
+
+        Assert.False(r.Success);
+        Assert.Equal(ResumeRewriteService.InventedContentError, r.Error);
+        Assert.Empty(r.Variants);
+    }
+
+    // ── Empty-noun guard ──
+
+    [Theory]
+    [InlineData("Built backend for a school project, focusing on efficiency", true)]
+    [InlineData("Delivered a web app, driving engagement", true)]
+    [InlineData("Rebuilt the dashboard to improve user experience", true)]
+    [InlineData("Tuned the query, improving performance from 2.1 s to 180 ms", false)]   // the bullet names performance
+    [InlineData("Built backend for a school project in ASP.NET Core", false)]
+    public void InventsEmptyNoun_needs_the_bullet_to_name_the_thing(string variant, bool invents) =>
+        Assert.Equal(invents, ResumeRewriteService.InventsEmptyNoun(variant,
+            "Worked on the backend for a school project, tuning query performance"));
+
+    [Fact]
+    public void Empty_noun_guard_covers_every_word_on_the_shared_list()
+    {
+        foreach (var noun in ResumeRewriteService.BannedEmptyNouns)
+            Assert.True(ResumeRewriteService.InventsEmptyNoun($"Built a thing, adding {noun}", "Built a thing"), noun);
+    }
+
+    // ── Near-duplicate guard ──
+
+    [Theory]
+    // The two rewordings the real-call check produced (62% and 64% of the longer variant's words).
+    [InlineData("Wrote PostgreSQL migrations and indexes, reducing the slowest tracking query from 2.1 s to 180 ms",
+                "Developed PostgreSQL migrations and indexes to optimize the slowest tracking query to 180 ms", true)]
+    [InlineData("Built a REST API in ASP.NET Core for a class scheduling app, supporting [N] users",
+                "Developed a REST API in ASP.NET Core for a class scheduling app", true)]
+    // A Concise compression of a longer variant stays under the bar, because the longer one is the denominator.
+    [InlineData("Built a web app for booking study rooms as part of a team, reducing [metric] by [X]%",
+                "Developed web app for booking study rooms", false)]
+    [InlineData("Collaborated with a team to develop a web app for booking study rooms",
+                "Developed web app for booking study rooms", false)]
+    [InlineData("Split the order monolith into ASP.NET Core microservices", "Cut deploy time by [X]% for the checkout team", false)]
+    public void IsNearDuplicate_catches_rewordings_but_not_compressions(string a, string b, bool duplicate)
+    {
+        Assert.Equal(duplicate, ResumeRewriteService.IsNearDuplicate(a, b));
+        Assert.Equal(duplicate, ResumeRewriteService.IsNearDuplicate(b, a));   // order doesn't matter
+    }
+
+    [Fact]
+    public void Near_duplicate_variants_are_dropped_after_the_one_they_repeat()
+    {
+        var r = ResumeRewriteService.Parse(Reply(
+            ("Wrote PostgreSQL migrations and indexes, reducing the slowest tracking query from 2.1 s to 180 ms", "Impact first"),
+            ("Developed PostgreSQL migrations and indexes to optimize the slowest tracking query to 180 ms", "Technical detail"),
+            ("Reduced tracking query time to 180 ms", "Concise")),
+            "Wrote PostgreSQL migrations and indexes that cut the slowest tracking query from 2.1 s to 180 ms");
+
+        Assert.True(r.Success);
+        Assert.Equal(new[] { "Impact first", "Concise" }, r.Variants.Select(v => v.Angle));
+        Assert.Equal(1, r.Discarded);
     }
 
     [Fact]
@@ -221,12 +314,24 @@ public class ResumeRewriteServiceTests
     }
 
     [Fact]
-    public void Variants_that_all_invent_numbers_give_the_specific_error()
+    public void Number_guard_drops_the_invented_figures_and_keeps_the_rest()
     {
         var r = ResumeRewriteService.Parse(Reply(
             ("Cut load time by 40% across the dashboard", "Impact first"),
             ("Served 10,000 users with a rebuilt dashboard", "Concise"),
             ("Rebuilt the dashboard", "Technical detail")), "Rebuilt the dashboard for the team");
+
+        Assert.True(r.Success);
+        Assert.Equal("Rebuilt the dashboard", Assert.Single(r.Variants).Text);
+        Assert.Equal(2, r.Discarded);
+    }
+
+    [Fact]
+    public void Every_variant_inventing_a_number_is_the_specific_error()
+    {
+        var r = ResumeRewriteService.Parse(Reply(
+            ("Cut load time by 40% across the dashboard", "Impact first"),
+            ("Served 10,000 users with a rebuilt dashboard", "Concise")), "Rebuilt the dashboard for the team");
 
         Assert.False(r.Success);
         Assert.Equal(ResumeRewriteService.InventedContentError, r.Error);
@@ -280,15 +385,16 @@ public class ResumeRewriteServiceTests
     }
 
     [Fact]
-    public void Outcome_guard_drops_variants_and_reports_the_shared_error()
+    public void Outcome_guard_drops_the_filler_and_keeps_the_clean_variant()
     {
         var r = ResumeRewriteService.Parse(Reply(
             ("Developed backend for a school project, enhancing functionality and performance", "Impact first"),
             ("Built backend for a school project, focusing on API efficiency", "Technical detail"),
             ("Created backend for a school project", "Concise")), "Worked on the backend for a school project");
 
-        Assert.False(r.Success);
-        Assert.Equal(ResumeRewriteService.InventedContentError, r.Error);
+        Assert.True(r.Success);
+        Assert.Equal("Created backend for a school project", Assert.Single(r.Variants).Text);
+        Assert.Equal(2, r.Discarded);
     }
 
     // ── Demo ──
@@ -310,6 +416,7 @@ public class ResumeRewriteServiceTests
             for (var j = i + 1; j < words.Count; j++)
                 Assert.True(words[i].Intersect(words[j]).Count() <= Math.Max(words[i].Count, words[j].Count) / 2.0,
                     $"variants {i} and {j} are rewordings of each other");
+        Assert.All(variants, v => Assert.DoesNotContain(variants.Where(o => o != v), o => ResumeRewriteService.IsNearDuplicate(v.Text, o.Text)));
         var allowed = new HashSet<string>();
         foreach (var v in variants)
         {
@@ -317,6 +424,7 @@ public class ResumeRewriteServiceTests
             Assert.DoesNotContain(ResumeRewriteService.BannedOpeners, o => v.Text.Contains(o, StringComparison.OrdinalIgnoreCase));
             Assert.False(ResumeRewriteService.InventsNumber(v.Text, allowed), v.Text);
             Assert.False(ResumeRewriteService.InventsOutcome(v.Text, ResumeRewriteService.DemoSampleBullet), v.Text);
+            Assert.False(ResumeRewriteService.InventsEmptyNoun(v.Text, ResumeRewriteService.DemoSampleBullet), v.Text);
             Assert.DoesNotMatch(@"^(I|My|The|A|An)\b", v.Text);
         }
         // The canned output itself passes the parser that guards real output.

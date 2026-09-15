@@ -4410,6 +4410,8 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 }
 .rewrite-copy { flex: none; }
 .rewrite-text { margin: 0; color: var(--text); font-size: .9333rem; line-height: 1.55; overflow-wrap: anywhere; }
+.rewrite-discarded { font-size: .8667rem; color: var(--warning-text); margin: 0; }
+.rewrite-discarded[hidden] { display: none; }
 .rewrite-placeholder { background: var(--warning-soft); color: var(--warning-text); border-radius: 3px; padding: 0 1px; font-weight: 600; }
 @media (max-width: 575.98px) {
   .rewrite-form .analyze-btn { width: 100%; justify-content: center; }

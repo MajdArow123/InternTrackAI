@@ -19,6 +19,7 @@
     const results     = document.getElementById('rewriteResults');
     const resultsHead = document.getElementById('rewriteResultsTitle');
     const demoNote    = document.getElementById('rewriteDemoNote');
+    const discarded   = document.getElementById('rewriteDiscardedNote');
     const hint        = document.getElementById('rewritePlaceholderHint');
     const list        = document.getElementById('rewriteList');
     const section     = document.getElementById('bulletRewriter');
@@ -131,9 +132,12 @@
             demoNote.hidden = true;
             demoNote.textContent = '';
         }
+        // Sent only when a guard dropped something, so a short list doesn't read as a glitch.
+        discarded.textContent = data.note || '';
+        discarded.hidden = !data.note;
         hint.hidden = !anyPlaceholder;
         results.hidden = false;
-        statusEl.textContent = variants.length + ' rewrites ready.';
+        statusEl.textContent = variants.length + (variants.length === 1 ? ' rewrite ready.' : ' rewrites ready.') + (data.note ? ' ' + data.note : '');
         resultsHead.focus({ preventScroll: true });
         results.scrollIntoView({ block: 'nearest' });
     }

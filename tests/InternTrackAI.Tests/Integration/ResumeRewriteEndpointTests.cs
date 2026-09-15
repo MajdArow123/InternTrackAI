@@ -25,8 +25,8 @@ public class ResumeRewriteEndpointTests
         variants = new[]
         {
             new { text = "Split the order monolith into [N] ASP.NET Core microservices", angle = "Impact first" },
-            new { text = "Decomposed an order monolith into ASP.NET Core services", angle = "Technical detail" },
-            new { text = "Built order microservices in ASP.NET Core", angle = "Concise" },
+            new { text = "Used a versioned REST API to carve independent services out of one codebase", angle = "Technical detail" },
+            new { text = "Broke up an order monolith", angle = "Concise" },
         }
     }));
 
@@ -116,6 +116,7 @@ public class ResumeRewriteEndpointTests
         Assert.Equal(3, variants.Count);
         Assert.Equal(new[] { "Impact first", "Technical detail", "Concise" }, variants.Select(v => v.GetProperty("angle").GetString()));
         Assert.Equal("Split the order monolith into [N] ASP.NET Core microservices", variants[0].GetProperty("text").GetString());
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("note").ValueKind);   // nothing discarded
 
         var request = Assert.Single(h.OpenAi.Requests);
         Assert.Contains("json_object", request);
@@ -201,6 +202,50 @@ public class ResumeRewriteEndpointTests
         var res = await client.PostAsJsonAsync(Url, new { bullet = "Built a thing", applicationId = id });
         Assert.NotEqual(HttpStatusCode.OK, res.StatusCode);
         Assert.Empty(h.OpenAi.Requests);
+    }
+
+    /// <summary>A guarded drop leaves what survived, plus the note that explains the short list.</summary>
+    [Fact]
+    public async Task Discarded_variants_leave_the_survivors_and_a_note()
+    {
+        using var h = new Host();
+        var (client, token, uid) = await h.UserAsync();
+        var id = await h.SeedAppAsync(uid);
+        h.OpenAi.Reply = FakeOpenAi.Completion(JsonSerializer.Serialize(new
+        {
+            variants = new[]
+            {
+                new { text = "Developed the backend for a school project, enhancing functionality", angle = "Impact first" },
+                new { text = "Built the backend for a school project, focusing on efficiency", angle = "Technical detail" },
+                new { text = "Created a school project backend in ASP.NET Core", angle = "Concise" },
+            }
+        }));
+
+        var json = await Json(await client.SendAsync(Post(token, new { bullet = "Worked on the backend for a school project", applicationId = id })));
+        Assert.True(json.GetProperty("success").GetBoolean());
+        var only = Assert.Single(json.GetProperty("variants").EnumerateArray().ToList());
+        Assert.Equal("Created a school project backend in ASP.NET Core", only.GetProperty("text").GetString());
+        Assert.Equal(ResumeRewriteService.DiscardedNote, json.GetProperty("note").GetString());
+    }
+
+    [Fact]
+    public async Task Every_variant_discarded_is_an_error()
+    {
+        using var h = new Host();
+        var (client, token, uid) = await h.UserAsync();
+        var id = await h.SeedAppAsync(uid);
+        h.OpenAi.Reply = FakeOpenAi.Completion(JsonSerializer.Serialize(new
+        {
+            variants = new[]
+            {
+                new { text = "Developed the backend, enhancing functionality", angle = "Impact first" },
+                new { text = "Built the backend, focusing on efficiency", angle = "Technical detail" },
+            }
+        }));
+
+        var json = await Json(await client.SendAsync(Post(token, new { bullet = "Worked on the backend for a school project", applicationId = id })));
+        Assert.False(json.GetProperty("success").GetBoolean());
+        Assert.Equal(ResumeRewriteService.InventedContentError, json.GetProperty("error").GetString());
     }
 
     [Fact]

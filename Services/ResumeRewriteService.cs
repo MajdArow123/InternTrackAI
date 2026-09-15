@@ -25,9 +25,9 @@ public sealed record RewriteContext
 public sealed record BulletVariant(string Text, string Angle);
 
 /// <summary>Outcome of a rewrite: 2–3 variants, or a user-facing <see cref="Error"/>. <see cref="Tokens"/> is OpenAI's usage count when reported.</summary>
-public sealed record BulletRewriteResult(bool Success, IReadOnlyList<BulletVariant> Variants, string? Error, int? Tokens = null)
+public sealed record BulletRewriteResult(bool Success, IReadOnlyList<BulletVariant> Variants, string? Error, int? Tokens = null, int Discarded = 0)
 {
-    public static BulletRewriteResult Ok(IReadOnlyList<BulletVariant> variants, int? tokens = null) => new(true, variants, null, tokens);
+    public static BulletRewriteResult Ok(IReadOnlyList<BulletVariant> variants, int? tokens = null, int discarded = 0) => new(true, variants, null, tokens, discarded);
     public static BulletRewriteResult Failed(string error) => new(false, Array.Empty<BulletVariant>(), error);
 }
 
@@ -46,16 +46,35 @@ public class ResumeRewriteService
     public const int MaxVariantChars      = 300;
     public const int MaxAngleChars        = 40;
     public const int MaxVariants          = 3;
-    public const int MinVariants          = 2;
+    /// <summary>One good rewrite beats "try again", so a single survivor is shown (with <see cref="DiscardedNote"/>); only zero is an error.</summary>
+    public const int MinVariants          = 1;
+
+    /// <summary>Overlap above which two variants are the same sentence reworded; see <see cref="IsNearDuplicate"/>.</summary>
+    public const double NearDuplicateOverlap = 0.6;
 
     public const string BadFormatError = "The AI returned the rewrites in an unexpected format. Try again.";
-    public const string InventedContentError = "The rewrites added numbers or results that aren't in your bullet, so they were discarded. Try again.";
+    public const string InventedContentError = "Every rewrite added numbers or results that aren't in your bullet, so they were all discarded. Try again.";
+
+    /// <summary>Shown beside the results when a guard dropped something, so a short list doesn't look like a glitch.</summary>
+    public const string DiscardedNote = "Some rewrites were discarded because they added results your bullet doesn't state.";
 
     /// <summary>The tagged data sections, in prompt order. Any look-alike tag inside untrusted text is removed.</summary>
     public static readonly string[] DataTags = { "application", "job_description", "bullet" };
 
     /// <summary>Weak openers the prompt names verbatim; a variant never starts with or contains them.</summary>
     public static readonly string[] BannedOpeners = { "Responsible for", "Worked on", "Helped with", "Assisted in", "Involved in" };
+
+    /// <summary>
+    /// Vague outcome verbs, listed verbatim in the prompt and enforced by <see cref="InventsOutcome"/>: allowed only when the
+    /// bullet states that result. Real calls produced "enhancing functionality", "focusing on performance" without them.
+    /// </summary>
+    public static readonly string[] BannedOutcomeVerbs = { "enhancing", "improving", "streamlining", "optimizing", "focusing on" };
+
+    /// <summary>
+    /// Nouns that claim a benefit while saying nothing, listed verbatim in the prompt and enforced by <see cref="InventsEmptyNoun"/>:
+    /// allowed only when the bullet names the same thing.
+    /// </summary>
+    public static readonly string[] BannedEmptyNouns = { "functionality", "efficiency", "user experience", "engagement", "performance" };
 
     private static readonly Regex TagLookAlike   = PromptData.TagPattern(DataTags);
     private static readonly Regex LeadingGlyph   = new(@"^[\s•\-–—*·▪‣◦●]+", RegexOptions.Compiled);
@@ -68,7 +87,12 @@ public class ResumeRewriteService
     /// to the next punctuation. Metric verbs ("reducing", "cutting") are not here: with a placeholder they are the fix.
     /// </summary>
     private static readonly Regex OutcomeClause = new(
-        @"\b(?<verb>enhancing|improving|streamlining|optimi[sz]ing|boosting|elevating|strengthening|maximi[sz]ing|focusing\s+on)\b(?<object>[^,.;:!?]*)",
+        @"\b(?<verb>enhancing|enhance[sd]?|improving|improve[sd]?|streamlining|streamline[sd]?|optimi[sz]ing|optimi[sz]e[sd]?|boosting|elevating|strengthening|maximi[sz]ing|focusing\s+on|focuse[sd]\s+on)\b(?<object>[^,.;:!?]*)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>The <see cref="BannedEmptyNouns"/> as one alternation, matched anywhere in a variant.</summary>
+    private static readonly Regex EmptyNoun = new(
+        @"\b(?:" + string.Join("|", BannedEmptyNouns.Select(n => n.Replace(" ", @"\s+"))) + @")\b",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     /// <summary>Words that say nothing about what an outcome clause claims, so they neither prove nor disprove it.</summary>
@@ -126,7 +150,7 @@ public class ResumeRewriteService
         3. Never invent a number. If the original bullet contains a number (a count, percentage, amount, duration or size), carry it through unchanged. Never state a figure that is not in the original bullet as fact, and never calculate a new figure from its numbers.
         4. If the original bullet states no measurable result, the "Impact first" variant must include exactly one bracketed placeholder where the result figure belongs, such as "reducing [metric] by [X]%" or "supporting [N] users", for the applicant to fill in. The other variants may leave it out. If the bullet already states a measurable result, use that result and add no placeholder.
         5. Never add a technology, tool, responsibility, audience or scope that is not in the original bullet. The job description only decides which facts already in the bullet to put first and which of the posting's words to use for them; it never supplies new facts.
-        6. Never state an outcome, benefit or improvement that the original bullet does not state. Where a result belongs but the bullet gives none, use the placeholder from rule 4, never a wordy claim. In particular, never add a clause such as "enhancing [thing]", "improving [thing]", "streamlining [thing]", "optimizing [thing]" or "focusing on [thing]" unless the bullet itself states that thing. Bad: "Built [system] with [technology], enhancing functionality and performance". Good: "Built [system] with [technology], reducing [metric] by [X]%".
+        6. Never state an outcome, benefit or improvement that the original bullet does not state. Where a result belongs but the bullet gives none, use the placeholder from rule 4, never a wordy claim. Never use these words, in any form or tense, unless the bullet itself states that result: {PromptData.Quoted(BannedOutcomeVerbs, "; ")}. Never use these words unless the bullet names the same thing: {PromptData.Quoted(BannedEmptyNouns, "; ")}. Bad: "Built [system] with [technology], enhancing functionality and performance". Bad: "Built [system], focusing on efficiency". Good: "Built [system] with [technology], reducing [metric] by [X]%".
         7. Keep shared work shared. If the bullet says the work was collaborative ("helped", "assisted", "team", "we", "our", "group" or similar), every variant keeps that in plain words, such as "with a team", "as part of a team" or "as part of a [N]-person team" (a team-size placeholder is separate from the result placeholder in rule 4), and never implies the applicant did it alone. Bad, from "Helped a team build [system] for [project]": "Delivered [system] for [project]". Good: "Built [system] for [project] as part of a team".
         8. Use the posting's vocabulary only where it names the same thing the bullet describes: if the posting says "[term]" and the bullet describes that same work in other words, use "[term]". If no posting term fits, keep the bullet's own words. Never force a keyword in.
         9. Standard resume register: no first person (I, me, my, we, our), no article at the start, no exclamation marks.
@@ -164,8 +188,10 @@ public class ResumeRewriteService
     /// <summary>
     /// Reads the model's reply: <c>{"variants":[{text, angle}]}</c>, a bare array of the same objects, or either inside
     /// one markdown fence. Each text is collapsed to one line; blank or over-long texts and repeats are dropped, and so is
-    /// any variant that <see cref="InventsNumber"/> or <see cref="InventsOutcome"/> against the original bullet. Keeps at
-    /// most three; fewer than two left is an error, as is anything that isn't that shape. Never throws.
+    /// any variant that <see cref="InventsNumber"/>, <see cref="InventsOutcome"/> or <see cref="InventsEmptyNoun"/> against
+    /// the original bullet, or that is a rewording of one already kept (<see cref="IsNearDuplicate"/>). Keeps at most three;
+    /// <see cref="BulletRewriteResult.Discarded"/> counts what the guards took. Only an empty result, or a reply that isn't
+    /// this shape, is an error. Never throws.
     /// </summary>
     public static BulletRewriteResult Parse(string? content, string originalBullet)
     {
@@ -192,7 +218,14 @@ public class ResumeRewriteService
                 var variantText = NormalizeBullet(Str(item, "text"));
                 if (variantText.Length == 0 || variantText.Length > MaxVariantChars) continue;
                 if (!seen.Add(variantText)) continue;
-                if (InventsNumber(variantText, allowedNumbers) || InventsOutcome(variantText, originalBullet)) { droppedByGuards++; continue; }
+                if (InventsNumber(variantText, allowedNumbers)
+                    || InventsOutcome(variantText, originalBullet)
+                    || InventsEmptyNoun(variantText, originalBullet)
+                    || variants.Any(kept => IsNearDuplicate(kept.Text, variantText)))
+                {
+                    droppedByGuards++;
+                    continue;
+                }
 
                 var angle = PromptData.OneLine(Str(item, "angle"));
                 if (angle.Length == 0) angle = "Variant " + (variants.Count + 1);
@@ -204,7 +237,7 @@ public class ResumeRewriteService
 
             if (variants.Count < MinVariants)
                 return BulletRewriteResult.Failed(droppedByGuards > 0 ? InventedContentError : BadFormatError);
-            return BulletRewriteResult.Ok(variants);
+            return BulletRewriteResult.Ok(variants, discarded: droppedByGuards);
         }
         catch (JsonException)
         {
@@ -240,6 +273,34 @@ public class ResumeRewriteService
         }
         return false;
     }
+
+    /// <summary>
+    /// True when <paramref name="variant"/> uses one of <see cref="BannedEmptyNouns"/> for something the bullet never names
+    /// ("focusing on performance" over a bullet that says nothing about performance). The bullet naming it — in any related
+    /// form, matched on the first four letters — allows it.
+    /// </summary>
+    public static bool InventsEmptyNoun(string variant, string originalBullet)
+    {
+        var bulletStems = WordToken.Matches(originalBullet.ToLowerInvariant()).Select(m => Stem(m.Value)).ToHashSet();
+        return EmptyNoun.Matches(Placeholder.Replace(variant, " "))
+            .Any(m => !WordToken.Matches(m.Value.ToLowerInvariant()).Select(w => Stem(w.Value)).All(bulletStems.Contains));
+    }
+
+    /// <summary>
+    /// True when two variants are one sentence reworded: they share more than <see cref="NearDuplicateOverlap"/> of the
+    /// longer one's distinct words. Measured against the longer variant so a short "Concise" variant, which is usually a
+    /// compression of another, stays under the bar; real rewordings measured 62% and 64%.
+    /// </summary>
+    public static bool IsNearDuplicate(string a, string b)
+    {
+        var wa = DistinctWords(a);
+        var wb = DistinctWords(b);
+        if (wa.Count == 0 || wb.Count == 0) return false;
+        return wa.Intersect(wb).Count() / (double)Math.Max(wa.Count, wb.Count) > NearDuplicateOverlap;
+    }
+
+    private static HashSet<string> DistinctWords(string text) =>
+        WordToken.Matches(text.ToLowerInvariant()).Select(m => m.Value).ToHashSet();
 
     private static string Stem(string word) => word.Length <= 4 ? word : word[..4];
 
@@ -323,7 +384,8 @@ public class ResumeRewriteService
                 return parsed;
             }
 
-            _logger.LogInformation("Bullet rewrite for application {ApplicationId}: {Count} variants ({Tokens} tokens).", context.ApplicationId, parsed.Variants.Count, tokens);
+            _logger.LogInformation("Bullet rewrite for application {ApplicationId}: {Count} variants, {Discarded} discarded ({Tokens} tokens).",
+                context.ApplicationId, parsed.Variants.Count, parsed.Discarded, tokens);
             return parsed with { Tokens = tokens };
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)

@@ -185,10 +185,37 @@ public class FollowUpServiceTests
     [InlineData("\"Hello,\" or \"Hi there,\"")]
     [InlineData("no phone number, email address, job title")]
     [InlineData("Output only a JSON object with exactly two string fields, \"subject\" and \"body\". No markdown, no code fences")]
+    [InlineData("a specific thing the posting asks for, next to a specific thing the applicant did")]
+    [InlineData("\"The posting mentions microservices and API design, which is what I spent last term building in ASP.NET Core.\"")]
+    [InlineData("Never say or judge how well the applicant fits")]
+    [InlineData("If the only detail available is a bare skill name with no context, name the skill and what the applicant used it for")]
+    [InlineData("The last sentence before the sign-off is one light, specific ask: whether there is an update on timing, whether they need anything further from the applicant, or confirmation that the application is still under review.")]
+    [InlineData("\"I look forward to any updates you may have\" or \"Please let me know if you need anything else\"")]
     public void Both_system_prompts_state_the_rules(string rule)
     {
         Assert.Contains(rule, FollowUpService.GenerateSystemPrompt);
         Assert.Contains(rule, FollowUpService.ImproveSystemPrompt);
+    }
+
+    [Theory]
+    [InlineData("align")]
+    [InlineData("resonate")]
+    [InlineData("drawn to")]
+    [InlineData("perfect fit")]
+    [InlineData("great fit")]
+    [InlineData("excited about this opportunity")]
+    [InlineData("I am writing to")]
+    [InlineData("I hope this email finds you well")]
+    [InlineData("I hope you are doing well")]
+    [InlineData("just checking in")]
+    public void Banned_wording_is_listed_in_both_system_prompts(string phrase)
+    {
+        Assert.Contains(FollowUpService.BannedPhrases, b => b.StartsWith(phrase, StringComparison.Ordinal));
+        foreach (var system in new[] { FollowUpService.GenerateSystemPrompt, FollowUpService.ImproveSystemPrompt })
+        {
+            Assert.Contains("Never use these words or phrases, in any form, tense or contraction", system);
+            Assert.Contains("\"" + FollowUpService.BannedPhrases.First(b => b.StartsWith(phrase, StringComparison.Ordinal)) + "\"", system);
+        }
     }
 
     [Fact]
@@ -287,14 +314,24 @@ public class FollowUpServiceTests
         Assert.Contains("Backend Engineering Intern", d.Subject);
         Assert.StartsWith("Hello,", d.Body);
         Assert.Contains("on September 5", d.Body);
-        Assert.Contains("Java and SQL", d.Body);
-        Assert.EndsWith("Best,\nAlex Johnson", d.Body);
-        Assert.DoesNotContain("hope this email finds you well", d.Body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("The posting asks for Java and SQL, which are both on my resume.", d.Body);
+        Assert.EndsWith("Is there an update on timing for next steps, or anything further you need from me?\n\nBest,\nAlex Johnson", d.Body);
         Assert.True(d.Body.Split((char[])[' ', '\n'], StringSplitOptions.RemoveEmptyEntries).Length < 150);
 
-        Assert.Contains("earlier note", FollowUpService.DemoDraft(Ctx(c => c with { LastContactLocal = Today.AddDays(-3) })).Body);
-        Assert.Contains("close the loop", FollowUpService.DemoDraft(Ctx(c => c with { DateApplied = Today.AddDays(-45) })).Body);
+        var second = FollowUpService.DemoDraft(Ctx(c => c with { LastContactLocal = Today.AddDays(-3) })).Body;
+        Assert.Contains("earlier note", second);
+        Assert.Contains("Could you confirm whether my application is still under review?", second);
+        var longWait = FollowUpService.DemoDraft(Ctx(c => c with { DateApplied = Today.AddDays(-45) })).Body;
+        Assert.Contains("close the loop", longWait);
+        Assert.Contains("Is the role still open, or has a decision been made?", longWait);
         Assert.EndsWith("Best,", FollowUpService.DemoDraft(Ctx(c => c with { SenderName = null })).Body);
+        Assert.DoesNotContain("The posting asks for", FollowUpService.DemoDraft(Ctx()).Body);   // no matching skills: no made-up link
+
+        // None of the banned wording or filler closings, in any branch.
+        var banned = new[] { "align", "resonat", "drawn to", "perfect fit", "great fit", "excited about", "writing to", "hope this email", "hope you are", "hope you're", "checking in", "look forward", "let me know if you need" };
+        foreach (var body in new[] { d.Body, second, longWait })
+            foreach (var b in banned)
+                Assert.DoesNotContain(b, body, StringComparison.OrdinalIgnoreCase);
     }
 
     private static int Count(string haystack, string needle)

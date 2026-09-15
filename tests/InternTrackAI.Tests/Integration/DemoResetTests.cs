@@ -43,6 +43,7 @@ public class DemoResetTests
             // Registration already created the profile row; give it a name we can check survives the reset.
             var profile = await db.UserProfiles.SingleOrDefaultAsync(p => p.UserId == demoId) ?? db.UserProfiles.Add(new UserProfile { UserId = demoId }).Entity;
             profile.FullName = "Demo Person";
+            profile.DisplayName = "Renamed By A Visitor";   // slipped past the guard somehow: the reset must put it back
             profile.SkillsJson = "[\"C#\"]";
             profile.TargetRolesJson = "[\"Frontend Engineering Intern\",\"Visitor Role\"]";   // an earlier seed's role + a visitor's
             db.ResumeVersions.Add(new ResumeVersion { UserId = demoId, VersionNumber = 1, OriginalFileName = "r.pdf", StoredPath = "resumes/" + demoId + "/r.pdf", IsActive = true });
@@ -87,6 +88,8 @@ public class DemoResetTests
             // seeder's own second version ("General") takes its place, with the applications split between them.
             var demoProfile = await db.UserProfiles.SingleAsync(p => p.UserId == demoId);
             Assert.Equal("Demo Person", demoProfile.FullName);
+            Assert.Equal(DemoSeeder.DisplayName, demoProfile.DisplayName);
+            Assert.Equal("Demo User", demoProfile.DisplayName);
             Assert.Equal(DemoSeeder.TargetRoles, ProfileTags.FromJson(demoProfile.TargetRolesJson));   // replaced, not merged
             var resumes = await db.ResumeVersions.Where(r => r.UserId == demoId).OrderBy(r => r.Id).ToListAsync();
             Assert.Equal(2, resumes.Count);

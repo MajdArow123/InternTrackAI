@@ -56,9 +56,17 @@
     <!-- Display Name -->
     <div class="form-card mb-3">
         <p class="form-section-title">Display name</p>
-        <p class="form-hint mb-3">Shown in the navbar instead of your email address.</p>
+        @if (Model.IsDemoAccount)
+        {
+            <p class="form-hint mb-3" data-demo-guard="displayName">@InternTrackAI.Services.ConfiguredAccounts.DemoUnavailableMessage</p>
+        }
+        else
+        {
+            <p class="form-hint mb-3">Shown in the navbar instead of your email address.</p>
+        }
         <form method="post">
             @Html.AntiForgeryToken()
+            <fieldset disabled="@Model.IsDemoAccount">
             <div asp-validation-summary="ModelOnly" class="text-danger mb-2"></div>
             <div class="row g-3 align-items-end">
                 <div class="col-sm-8">
@@ -71,6 +79,7 @@
                     <button type="submit" class="btn btn-primary w-100">Save</button>
                 </div>
             </div>
+            </fieldset>
         </form>
     </div>
 

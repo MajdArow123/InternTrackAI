@@ -233,6 +233,8 @@ if (window.bootstrap?.Tooltip) {
                         const nowEl = document.getElementById('timeZoneNow');
                         if (nowEl && res.nowLocal) nowEl.textContent = res.nowLocal;
                         showAppToast('success', 'Profile info saved.');
+                    } else if (res.field === 'displayName') {
+                        shakeField(document.getElementById('displayNameInput'), res.error || 'Not available on the demo account.');
                     } else if (res.field === 'timeZoneId') {
                         shakeField(document.getElementById('timeZoneSelect'), res.error || 'Unknown time zone');
                     } else {

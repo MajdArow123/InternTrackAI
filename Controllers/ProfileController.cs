@@ -108,8 +108,18 @@ public class ProfileController : Controller
         var userId = UserId();
         var profile = await GetOrCreateProfileAsync(userId);
 
+        // The shared demo account's display name is fixed (DemoSeeder restores it nightly). Its input is disabled, so
+        // FormData omits it: an absent value keeps the stored name, and a posted change is refused without saving anything.
+        var newDisplayName = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
+        if (AiRateLimiting.IsDemoUser(User, _config))
+        {
+            if (displayName is not null && newDisplayName != profile.DisplayName)
+                return Json(new { success = false, error = ConfiguredAccounts.DemoUnavailableMessage, field = "displayName" });
+            newDisplayName = profile.DisplayName;
+        }
+
         profile.FullName       = fullName.Trim();
-        profile.DisplayName    = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
+        profile.DisplayName    = newDisplayName;
         profile.Country        = country?.Trim();
         profile.PhoneNumber    = phoneNumber?.Trim();
         profile.GitHubUsername = string.IsNullOrWhiteSpace(githubUsername) ? null : githubUsername.Trim().TrimStart('@');

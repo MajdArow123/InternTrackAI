@@ -82,6 +82,8 @@ public class DemoAccountGuardTests : IClassFixture<DemoAccountGuardFixture>
         Assert.Contains("data-demo-guard=\"email\">Not available on the demo account.", html);
         Assert.Contains("data-demo-guard=\"password\">Not available on the demo account.", html);
         Assert.Contains("data-demo-guard=\"delete\">Not available on the demo account.", html);
+        Assert.Contains("data-demo-guard=\"displayName\">Not available on the demo account.", html);
+        Assert.Contains("<fieldset disabled=\"disabled\">", html);
         Assert.DoesNotContain("href=\"/Identity/Account/Manage/ChangePassword\"", html);
         Assert.DoesNotContain("href=\"/Identity/Account/Manage/DeletePersonalData\"", html);
     }
@@ -242,6 +244,96 @@ public class DemoAccountGuardTests : IClassFixture<DemoAccountGuardFixture>
         });
     }
 
+    // ── Display name (Account settings form and Profile basic info) ──
+
+    private Task<string?> DemoDisplayName() => _f.WithScope(async sp =>
+    {
+        var id = (await sp.GetRequiredService<UserManager<IdentityUser>>().FindByEmailAsync(_f.DemoEmail))!.Id;
+        return (await sp.GetRequiredService<ApplicationDbContext>().UserProfiles.AsNoTracking().SingleAsync(p => p.UserId == id)).DisplayName;
+    });
+
+    private static async Task<HttpResponseMessage> SaveInfo(HttpClient client, Dictionary<string, string> fields)
+    {
+        fields["__RequestVerificationToken"] = await Http.GetAntiforgeryTokenAsync(client, "/Profile");
+        return await client.PostAsync("/Profile/SaveInfo", new FormUrlEncodedContent(fields));
+    }
+
+    [Fact]
+    public async Task Display_name_post_on_account_settings_is_refused_for_the_demo_account()
+    {
+        var before = await DemoDisplayName();
+        Assert.Equal("Integration Tester", before);   // set at registration
+
+        AssertRefused(await PostForm(_f.Demo, Manage, new() { ["Input.DisplayName"] = "Hijacked Name" }));
+        await AssertToastOnIndex(_f.Demo);
+        Assert.Equal(before, await DemoDisplayName());
+        Assert.DoesNotContain("Hijacked Name", await (await _f.Demo.GetAsync("/Home/Dashboard")).Content.ReadAsStringAsync());   // navbar label
+    }
+
+    [Fact]
+    public async Task Profile_basic_info_shows_the_display_name_read_only_for_the_demo_account()
+    {
+        var html = await (await _f.Demo.GetAsync("/Profile")).Content.ReadAsStringAsync();
+        Assert.Contains("data-demo-guard=\"displayName\">Not available on the demo account.", html);
+        Assert.Matches("<input name=\"displayName\" id=\"displayNameInput\"[^>]*disabled", html);
+    }
+
+    [Fact]
+    public async Task Profile_save_info_refuses_a_demo_display_name_change_and_saves_nothing()
+    {
+        var before = await DemoDisplayName();
+        var res = await SaveInfo(_f.Demo, new() { ["fullName"] = "Should Not Save", ["displayName"] = "Hijacked Name" });
+
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var body = System.Text.Json.JsonDocument.Parse(await res.Content.ReadAsStringAsync()).RootElement;
+        Assert.False(body.GetProperty("success").GetBoolean());
+        Assert.Equal("displayName", body.GetProperty("field").GetString());
+        Assert.Equal(ConfiguredAccounts.DemoUnavailableMessage, body.GetProperty("error").GetString());
+
+        Assert.Equal(before, await DemoDisplayName());
+        Assert.DoesNotContain("Should Not Save", await (await _f.Demo.GetAsync("/Profile")).Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Profile_save_info_still_saves_the_other_fields_for_the_demo_account()
+    {
+        var before = await DemoDisplayName();
+
+        // The disabled input is left out of FormData: the stored display name must survive, not be cleared.
+        var omitted = await SaveInfo(_f.Demo, new() { ["fullName"] = "Demo Visitor Name", ["country"] = "Canada" });
+        Assert.Contains("\"success\":true", await omitted.Content.ReadAsStringAsync());
+        Assert.Equal(before, await DemoDisplayName());
+
+        // Re-posting the unchanged value is not a change.
+        var same = await SaveInfo(_f.Demo, new() { ["fullName"] = "Demo Visitor Name", ["displayName"] = before! });
+        Assert.Contains("\"success\":true", await same.Content.ReadAsStringAsync());
+        Assert.Equal(before, await DemoDisplayName());
+
+        Assert.Contains("value=\"Demo Visitor Name\"", await (await _f.Demo.GetAsync("/Profile")).Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Regular_accounts_can_still_change_their_display_name_in_both_places()
+    {
+        var client = _f.NewClient();
+        var email  = await Http.RegisterAsync(client);
+        Task<string?> Name() => _f.WithScope(async sp =>
+        {
+            var id = (await sp.GetRequiredService<UserManager<IdentityUser>>().FindByEmailAsync(email))!.Id;
+            return (await sp.GetRequiredService<ApplicationDbContext>().UserProfiles.AsNoTracking().SingleAsync(p => p.UserId == id)).DisplayName;
+        });
+
+        var res = await PostForm(client, Manage, new() { ["Input.DisplayName"] = "From Settings" });
+        Assert.Equal(HttpStatusCode.Redirect, res.StatusCode);
+        Assert.Equal("From Settings", await Name());
+
+        var html = await (await client.GetAsync("/Profile")).Content.ReadAsStringAsync();
+        Assert.DoesNotContain("data-demo-guard", html);
+        var save = await SaveInfo(client, new() { ["fullName"] = "Regular Person", ["displayName"] = "From Profile" });
+        Assert.Contains("\"success\":true", await save.Content.ReadAsStringAsync());
+        Assert.Equal("From Profile", await Name());
+    }
+
     // ── Coverage of the guard list ────────────────────────
 
     /// <summary>
@@ -252,7 +344,7 @@ public class DemoAccountGuardTests : IClassFixture<DemoAccountGuardFixture>
     [Fact]
     public void Every_manage_page_is_either_guarded_or_explicitly_allowed()
     {
-        var allowed = new[] { "/Account/Manage/Index", "/Account/Manage/PersonalData", "/Account/Manage/DownloadPersonalData" };
+        var allowed = new[] { "/Account/Manage/PersonalData", "/Account/Manage/DownloadPersonalData" };
 
         var pages = _f.App.Services.GetRequiredService<IActionDescriptorCollectionProvider>().ActionDescriptors.Items
             .OfType<PageActionDescriptor>()

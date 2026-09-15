@@ -14,16 +14,19 @@ namespace InternTrackAI.Areas.Identity;
 /// For the demo account (<see cref="ConfiguredAccounts.IsDemoUser"/>), every POST to a <see cref="GuardedPages"/> page
 /// is refused with a redirect to Manage/Index and a "Not available on the demo account." toast. A GET to a
 /// scaffolded page that renders its own notice (<see cref="RendersOwnNotice"/>) is shown read-only; a GET to any
-/// other guarded page redirects the same way. Manage/Index itself (display name) and PersonalData (read-only) stay open.
+/// other guarded page redirects the same way. Manage/Index is read-only for the demo account (its only form is the display
+/// name); PersonalData (read-only) stays open. The Profile page's Basic info card writes the display name through
+/// <c>ProfileController.SaveInfo</c>, an MVC action this filter does not see; that action carries the same guard.
 /// </summary>
 public sealed class DemoAccountGuardFilter : IAsyncPageFilter
 {
     public const string ManageFolder = "/Account/Manage";
     public const string IndexPage    = "/Account/Manage/Index";
 
-    /// <summary>Every page that changes credentials, sign-in factors or the account's existence.</summary>
+    /// <summary>Every page that changes credentials, sign-in factors, the display name or the account's existence.</summary>
     public static readonly IReadOnlySet<string> GuardedPages = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
+        "/Account/Manage/Index",
         "/Account/Manage/ChangePassword",
         "/Account/Manage/SetPassword",
         "/Account/Manage/Email",
@@ -40,6 +43,7 @@ public sealed class DemoAccountGuardFilter : IAsyncPageFilter
     /// <summary>Scaffolded pages whose GET shows the demo notice in place, with the form disabled.</summary>
     public static readonly IReadOnlySet<string> RendersOwnNotice = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
+        "/Account/Manage/Index",
         "/Account/Manage/ChangePassword",
         "/Account/Manage/DeletePersonalData",
     };

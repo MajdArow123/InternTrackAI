@@ -19,8 +19,17 @@
                 </div>
                 <div class="col-sm-6">
                     <label class="form-label">Display name <span class="text-muted fw-normal">(shown in navbar)</span></label>
-                    <input name="displayName" class="form-control" placeholder="e.g. Alex"
-                           value="@Model.Profile.DisplayName" />
+                    @if (Model.IsDemoAccount)
+                    {
+                        <input name="displayName" id="displayNameInput" class="form-control" value="@Model.Profile.DisplayName"
+                               disabled aria-describedby="displayNameDemoHint" />
+                        <p class="form-hint mb-0 mt-1" id="displayNameDemoHint" data-demo-guard="displayName">@ConfiguredAccounts.DemoUnavailableMessage</p>
+                    }
+                    else
+                    {
+                        <input name="displayName" id="displayNameInput" class="form-control" placeholder="e.g. Alex"
+                               value="@Model.Profile.DisplayName" />
+                    }
                 </div>
                 <div class="col-sm-6">
                     <label class="form-label">Country</label>

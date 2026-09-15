@@ -22,7 +22,7 @@ public sealed record DemoResetResult(bool UserFound, string? Email, int Applicat
 /// due, upcoming interview) is recreated along with a few notes and one saved letter. Two resume
 /// versions are guaranteed ("Backend focus", the active one, and "General") and the applications
 /// are split between them so the dashboard's Resume performance card shows a real comparison. The profile's
-/// target roles are set to <see cref="TargetRoles"/>, and the seeded missing skills give the skill gap card a clear
+/// target roles are set to <see cref="TargetRoles"/> and its display name to <see cref="DisplayName"/>, and the seeded missing skills give the skill gap card a clear
 /// top skill (Docker, 6 of 11), a mid tier (Go, C++) and a tail of singles.
 /// Used by <see cref="DemoResetService"/> nightly and by <c>POST /Admin/ResetDemo</c> on demand.
 /// </summary>
@@ -73,7 +73,7 @@ public class DemoSeeder
         await _purger.PurgeAsync(user.Id, keepProfile: true, keepActiveDocuments: true);
 
         var (primary, secondary) = await EnsureResumesAsync(user.Id, ct);
-        await EnsureTargetRolesAsync(user.Id, ct);
+        await EnsureProfileAsync(user.Id, ct);
 
         var apps = BuildApplications(user.Id, DateTime.UtcNow.Date);
         AssignResumes(apps, primary.Id, secondary.Id);
@@ -106,11 +106,15 @@ public class DemoSeeder
     /// </summary>
     public static readonly string[] TargetRoles = { "Software Engineer", "Backend Systems Engineer", "Frontend Product Engineer" };
 
+    /// <summary>Display name the demo profile is restored to on every reset (the Manage and Profile pages refuse changes to it).</summary>
+    public const string DisplayName = "Demo User";
+
     /// <summary>
-    /// Sets the kept profile's target roles to exactly <see cref="TargetRoles"/> (creating the profile row if missing).
-    /// Replaced rather than merged so roles a visitor added, or an earlier seed's roles, never add pills to the split.
+    /// Resets the kept profile's fixed fields (creating the row if missing): target roles to exactly <see cref="TargetRoles"/>,
+    /// replaced rather than merged so roles a visitor added, or an earlier seed's roles, never add pills to the split; and the
+    /// display name to <see cref="DisplayName"/>, a backstop in case a change ever gets past the demo account guard.
     /// </summary>
-    private async Task EnsureTargetRolesAsync(string userId, CancellationToken ct)
+    private async Task EnsureProfileAsync(string userId, CancellationToken ct)
     {
         var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct);
         if (profile is null)
@@ -120,6 +124,7 @@ public class DemoSeeder
         }
 
         profile.TargetRolesJson = ProfileTags.ToJson(TargetRoles);
+        profile.DisplayName     = DisplayName;
         await _db.SaveChangesAsync(ct);
     }
 

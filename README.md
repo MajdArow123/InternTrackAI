@@ -11,7 +11,7 @@
 
 InternTrackAI is a full-stack internship application tracker built with ASP.NET Core 9 MVC. It replaces the typical spreadsheet with a real pipeline: paste a job posting and let AI fill out the form, see instantly how well your resume matches, track every application through five stages, and generate cover letters and interview prep on demand — all in one place, in a clean Apple-style interface with full dark mode.
 
-![InternTrackAI landing page](docs/screenshots/home.png)
+![InternTrackAI landing page](docs/screenshots/landing.png)
 
 ## 🚀 Live Demo
 
@@ -74,7 +74,33 @@ nightly, so explore freely: add, edit and delete applications, and try the AI fe
 
 ## 📸 Screenshots
 
-_Placeholder — replaced in the next commit._
+_Captured against the demo account's seed data, so every card has real content behind it._
+
+**Dashboard** — headline stats, applications over time, the pipeline funnel, and the three cards that do the
+thinking: **Attention** (overdue, deadline soon, waiting on a reply, interview coming up), **Skills you're
+missing most**, and **Resume performance**.
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+**Kanban board** — drag between the five stages, with match rings, deadline chips and inbox-suggestion dots
+on the cards.
+
+![Kanban board](docs/screenshots/board.png)
+
+**Detail drawer** — the AI match score and skill breakdown, and below it **keyword coverage**: the posting's
+exact terms your resume doesn't literally contain.
+
+![Detail drawer](docs/screenshots/drawer.png)
+
+**Cover letter generator** — written from the posting, your resume and your profile, then editable in place
+and revisable with a one-line instruction.
+
+![Cover letter generator](docs/screenshots/cover_letter.png)
+
+**Profile** — versioned resumes with per-version response rates, the bullet rewriter, reminder window,
+private calendar feed, skills and target roles.
+
+![Profile](docs/screenshots/profile.png)
 
 ## 💻 How to Run Locally
 

@@ -200,6 +200,64 @@ public class KeywordCoverageService
         "problem", "solving", "analytical", "environment", "environments", "day", "days", "full", "time"
     };
 
+    /// <summary>
+    /// Currency codes from a pay line. "CAD 55,000" is not a skill, and the code survives every other filter
+    /// because it looks exactly like a technology acronym.
+    /// </summary>
+    private static readonly HashSet<string> CurrencyCodes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CAD", "USD", "EUR", "GBP", "AUD", "NZD", "INR", "JPY", "CHF", "SEK", "NOK", "DKK",
+        "MXN", "BRL", "ZAR", "HKD", "SGD", "CNY", "PLN", "AED"
+    };
+
+    /// <summary>
+    /// A pay line contributes nothing but noise — a currency code, a bare number, and whatever capitalised
+    /// word introduces it. Detected by an amount next to money vocabulary rather than by heading position,
+    /// since salary is usually written inline ("Salary: CAD 55,000–65,000 annually").
+    /// </summary>
+    private static readonly Regex SalaryLine = new(
+        @"(\$|\b(?:salary|compensation|pay|wage|rate|stipend|remuneration)\b|\b(?:CAD|USD|EUR|GBP|AUD|NZD|INR|JPY|CHF|SGD|HKD)\b)[^\n]*?\d|\d[^\n]*?\b(?:per\s+(?:hour|annum|year)|annually|hourly|/hr|/hour|/year)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// The two-letter acronyms that really are technologies. Everything else of that length is a fragment —
+    /// "AD" out of a sentence, a state code, an initial — so two-letter tokens are dropped unless listed here.
+    /// Three letters and up are kept on sight; the short ones are where the noise lives.
+    /// </summary>
+    private static readonly HashSet<string> ShortAcronyms = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "AI", "ML", "BI", "QA", "UX", "UI", "JS", "TS", "DB", "OS", "VM", "AR", "VR", "GO", "CI", "CD"
+    };
+
+    /// <summary>
+    /// Final words that make a capitalised phrase a job title rather than a skill: "Business Analyst",
+    /// "Data Engineer", "Site Reliability Engineer". A posting — especially a rotational-program one —
+    /// names every role in the program, and none of them is a term to add to a resume.
+    /// </summary>
+    private static readonly HashSet<string> RoleNouns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "analyst", "analysts", "engineer", "engineers", "developer", "developers", "manager", "managers",
+        "scientist", "scientists", "designer", "designers", "architect", "architects", "administrator",
+        "administrators", "consultant", "consultants", "specialist", "specialists", "associate", "associates",
+        "intern", "interns", "lead", "leads", "director", "directors", "officer", "officers", "technician",
+        "technicians", "programmer", "programmers", "coordinator", "advisor", "generalist", "strategist"
+    };
+
+    /// <summary>
+    /// Final words that make a capitalised phrase a field of study: "Computer Science", "Electrical
+    /// Engineering". A degree requirement is not something a resume can be edited to contain, so listing it
+    /// as a missing keyword is advice nobody can act on.
+    /// </summary>
+    private static readonly HashSet<string> DegreeNouns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "science", "sciences", "engineering", "mathematics", "math", "maths", "statistics", "economics",
+        "physics", "chemistry", "biology", "commerce", "administration", "studies", "discipline",
+        "bachelor", "bachelors", "master", "masters", "phd", "mba", "bsc", "msc", "beng", "meng", "bcs"
+    };
+
+    /// <summary>Punctuation a posting joins brand or product names with: "Manulife/John Hancock", "AT&amp;T".</summary>
+    private static readonly Regex NameJoiner = new(@"[/&+·|]|\s-\s", RegexOptions.Compiled);
+
     private readonly ApplicationDbContext _db;
     private readonly ResumeTextService _resumeText;
 
@@ -300,6 +358,11 @@ public class KeywordCoverageService
             Regex.Matches($"{company} {role} {location}", @"[A-Za-z]{3,}").Select(m => m.Value),
             StringComparer.OrdinalIgnoreCase);
 
+        // …nor is the rest of the employer's name as the posting writes it. We store "Manulife"; the posting
+        // says "Manulife/John Hancock", so "Hancock" is branding we would otherwise report as a missing
+        // skill. Grow the set outwards from each known company word through its capitalised neighbours.
+        AddBrandNeighbours(text, own);
+
         var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var display = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var inRequirements = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -319,6 +382,9 @@ public class KeywordCoverageService
                 continue;
             }
 
+            // A pay line yields a currency code and whatever word introduces it, never a skill.
+            if (SalaryLine.IsMatch(line)) continue;
+
             // A term counts once per line it appears on. The acronym and capitalised passes legitimately
             // find the same token, and a cue capture finds it a third time, so counting raw hits would
             // triple an acronym's apparent prominence against a word found only once.
@@ -326,7 +392,7 @@ public class KeywordCoverageService
 
             foreach (var candidate in Candidates(raw))
             {
-                var term = Normalize(candidate);
+                var term = StripOwnPrefix(Normalize(candidate), own);
                 if (!IsUsable(term, own)) continue;
                 if (!seenOnLine.Add(term)) continue;
 
@@ -469,6 +535,20 @@ public class KeywordCoverageService
     private static bool LooksLikeAName(string word)
         => char.IsUpper(word[0]) || word.Any(c => c is '.' or '#' or '+' or '/');
 
+    /// <summary>
+    /// Drops the employer's name from the front of a candidate when a real name remains: the capitalised-run
+    /// pass reads "Microsoft Azure" as one candidate, and rejecting it outright would lose Azure on a posting
+    /// that only ever writes it that way. The remainder has to look like a name itself, so "Shopify products"
+    /// is left alone to be rejected whole rather than reduced to "products".
+    /// </summary>
+    private static string StripOwnPrefix(string term, HashSet<string> own)
+    {
+        var words = term.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var i = 0;
+        while (i < words.Length - 1 && own.Contains(words[i]) && LooksLikeAName(words[i + 1])) i++;
+        return i == 0 ? term : string.Join(' ', words.Skip(i));
+    }
+
     private static bool IsUsable(string term, HashSet<string> own)
     {
         if (term.Length < 2 || term.Length > MaxTermChars) return false;
@@ -480,8 +560,77 @@ public class KeywordCoverageService
         // A connective inside the candidate means it is a clause, not a name.
         if (words.Skip(1).Any(w => InteriorConnectives.Contains(w))) return false;
 
+        // The employer's name can be joined to anything: "Manulife/John Hancock" arrives as one token, so
+        // look inside it rather than only at the whole. Any part being the employer makes the whole theirs.
+        if (NameJoiner.Split(term).Any(part => own.Contains(part.Trim()))) return false;
+
+        if (CurrencyCodes.Contains(term)) return false;
+
+        // Two letters is where the noise is: "AD" out of a sentence, an initial, a state code. Three and up
+        // are kept on sight, since that is where the real acronyms live (AKS, APIM, SQL, RTOS).
+        if (term.Length == 2 && term.All(char.IsUpper) && !ShortAcronyms.Contains(term)) return false;
+
+        if (IsRoleOrDegree(words)) return false;
+
         // Something made only of boilerplate, the employer's own name or a month says nothing about skills.
         return !words.All(w => Boilerplate.Contains(w) || own.Contains(w) || Months.Contains(w));
+    }
+
+    /// <summary>
+    /// True for a job title ("Business Analyst") or a field of study ("Computer Science"), judged by the
+    /// word the phrase ends on. Neither is a term a resume can usefully be edited to contain: you cannot add
+    /// someone else's job title, and you cannot add a degree you do not hold. Program postings are full of
+    /// both, which is what makes them noisier than a plain requirements list.
+    /// </summary>
+    private static bool IsRoleOrDegree(string[] words)
+    {
+        var last = words[^1];
+
+        // A bare "Engineering" or "Analyst" on its own is boilerplate elsewhere; it is the qualified form
+        // ("Data Engineer", "Computer Science") that looks like a keyword and isn't.
+        if (words.Length < 2) return DegreeNouns.Contains(last) && !last.Equals("engineering", StringComparison.OrdinalIgnoreCase);
+
+        return RoleNouns.Contains(last) || DegreeNouns.Contains(last);
+    }
+
+    /// <summary>
+    /// Adds the capitalised words a posting joins to the employer's name — "John" and "Hancock" in
+    /// "Manulife/John Hancock" — to the set of the employer's own words. Walks outwards from each known
+    /// company word through name joiners and adjacent capitalised tokens, so a brand written any of the
+    /// usual ways is covered without hard-coding it.
+    /// </summary>
+    private static void AddBrandNeighbours(string text, HashSet<string> own)
+    {
+        if (own.Count == 0) return;
+
+        // Tokens with their separators, so we can tell "Manulife/John Hancock" from "Manulife. Hancock".
+        var tokens = Regex.Matches(text, @"[A-Za-z][A-Za-z0-9]*|[^\sA-Za-z0-9]+|\s+")
+            .Select(m => m.Value).ToList();
+        var seeds = Enumerable.Range(0, tokens.Count).Where(i => own.Contains(tokens[i])).ToList();
+
+        foreach (var seed in seeds)
+        {
+            Walk(seed, -1);
+            Walk(seed, +1);
+        }
+
+        void Walk(int from, int step)
+        {
+            // Only a name *joined* to the employer's is also the employer's. Plain adjacency is not enough:
+            // "Microsoft Azure" must keep Azure as a real keyword, while "Manulife/John Hancock" must give
+            // up both halves. So nothing is claimed until a joiner has been crossed — after which the rest
+            // of the capitalised run belongs to the name ("John Hancock", not just "John").
+            var joined = false;
+            for (var i = from + step; i >= 0 && i < tokens.Count; i += step)
+            {
+                var t = tokens[i];
+                if (string.IsNullOrWhiteSpace(t)) continue;                 // "Manulife / John Hancock"
+                if (NameJoiner.IsMatch(t)) { joined = true; continue; }
+                if (!joined) break;                                         // plain adjacency — leave it alone
+                if (!char.IsLetter(t[0]) || !char.IsUpper(t[0])) break;     // lower case ends the name
+                own.Add(t);
+            }
+        }
     }
 
     /// <summary>

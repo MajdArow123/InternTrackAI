@@ -254,6 +254,136 @@ public class KeywordCoverageServiceTests
         Assert.DoesNotContain("Azure", terms);
     }
 
+    // ── Noise on branded, non-technical postings ─────────
+    //
+    // A requirements list is the easy case. A rotational-program posting is the common one for a new grad:
+    // heavy branding, a pay line, every role in the program named, and a degree requirement — all of which
+    // look like keywords and none of which a resume can usefully be edited to contain.
+
+    [Fact]
+    public void The_employers_name_is_theirs_however_the_posting_joins_it()
+    {
+        // Stored as "Manulife"; written as "Manulife/John Hancock". Both halves are branding.
+        var terms = Terms(Posting("* Experience with Azure and APIM at Manulife/John Hancock"), company: "Manulife");
+
+        Assert.DoesNotContain("Manulife/John", terms);
+        Assert.DoesNotContain("Hancock", terms);
+        Assert.DoesNotContain("John", terms);
+        Assert.Contains("APIM", terms);
+    }
+
+    [Theory]
+    [InlineData("Manulife / John Hancock")]
+    [InlineData("Manulife|John Hancock")]
+    [InlineData("John Hancock/Manulife")]
+    public void A_joined_brand_is_claimed_whichever_way_it_is_written(string written)
+    {
+        var terms = Terms(Posting($"* Reporting into {written} technology"), company: "Manulife");
+
+        Assert.DoesNotContain("Hancock", terms);
+        Assert.DoesNotContain("John", terms);
+    }
+
+    [Fact]
+    public void Plain_adjacency_to_the_employer_is_not_branding()
+    {
+        // The regression this rule has to avoid: "Microsoft Azure" must keep Azure as a real keyword,
+        // even though it sits directly against the employer's name.
+        var terms = Terms(Posting("* Build on Microsoft Azure and Microsoft Entra"), company: "Microsoft");
+
+        Assert.Contains("Azure", terms);
+        Assert.Contains("Entra", terms);
+    }
+
+    [Theory]
+    [InlineData("Salary: CAD 55,000 - 65,000 annually")]
+    [InlineData("Compensation: $32-38/hour")]
+    [InlineData("Base pay range 70000 USD per year")]
+    public void A_pay_line_contributes_nothing(string payLine)
+    {
+        var terms = Terms(Posting("* " + payLine));
+
+        Assert.DoesNotContain("CAD", terms);
+        Assert.DoesNotContain("USD", terms);
+        Assert.DoesNotContain("Salary", terms);
+        Assert.DoesNotContain("Base", terms);
+    }
+
+    [Fact]
+    public void A_currency_code_is_never_a_keyword_even_outside_a_pay_line()
+        => Assert.DoesNotContain("CAD", Terms(Posting("* Reporting in CAD across the team")));
+
+    [Fact]
+    public void Two_letter_fragments_are_dropped_but_real_short_acronyms_survive()
+    {
+        var terms = Terms(Posting("* Familiarity with AD, AI, ML, and QA", "* Exposure to AKS, ACS, and APIM"));
+
+        Assert.DoesNotContain("AD", terms);      // a fragment, not a technology
+        Assert.Contains("AI", terms);
+        Assert.Contains("ML", terms);
+        Assert.Contains("QA", terms);
+        Assert.Contains("APIM", terms);          // three letters and up are kept on sight
+    }
+
+    [Theory]
+    [InlineData("Business Analyst")]
+    [InlineData("Data Engineer")]
+    [InlineData("Site Reliability Engineer")]
+    [InlineData("Product Manager")]
+    public void Job_titles_are_not_keywords(string title)
+        => Assert.DoesNotContain(title, Terms(Posting($"* Rotations include {title} placements")));
+
+    [Theory]
+    [InlineData("Computer Science")]
+    [InlineData("Computer Engineering")]
+    [InlineData("Electrical Engineering")]
+    [InlineData("Applied Mathematics")]
+    public void Degree_fields_are_not_keywords(string field)
+        => Assert.DoesNotContain(field, Terms(Posting($"* Enrolled in a {field} program")));
+
+    [Fact]
+    public void A_technology_that_merely_ends_in_a_role_word_is_kept()
+    {
+        // The rule keys on the last word, so check it hasn't swallowed real multi-word product names.
+        var terms = Terms(Posting("* Experience with Entity Framework Core, Spring Boot, and Visual Studio",
+                                  "* Knowledge of Google Cloud Platform and Azure DevOps"));
+
+        foreach (var kept in new[] { "Entity Framework Core", "Spring Boot", "Visual Studio", "Google Cloud Platform", "Azure DevOps" })
+            Assert.Contains(kept, terms);
+    }
+
+    [Fact]
+    public void A_branded_program_posting_keeps_only_the_technologies()
+    {
+        // Reconstructed from a real posting's reported output (Manulife GRO): the shapes that produced
+        // junk chips, alongside the terms that were genuinely worth showing.
+        var posting = string.Join("\n",
+            "Global Rotational Opportunities (GRO) Program — Manulife/John Hancock",
+            "Toronto, ON | Hybrid",
+            "Salary: CAD 55,000 - 70,000 annually",
+            "",
+            "About the Program",
+            "The GRO Program places new graduates across John Hancock and Manulife technology teams.",
+            "Rotations include Business Analyst, Data Engineer, and Software Developer placements.",
+            "",
+            "Qualifications:",
+            "Enrolled in Computer Science, Computer Engineering, or a related discipline",
+            "Familiarity with AD and identity tooling",
+            "Experience with Azure, AKS/ACS, and APIM",
+            "Understanding of DevOps and design patterns",
+            "Knowledge of Terraform and Kubernetes");
+
+        var terms = Terms(posting, company: "Manulife", role: "GRO Program", location: "Toronto, ON");
+
+        foreach (var junk in new[] { "Manulife/John", "Hancock", "John", "CAD", "AD",
+                                     "Business Analyst", "Data Engineer", "Software Developer",
+                                     "Computer Engineering", "Computer Science" })
+            Assert.DoesNotContain(junk, terms);
+
+        foreach (var real in new[] { "AKS/ACS", "APIM", "Azure", "DevOps", "design patterns", "Terraform", "Kubernetes" })
+            Assert.Contains(real, terms);
+    }
+
     // ── Ordering, counting and the cap ───────────────────
 
     [Fact]

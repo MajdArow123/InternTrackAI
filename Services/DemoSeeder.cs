@@ -75,7 +75,8 @@ public class DemoSeeder
         var (primary, secondary) = await EnsureResumesAsync(user.Id, ct);
         await EnsureProfileAsync(user.Id, ct);
 
-        var apps = BuildApplications(user.Id, DateTime.UtcNow.Date);
+        var clock = await ClockForAsync(user.Id, ct);
+        var apps = BuildApplications(user.Id, clock.Today);
         AssignResumes(apps, primary.Id, secondary.Id);
         _db.JobApplications.AddRange(apps);
         await _db.SaveChangesAsync(ct);
@@ -114,6 +115,22 @@ public class DemoSeeder
     /// replaced rather than merged so roles a visitor added, or an earlier seed's roles, never add pills to the split; and the
     /// display name to <see cref="DisplayName"/>, a backstop in case a change ever gets past the demo account guard.
     /// </summary>
+    /// <summary>
+    /// The demo user's own "today". The seeded applications are all relative dates ("applied 9 days ago"),
+    /// and every rule that reads them back — <see cref="ReminderService"/>, the Attention card, the board
+    /// chips — counts from the user's zone. Basing them on <c>DateTime.UtcNow.Date</c> instead would make
+    /// the whole demo a day young whenever UTC has rolled over and the user's zone has not, which is exactly
+    /// when the nightly reset runs (04:00 UTC is midnight in the default Toronto zone).
+    /// </summary>
+    private async Task<UserClock> ClockForAsync(string userId, CancellationToken ct)
+    {
+        var zoneId = await _db.UserProfiles.AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .Select(p => p.TimeZoneId)
+            .FirstOrDefaultAsync(ct);
+        return UserClock.For(zoneId);
+    }
+
     private async Task EnsureProfileAsync(string userId, CancellationToken ct)
     {
         var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct);

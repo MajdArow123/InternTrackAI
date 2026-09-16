@@ -355,33 +355,126 @@ public class KeywordCoverageServiceTests
     [Fact]
     public void A_branded_program_posting_keeps_only_the_technologies()
     {
-        // Reconstructed from a real posting's reported output (Manulife GRO): the shapes that produced
-        // junk chips, alongside the terms that were genuinely worth showing.
+        // The real posting this tuning came from: a two-year rotational programme, where eight of the
+        // fifteen chips were branding, pay, job titles or degree requirements.
         var posting = string.Join("\n",
-            "Global Rotational Opportunities (GRO) Program — Manulife/John Hancock",
-            "Toronto, ON | Hybrid",
-            "Salary: CAD 55,000 - 70,000 annually",
+            "GRO Program - Technology (Toronto)",
+            "Location: Toronto, Ontario, Canada",
+            "Salary range: $69,525 - $115,875 CAD, plus incentive compensation",
             "",
-            "About the Program",
-            "The GRO Program places new graduates across John Hancock and Manulife technology teams.",
-            "Rotations include Business Analyst, Data Engineer, and Software Developer placements.",
+            "About the program",
+            "GRO (Graduate Recruitment Opportunities) is Manulife/John Hancock's flagship early-talent program.",
+            "Placement roles include Full-Stack Software Engineer, Cloud-native Engineer, Business Analyst, and Data Engineer.",
             "",
-            "Qualifications:",
-            "Enrolled in Computer Science, Computer Engineering, or a related discipline",
-            "Familiarity with AD and identity tooling",
-            "Experience with Azure, AKS/ACS, and APIM",
-            "Understanding of DevOps and design patterns",
-            "Knowledge of Terraform and Kubernetes");
+            "Responsibilities",
+            "- Build competency with supporting tools such as Java, JavaScript, Spring Boot, ReactJS, Azure AKS/ACS, APIM, Salesforce, and .NET",
+            "",
+            "Required qualifications",
+            "- Graduating from an accredited university with an undergraduate degree in Computer Engineering, Software Engineering, Computer Science, or a related discipline",
+            "- Understanding of object-oriented software development frameworks and design patterns",
+            "- Understanding of DevOps, web and mobile development and testing, test-driven development, pair programming, data/database technologies, cybersecurity, and microservices",
+            "- Understanding of software development lifecycle approaches, especially Agile, Scaled Agile, and Scrum");
 
-        var terms = Terms(posting, company: "Manulife", role: "GRO Program", location: "Toronto, ON");
+        var terms = Terms(posting, company: "Manulife", role: "GRO Program - Technology (Toronto)",
+                          location: "Toronto, Ontario, Canada");
 
-        foreach (var junk in new[] { "Manulife/John", "Hancock", "John", "CAD", "AD",
-                                     "Business Analyst", "Data Engineer", "Software Developer",
+        foreach (var junk in new[] { "Manulife/John", "Hancock", "John", "CAD", "Engineer",
+                                     "Business Analyst", "Data Engineer", "Full-Stack Software",
+                                     "Graduate Recruitment Opportunities",
                                      "Computer Engineering", "Computer Science" })
             Assert.DoesNotContain(junk, terms);
 
-        foreach (var real in new[] { "AKS/ACS", "APIM", "Azure", "DevOps", "design patterns", "Terraform", "Kubernetes" })
+        foreach (var real in new[] { "AKS/ACS", "APIM", "Azure", "DevOps", "design patterns",
+                                     "Salesforce", "Spring Boot", "Scaled Agile", "Scrum" })
             Assert.Contains(real, terms);
+    }
+
+    // ── Addresses and eligibility ────────────────────────
+
+    [Theory]
+    [InlineData("Location: 81 Bay St, Toronto (Hybrid - 3 days in office)")]
+    [InlineData("Office: 200 King Street West, Toronto")]
+    [InlineData("Based at 1 Yonge Ave")]
+    public void An_office_address_contributes_nothing(string addressLine)
+    {
+        var terms = Terms(Posting("* " + addressLine));
+
+        Assert.DoesNotContain("Bay St", terms);
+        Assert.DoesNotContain("King Street", terms);
+        Assert.DoesNotContain("Yonge Ave", terms);
+    }
+
+    [Fact]
+    public void A_street_fragment_is_dropped_wherever_it_appears()
+        => Assert.DoesNotContain("Bay St", Terms(Posting("* The Bay St office runs a Kafka cluster")));
+
+    [Theory]
+    [InlineData("Security clearance eligibility (Canadian citizen)")]
+    [InlineData("Must have work authorization in the US")]
+    [InlineData("PR status or Canadian citizenship required")]
+    [InlineData("Applicants must be eligible to work in Canada without sponsorship")]
+    public void An_eligibility_line_contributes_nothing(string line)
+    {
+        var terms = Terms(Posting("* " + line));
+
+        foreach (var junk in new[] { "Canadian", "Security", "PR", "US" })
+            Assert.DoesNotContain(junk, terms);
+    }
+
+    [Fact]
+    public void A_nationality_on_its_own_is_not_a_keyword()
+        => Assert.DoesNotContain("Canadian", Terms(Posting("* Canadian applicants preferred for this Kafka role")));
+
+    [Fact]
+    public void A_street_word_that_ends_a_product_name_is_kept()
+    {
+        // "Drive" and "Way" are deliberately not street types: they end real names far more often.
+        var terms = Terms(Posting("* Experience with Google Drive and Azure"));
+        Assert.Contains("Google Drive", terms);
+    }
+
+    // ── Job titles longer than the capitalised run ───────
+
+    [Fact]
+    public void A_four_word_job_title_leaves_neither_half_behind()
+    {
+        // The capitalised run caps at three words, so this arrives as "Full-Stack Software" + "Engineer".
+        var terms = Terms(Posting("* Placement roles include Full-Stack Software Engineer and Cloud-native Engineer"));
+
+        Assert.DoesNotContain("Full-Stack Software", terms);
+        Assert.DoesNotContain("Engineer", terms);
+        Assert.DoesNotContain("Cloud-native Engineer", terms);
+    }
+
+    [Theory]
+    [InlineData("Engineer")]
+    [InlineData("Analyst")]
+    [InlineData("Developer")]
+    public void A_bare_role_noun_is_not_a_keyword(string noun)
+        => Assert.DoesNotContain(noun, Terms(Posting($"* Become a professional {noun} on the Kafka team")));
+
+    // ── An acronym and its expansion are one name ────────
+
+    [Fact]
+    public void A_programmes_own_name_is_excluded_in_both_its_forms()
+    {
+        var expanded = Terms(Posting("* GRO (Graduate Recruitment Opportunities) places new graduates"), role: "GRO Program");
+        Assert.DoesNotContain("Graduate Recruitment Opportunities", expanded);
+
+        var reversed = Terms(Posting("* Graduate Recruitment Opportunities (GRO) places new graduates"), role: "GRO Program");
+        Assert.DoesNotContain("Graduate Recruitment Opportunities", reversed);
+    }
+
+    [Fact]
+    public void A_bracketed_list_of_examples_is_not_an_alias()
+    {
+        // "cloud platforms (IBM Cloud, AWS, or Azure)" merely mentions the employer; reading it as an alias
+        // would delete the term it belongs to.
+        var terms = Terms(Posting("* Knowledge of cloud platforms (IBM Cloud, AWS, or Azure)"), company: "IBM Canada");
+
+        Assert.Contains("cloud platforms", terms);
+        Assert.Contains("AWS", terms);
+        Assert.Contains("Azure", terms);
     }
 
     // ── Ordering, counting and the cap ───────────────────

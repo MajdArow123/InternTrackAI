@@ -258,6 +258,43 @@ public class KeywordCoverageService
     /// <summary>Punctuation a posting joins brand or product names with: "Manulife/John Hancock", "AT&amp;T".</summary>
     private static readonly Regex NameJoiner = new(@"[/&+·|]|\s-\s", RegexOptions.Compiled);
 
+    /// <summary>
+    /// A street address on the office line. "Drive" and "Way" are deliberately absent: they end real product
+    /// names ("Google Drive") far more often than they end an address we would otherwise mis-read.
+    /// </summary>
+    private static readonly HashSet<string> StreetTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "st", "street", "ave", "avenue", "blvd", "boulevard", "rd", "road", "ln", "lane", "hwy", "highway"
+    };
+
+    private static readonly Regex AddressLine = new(
+        @"\b\d{1,6}\s+[A-Za-z][A-Za-z.'\-]*(?:\s+[A-Za-z][A-Za-z.'\-]*)?\s*,?\s*\b(?:St|Street|Ave|Avenue|Blvd|Boulevard|Rd|Road|Ln|Lane|Hwy|Highway)\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>
+    /// Citizenship and right-to-work vocabulary. A line carrying any of it is about eligibility, not skills —
+    /// and eligibility is not something a resume can be edited to satisfy.
+    /// </summary>
+    private static readonly Regex AuthorizationLine = new(
+        @"\b(?:citizen|citizens|citizenship|permanent\s+resident|PR\s+status|work(?:ing)?\s+authoriz|work(?:ing)?\s+authoris|visa|sponsorship|legally\s+(?:authorized|authorised|entitled)|eligible\s+to\s+work|right\s+to\s+work)",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>Nationalities, for the cases that appear without the surrounding eligibility wording.</summary>
+    private static readonly HashSet<string> Nationalities = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "canadian", "canadians", "american", "americans", "british", "australian", "irish", "indian",
+        "mexican", "brazilian", "german", "french", "dutch", "spanish", "italian", "swiss", "swedish",
+        "singaporean", "chinese", "japanese", "korean", "filipino", "nigerian", "kenyan"
+    };
+
+    /// <summary>
+    /// An acronym and its parenthesised expansion are the same name, in either order:
+    /// "GRO (Graduate Recruitment Opportunities)" or "Graduate Recruitment Opportunities (GRO)". A programme
+    /// posting names itself both ways, and the long form is otherwise a perfectly good-looking keyword.
+    /// </summary>
+    private static readonly Regex ParentheticalAlias = new(
+        @"([A-Za-z][A-Za-z0-9]*(?:\s+[A-Za-z][A-Za-z0-9]*){0,3})\s*\(([^)\n]{2,80})\)", RegexOptions.Compiled);
+
     private readonly ApplicationDbContext _db;
     private readonly ResumeTextService _resumeText;
 
@@ -362,6 +399,7 @@ public class KeywordCoverageService
         // says "Manulife/John Hancock", so "Hancock" is branding we would otherwise report as a missing
         // skill. Grow the set outwards from each known company word through its capitalised neighbours.
         AddBrandNeighbours(text, own);
+        AddParentheticalAliases(text, own);
 
         var counts = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         var display = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -382,8 +420,9 @@ public class KeywordCoverageService
                 continue;
             }
 
-            // A pay line yields a currency code and whatever word introduces it, never a skill.
-            if (SalaryLine.IsMatch(line)) continue;
+            // A pay line yields a currency code and whatever word introduces it; an office address yields
+            // its street; an eligibility line yields a nationality. None of them yields a skill.
+            if (SalaryLine.IsMatch(line) || AddressLine.IsMatch(line) || AuthorizationLine.IsMatch(line)) continue;
 
             // A term counts once per line it appears on. The acronym and capitalised passes legitimately
             // find the same token, and a cue capture finds it a third time, so counting raw hits would
@@ -509,6 +548,12 @@ public class KeywordCoverageService
         {
             // Skip a single capitalised word that opens a sentence or bullet — almost always a verb.
             if (!m.Value.Contains(' ') && SentenceStart.IsMatch(rest[..m.Index])) continue;
+
+            // The run caps at three words, so a four-word job title arrives as its head plus a stray role
+            // noun: "Full-Stack Software Engineer" becomes "Full-Stack Software" and "Engineer". Neither is
+            // a keyword, so a run whose next word is a role noun is dropped with it.
+            if (FollowedByRoleNoun(rest, m.Index + m.Length)) continue;
+
             yield return m.Value;
         }
 
@@ -529,6 +574,40 @@ public class KeywordCoverageService
             words.RemoveAt(words.Count - 1);
 
         return string.Join(' ', words);
+    }
+
+    /// <summary>True when the next word after <paramref name="at"/> is a capitalised role noun.</summary>
+    private static bool FollowedByRoleNoun(string text, int at)
+    {
+        var next = Regex.Match(text[at..], @"^\s+([A-Z][A-Za-z]*)");
+        return next.Success && RoleNouns.Contains(next.Groups[1].Value);
+    }
+
+    /// <summary>
+    /// Treats an acronym and its parenthesised expansion as the same name, in whichever order the posting
+    /// writes them, so that naming the employer's own programme once does not turn its long form into a
+    /// keyword. Only fires when one side is already known to be theirs.
+    /// </summary>
+    private static void AddParentheticalAliases(string text, HashSet<string> own)
+    {
+        if (own.Count == 0) return;
+
+        foreach (Match m in ParentheticalAlias.Matches(text))
+        {
+            var before = Regex.Matches(m.Groups[1].Value, @"[A-Za-z][A-Za-z0-9]*").Select(x => x.Value).ToList();
+            var inside = Regex.Matches(m.Groups[2].Value, @"[A-Za-z][A-Za-z0-9]*").Select(x => x.Value).ToList();
+            if (inside.Count == 0 || before.Count == 0) continue;
+
+            // "GRO (Graduate Recruitment Opportunities)" — the word right before the bracket is the alias.
+            if (own.Contains(before[^1]))
+                foreach (var w in inside) own.Add(w);
+
+            // "Graduate Recruitment Opportunities (GRO)" — the bracket holds the alias instead. It has to be
+            // the only thing in there: "cloud platforms (IBM Cloud, AWS, or Azure)" is a list of examples
+            // that merely mentions the employer, and reading it as an alias would eat "cloud platforms".
+            else if (inside.Count == 1 && own.Contains(inside[0]))
+                foreach (var w in before) own.Add(w);
+        }
     }
 
     /// <summary>A word that reads as a technology's name rather than an ordinary adjective or noun.</summary>
@@ -565,6 +644,8 @@ public class KeywordCoverageService
         if (NameJoiner.Split(term).Any(part => own.Contains(part.Trim()))) return false;
 
         if (CurrencyCodes.Contains(term)) return false;
+        if (StreetTypes.Contains(words[^1])) return false;       // "Bay St", "81 Bay Street"
+        if (words.Length == 1 && Nationalities.Contains(words[0])) return false;
 
         // Two letters is where the noise is: "AD" out of a sentence, an initial, a state code. Three and up
         // are kept on sight, since that is where the real acronyms live (AKS, APIM, SQL, RTOS).
@@ -588,7 +669,11 @@ public class KeywordCoverageService
 
         // A bare "Engineering" or "Analyst" on its own is boilerplate elsewhere; it is the qualified form
         // ("Data Engineer", "Computer Science") that looks like a keyword and isn't.
-        if (words.Length < 2) return DegreeNouns.Contains(last) && !last.Equals("engineering", StringComparison.OrdinalIgnoreCase);
+        // A bare "Engineer" or "Analyst" is as useless as "Data Engineer"; "engineering" alone is already
+        // boilerplate, and excluding it here would also cost nothing, so it is left to that list.
+        if (words.Length < 2)
+            return RoleNouns.Contains(last) ||
+                   (DegreeNouns.Contains(last) && !last.Equals("engineering", StringComparison.OrdinalIgnoreCase));
 
         return RoleNouns.Contains(last) || DegreeNouns.Contains(last);
     }

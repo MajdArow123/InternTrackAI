@@ -59,7 +59,7 @@ nightly, so explore freely: add, edit and delete applications, and try the AI fe
 - 👤 **Profile** — photo, basic info, skill and target-role chips, versioned resumes with an active version, and your public GitHub repos
 - 🌗 **Dark / light mode** — Apple-style design system with soft surfaces, pill buttons, and a frosted navbar; the toggle persists across sessions
 - ⌨️ **Keyboard shortcuts** — press `?` anywhere for the list
-- 🔐 **Account management** — register, sign in, forgot/reset password, display name, and change password via ASP.NET Core Identity
+- 🔐 **Account management** — register, sign in, forgot/reset password (real email via Resend), display name, and change password via ASP.NET Core Identity
 
 ## 🛠️ Tech Stack
 
@@ -117,6 +117,10 @@ dotnet run
 Open [http://localhost:5240](http://localhost:5240) and register an account. Locally the app uses a SQLite
 file (`app.db`) created automatically by EF Core migrations — no database setup needed. Uploads go to
 `./uploads` unless you set `UPLOADS_PATH`.
+
+Email is off locally: without a `Resend:ApiKey` the password-reset link is written to the console instead of
+being sent, so you can copy it straight out of the log. See
+[docs/deployment.md](docs/deployment.md#email) to configure real sending.
 
 > AI features need billing credits on your OpenAI account, added at
 > [platform.openai.com/settings/billing](https://platform.openai.com/settings/billing). GPT-4o-mini costs

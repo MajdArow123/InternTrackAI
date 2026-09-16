@@ -78,8 +78,20 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = false)
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
-// Email service for password reset tokens
-builder.Services.AddScoped<IEmailSender, ConsoleEmailSender>();
+// ── Email ────────────────────────────────────────────────────────────────────
+// Resend:ApiKey switches real sending on. Without it the console sender takes over and reset links are
+// written to the log, which is what local development runs on. The key is trimmed because Railway variables
+// can carry a trailing newline. The app logs which of the two is live just after Build().
+var resendApiKey = builder.Configuration["Resend:ApiKey"]?.Trim();
+if (!string.IsNullOrEmpty(resendApiKey))
+    builder.Services.AddHttpClient<IAppEmailSender, ResendEmailSender>()
+        .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(10));
+else
+    builder.Services.AddScoped<IAppEmailSender, ConsoleEmailSender>();
+
+// Identity UI's compiled pages (email change, resend confirmation) resolve the plain interface, so both
+// names have to reach the one implementation chosen above.
+builder.Services.AddScoped<IEmailSender>(sp => sp.GetRequiredService<IAppEmailSender>());
 
 // ── Upload storage ───────────────────────────────────────────────────────────
 // Resolves the on-disk root for user uploads from UPLOADS_PATH (defaults to ./uploads).
@@ -165,6 +177,13 @@ if (!string.IsNullOrEmpty(port))
     builder.WebHost.UseUrls($"http://+:{port}");
 
 var app = builder.Build();
+
+// States at a glance whether password-reset links actually leave the server (see the Email region above).
+if (!string.IsNullOrEmpty(resendApiKey))
+    app.Logger.LogInformation("Email sending is ENABLED via Resend (from {From}).",
+        builder.Configuration["Email:From"]?.Trim() ?? "(Email:From not set — sends will fail)");
+else
+    app.Logger.LogInformation("Email sending is DISABLED: reset links are written to the log. Set Resend:ApiKey to send real email.");
 
 // ── Auto-migrate on startup ──────────────────────────────────────────────────
 // Applies any pending EF Core migrations every time the app boots, so shipping a

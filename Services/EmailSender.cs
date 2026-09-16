@@ -3,12 +3,30 @@ using Microsoft.AspNetCore.Identity.UI.Services;
 namespace InternTrackAI.Services;
 
 /// <summary>
-/// Development-only <see cref="IEmailSender"/> implementation used by ASP.NET Core Identity
-/// (account confirmation, password reset, etc.). Instead of sending a real email, it writes the
-/// message to the application log so developers can copy confirmation/reset links during local
-/// testing without configuring an SMTP provider.
+/// One email in both representations. <paramref name="Text"/> is optional: Resend derives a plain-text part
+/// from the HTML when it is omitted, which is what the compiled Identity UI pages (they only ever hand over
+/// an HTML string) end up relying on.
 /// </summary>
-public class ConsoleEmailSender : IEmailSender
+public sealed record EmailMessage(string Subject, string Html, string? Text = null);
+
+/// <summary>
+/// The app's own email seam. Extends Identity's <see cref="IEmailSender"/> — which the compiled Identity UI
+/// pages resolve directly, so it has to stay registered — with a plain-text alternative and a cancellation
+/// token. Implementations never throw when delivery fails: the caller's response must not depend on whether
+/// the message got out (see <c>ForgotPassword</c>, where it would otherwise leak whether an account exists).
+/// </summary>
+public interface IAppEmailSender : IEmailSender
+{
+    Task SendAsync(string to, EmailMessage message, CancellationToken ct = default);
+}
+
+/// <summary>
+/// The fallback <see cref="IAppEmailSender"/>, used whenever <c>Resend:ApiKey</c> is unset — normally local
+/// development. Instead of sending anything it writes the message to the application log, so a developer can
+/// copy the reset link out of the console without configuring a mail provider. <c>Program.cs</c> picks
+/// between this and <see cref="ResendEmailSender"/> at startup and logs which one is live.
+/// </summary>
+public class ConsoleEmailSender : IAppEmailSender
 {
     private readonly ILogger<ConsoleEmailSender> _logger;
 
@@ -17,20 +35,23 @@ public class ConsoleEmailSender : IEmailSender
         _logger = logger;
     }
 
-    /// <summary>
-    /// "Sends" an email by logging its contents instead of dispatching it over a real transport.
-    /// </summary>
-    /// <param name="email">Recipient address (logged only, not validated or used to send anything).</param>
-    /// <param name="subject">Email subject line.</param>
-    /// <param name="htmlMessage">HTML body, typically containing a confirmation or reset link.</param>
-    /// <returns>A completed task — there is no real I/O to await.</returns>
-    public Task SendEmailAsync(string email, string subject, string htmlMessage)
+    /// <summary>Identity's three-argument entry point; forwards to <see cref="SendAsync"/> with no text part.</summary>
+    public Task SendEmailAsync(string email, string subject, string htmlMessage) =>
+        SendAsync(email, new EmailMessage(subject, htmlMessage));
+
+    /// <summary>"Sends" an email by logging it instead of dispatching it over a real transport.</summary>
+    public Task SendAsync(string to, EmailMessage message, CancellationToken ct = default)
     {
         _logger.LogInformation("═══════════════════════════════════════════════════════════");
-        _logger.LogInformation("📧 EMAIL TO: {Email}", email);
-        _logger.LogInformation("📨 SUBJECT: {Subject}", subject);
+        _logger.LogInformation("📧 EMAIL TO: {Email}", to);
+        _logger.LogInformation("📨 SUBJECT: {Subject}", message.Subject);
         _logger.LogInformation("───────────────────────────────────────────────────────────");
-        _logger.LogInformation("{Message}", htmlMessage);
+        _logger.LogInformation("{Message}", message.Html);
+        if (!string.IsNullOrWhiteSpace(message.Text))
+        {
+            _logger.LogInformation("─────────────────────────── text ──────────────────────────");
+            _logger.LogInformation("{Text}", message.Text);
+        }
         _logger.LogInformation("═══════════════════════════════════════════════════════════");
         return Task.CompletedTask;
     }

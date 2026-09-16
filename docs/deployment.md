@@ -15,7 +15,8 @@ and the restart policy, so a fresh service mostly configures itself.
 3. **Attach a volume**, mounted at `/data`, and set `UPLOADS_PATH=/data/uploads`. Without this, uploaded
    resumes and photos live in the container filesystem and vanish on the next deploy.
 4. **Set the environment variables** below. Only `OpenAI__ApiKey` and `UPLOADS_PATH` are needed for a
-   working deployment; everything else is optional.
+   working deployment; everything else is optional — with the caveat that without `Resend__ApiKey` the
+   password-reset link is only written to the log, so nobody can actually reset a password.
 5. **Check the health path.** `railway.toml` sets `healthcheckPath = "/health"`. If you configure the
    service by hand instead, set **Settings → Deploy → Healthcheck Path** to `/health`.
 
@@ -78,6 +79,30 @@ Both Google keys must be present or the whole feature stays hidden. Full walkthr
 | `Gmail__MaxMessagesPerSync` | `50` | Messages examined per account per sync |
 | `Gmail__MaxBodyChars` | `4000` | How much of a message body is sent for classification |
 
+### Email
+
+Password reset is the only feature that sends email. `Resend__ApiKey` is what switches real sending on;
+without it the app still runs and the reset link is written to the log instead. The startup log states
+which of the two is live.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `Resend__ApiKey` | — | Resend API key (`re_…`). Set → reset emails are really sent; unset → they go to the log only |
+| `Email__From` | — | Sender, in `Name <address>` form, e.g. `InternTrackAI <noreply@majdarow.com>`. The domain must be verified in Resend or every send is rejected. Required whenever `Resend__ApiKey` is set |
+| `Email__ReplyTo` | — | Optional address for replies |
+| `Resend__BaseUrl` | `https://api.resend.com` | Stub endpoint for local verification only, like `OpenAI__BaseUrl` |
+
+**Resend setup.** Create a Resend account → **Domains → Add domain** → add the DKIM and SPF records it
+prints at your DNS provider → wait for *Verified*. Then **API Keys → Create**, with *Sending access*, and
+set the key as `Resend__ApiKey` in Railway along with `Email__From`.
+
+While you are in the domain's settings, **confirm Click tracking is off**. Resend has no per-send tracking
+switch — it is a domain-level setting — and with click tracking on, Resend rewrites the reset link into a
+tracking redirect instead of leaving the raw URL. Both tracking options are off by default on a new domain.
+
+The free tier is 100 emails/day and 3,000/month. Over it, Resend answers `daily_quota_exceeded`, which is
+logged and not retried.
+
 ### Other
 
 | Variable | Default | Purpose |
@@ -120,7 +145,17 @@ It is logged at Verbose so the every-30-second probe does not flood the log.
 ### Logging
 
 Serilog writes structured lines to the console, which Railway captures: one line per request with method,
-path, status, duration and user id. No bodies, headers, cookies or secrets are logged.
+path, status, duration and user id. No bodies, headers, cookies or secrets are logged, and a failed email
+send logs the status and Resend's error name but never the recipient, the message body or the reset link.
+
+### Password reset email
+
+`ResendEmailSender` posts to Resend's API and retries once on a 5xx, a 429 or a network failure, never on
+any other 4xx. Both attempts carry the same `Idempotency-Key`, so a retry after a lost response cannot
+deliver a second email, and the whole thing is capped at 15 seconds so a Resend outage cannot hold the page
+open. A failure is logged and swallowed: the page shows the same "check your email" confirmation whether the
+address exists, belongs to the demo account, or the send failed — otherwise it would be a way to test which
+addresses have accounts. A reset requested for `Demo__Email` sends nothing and mints no token.
 
 ### Background jobs
 

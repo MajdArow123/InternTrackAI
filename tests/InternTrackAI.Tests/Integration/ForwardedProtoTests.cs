@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.RegularExpressions;
 using System.Web;
+using InternTrackAI.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity.UI.Services;
@@ -48,12 +49,16 @@ public class ForwardedProtoTests
         }));
 
     /// <summary>Captures what Identity would have e-mailed instead of logging it.</summary>
-    private sealed class CapturingEmailSender : IEmailSender
+    private sealed class CapturingEmailSender : IAppEmailSender
     {
         public List<(string To, string Subject, string Body)> Sent { get; } = new();
-        public Task SendEmailAsync(string email, string subject, string htmlMessage)
+
+        public Task SendEmailAsync(string email, string subject, string htmlMessage) =>
+            SendAsync(email, new EmailMessage(subject, htmlMessage));
+
+        public Task SendAsync(string to, EmailMessage message, CancellationToken ct = default)
         {
-            Sent.Add((email, subject, htmlMessage));
+            Sent.Add((to, message.Subject, message.Html));
             return Task.CompletedTask;
         }
     }
@@ -121,7 +126,10 @@ public class ForwardedProtoTests
         using var parent = new TestAppFactory();
         using var factory = BehindProxy(parent, s =>
         {
+            // Both names have to be replaced: the page injects IAppEmailSender, Identity's own pages IEmailSender.
+            s.RemoveAll<IAppEmailSender>();
             s.RemoveAll<IEmailSender>();
+            s.AddSingleton<IAppEmailSender>(emails);
             s.AddSingleton<IEmailSender>(emails);
         });
         var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });

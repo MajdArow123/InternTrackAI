@@ -16,7 +16,7 @@ public class GoogleOptions
 
     /// <summary>
     /// Optional public origin used verbatim for the OAuth redirect URI, e.g.
-    /// <c>https://interntrackai.up.railway.app</c> (<c>Google__RedirectBaseUrl</c> on Railway). When unset
+    /// <c>https://interntrackai.majdarow.com</c> (<c>Google__RedirectBaseUrl</c> on Railway). Leave it unset while the app answers on more than one hostname — the state cookie is host-scoped, so pinning the origin breaks a flow begun on the other host. When unset
     /// the redirect URI is derived from the request's scheme and host, which behind Railway's proxy are
     /// correct only because the forwarded-headers middleware runs first; set this as a belt-and-braces
     /// override if the derived value ever disagrees with the URI registered in the Google console.

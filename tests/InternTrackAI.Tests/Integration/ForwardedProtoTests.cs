@@ -64,11 +64,15 @@ public class ForwardedProtoTests
     }
 
     /// <summary>A request as Railway's proxy would deliver it: plain http to the container, public origin in the headers.</summary>
-    private static HttpRequestMessage Proxied(HttpMethod method, string path, HttpContent? content = null)
+    private static HttpRequestMessage Proxied(HttpMethod method, string path, HttpContent? content = null) =>
+        ProxiedFrom(PublicHost, method, path, content);
+
+    /// <summary>The same, for a named public host — the app answers on more than one.</summary>
+    private static HttpRequestMessage ProxiedFrom(string host, HttpMethod method, string path, HttpContent? content = null)
     {
         var req = new HttpRequestMessage(method, path) { Content = content };
         req.Headers.Add("X-Forwarded-Proto", "https");
-        req.Headers.Add("X-Forwarded-Host", PublicHost);
+        req.Headers.Add("X-Forwarded-Host", host);
         req.Headers.Add("X-Forwarded-For", "10.0.0.7");
         return req;
     }
@@ -79,6 +83,55 @@ public class ForwardedProtoTests
         var location = res.Headers.Location!.ToString();
         Assert.StartsWith("https://accounts.google.test/", location);
         return HttpUtility.ParseQueryString(new Uri(location).Query)["redirect_uri"]!;
+    }
+
+    /// <summary>
+    /// The app is served on two public hostnames at once — the custom domain and the original Railway one,
+    /// which is kept alive so existing links and bookmarks don't break. Nothing may pin either: every
+    /// absolute URL has to follow the host the request actually arrived on, in the same process, with no
+    /// restart in between. Hard-coding a host, or setting <c>Google:RedirectBaseUrl</c>, breaks this.
+    /// </summary>
+    [Theory]
+    [InlineData("interntrackai.majdarow.com")]
+    [InlineData("interntrackai-production.up.railway.app")]
+    public async Task Every_absolute_url_follows_the_host_the_request_arrived_on(string host)
+    {
+        var emails = new CapturingEmailSender();
+        var (parent, inner, oauth, _) = GmailTestHost.Boot();
+        using var _ = parent; using var __ = inner;
+        using var factory = BehindProxy(inner, s =>
+        {
+            s.RemoveAll<IAppEmailSender>();
+            s.RemoveAll<IEmailSender>();
+            s.AddSingleton<IAppEmailSender>(emails);
+            s.AddSingleton<IEmailSender>(emails);
+        });
+        var client = GmailTestHost.Client(factory);
+        var email = await Http.RegisterAsync(client);
+
+        // Gmail's OAuth redirect_uri.
+        Assert.Equal($"https://{host}/Integrations/Gmail/Callback",
+            RedirectUriOf(await client.SendAsync(ProxiedFrom(host, HttpMethod.Get, "/Integrations/Gmail/Connect"))));
+
+        // The bookmarklet's target origin and the calendar feed URL, both rendered into the profile page.
+        var bookmarklet = await client.SendAsync(ProxiedFrom(host, HttpMethod.Get, "/Profile/Bookmarklet"));
+        Assert.Contains($"window.open('https://{host}/Capture?url='",
+            HttpUtility.HtmlDecode(await bookmarklet.Content.ReadAsStringAsync()));
+
+        var profile = await client.SendAsync(ProxiedFrom(host, HttpMethod.Get, "/Profile"));
+        Assert.Matches($"https://{Regex.Escape(host)}/Calendar/feed\\.ics\\?token=", await profile.Content.ReadAsStringAsync());
+
+        // And the emailed reset link.
+        var token = await Http.GetAntiforgeryTokenAsync(client, "/Identity/Account/ForgotPassword");
+        await client.SendAsync(ProxiedFrom(host, HttpMethod.Post, "/Identity/Account/ForgotPassword",
+            new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["Input.Email"] = email,
+                ["__RequestVerificationToken"] = token,
+            })));
+        var (_, _, body) = Assert.Single(emails.Sent);
+        Assert.Contains($"https://{host}/Identity/Account/ResetPassword?code=", body);
+        Assert.DoesNotContain("http://", body);
     }
 
     [Fact]

@@ -6,7 +6,7 @@ Guidance for Claude Code sessions in this repo. Every statement below was checke
 
 InternTrackAI is an AI-assisted internship/job application tracker for people running an internship search, replacing the spreadsheet: a pipeline of applications (list, Kanban board, detail drawer) plus GPT-4o-mini tools that fill forms from postings, score resume fit, write cover letters and interview prep, and turn Gmail messages into status suggestions. Portfolio project by Majd Arow, deployed on Railway.
 
-- Live: https://interntrackai-production.up.railway.app (URL from README.md).
+- Live: https://interntrackai.majdarow.com (custom domain, canonical). The original https://interntrackai-production.up.railway.app is deliberately kept alive so old links and bookmarks keep working, so the app is served on **two** hostnames at once and nothing may pin either — every absolute URL comes from `Request.Scheme`/`Request.Host`, pinned by `ForwardedProtoTests.Every_absolute_url_follows_the_host_the_request_arrived_on`. In particular do **not** set `Google:RedirectBaseUrl`: the OAuth state cookie is host-scoped, so forcing a flow started on one host to return to the other loses the cookie and fails the callback.
 - Shared demo account behind the landing page's "Try the live demo" button (`POST /Account/DemoLogin`, credentials from `Demo:Email`/`Demo:Password`). `Services/DemoResetService.cs` reseeds it nightly **only when `Demo__AutoReset=true`**; the code/appsettings default is `false`. The Railway value is not visible from the repo.
 
 ## 2. Stack and versions
@@ -273,7 +273,7 @@ Account, demo, admin
 
 ## 10. Testing
 
-- Run: `dotnet test InternTrackAI.sln`. Current count: **805 tests, all passing** (2026-09-16, ~32 s; the 3 `PostgresMigrationTests` are no-ops unless `INTERNTRACK_PG_CONNECTION` is set). CI runs the same on every push/PR to `main`.
+- Run: `dotnet test InternTrackAI.sln`. Current count: **807 tests, all passing** (2026-09-16, ~31 s; the 3 `PostgresMigrationTests` are no-ops unless `INTERNTRACK_PG_CONNECTION` is set). CI runs the same on every push/PR to `main`.
 - `Integration/TestAppFactory.cs` boots the real `Program` in environment `Testing` against a private SQLite in-memory connection and a temp `UPLOADS_PATH`. Helpers and fakes in `Integration/`: `Http.cs` (antiforgery token scraping, `RegisterAsync` via the real Register page), `GmailFakes.cs` (`FakeGoogleOAuthClient`, `FakeGmailClient`, `FakeStatusClassifier`, `GmailTestHost`), `FakeProfileExtractor.cs`, `TestPdf.cs` (generates real text PDFs). Replace services with `WithWebHostBuilder` + `RemoveAll`. Assert on `WebUtility.HtmlDecode`d HTML (Razor entity-encodes non-ASCII).
 - Tests must never reach OpenAI or Google: the `Testing` environment loads no user-secrets, so no API key is present, and Google-facing clients are faked. Keep it that way.
 - Convention: every new endpoint that takes an id gets an ownership test (foreign user's id → 404, data unchanged). Existing ones: `OwnershipTests.cs`, `FollowUpEndpointTests.cs`, `ResumeRewriteEndpointTests.cs`, `KeywordCoverageEndpointTests.cs`, `BoardEndpointTests.cs`, `CalendarTests.cs`, `SuggestionEndpointTests.cs`, `GmailConnectTests.cs`. Gap: `Profile/RenameResume` has no foreign-id test.

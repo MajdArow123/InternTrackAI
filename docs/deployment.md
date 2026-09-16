@@ -19,6 +19,9 @@ and the restart policy, so a fresh service mostly configures itself.
    password-reset link is only written to the log, so nobody can actually reset a password.
 5. **Check the health path.** `railway.toml` sets `healthcheckPath = "/health"`. If you configure the
    service by hand instead, set **Settings → Deploy → Healthcheck Path** to `/health`.
+6. **Optionally add a custom domain** — see [Custom domain](#custom-domain) below. Worth doing if the app
+   sends email: a reset link on a shared `*.up.railway.app` subdomain inherits that subdomain's aggregate
+   reputation, and putting the From domain and the link domain on one name you own is a strong signal.
 
 ---
 
@@ -177,6 +180,41 @@ addresses have accounts. A reset requested for `Demo__Email` sends nothing and m
 `GmailSyncHostedService` syncs every connected account on an interval, one account at a time so one expired
 token cannot block the rest. It logs counts only, never email content, and stays idle when the Google keys
 are absent. `DemoResetService` schedules the nightly reseed and logs at startup whether it is armed.
+
+### Custom domain
+
+The app answers on its original `*.up.railway.app` hostname **and** on any custom domain, at the same time.
+Nothing in the code pins a hostname: every absolute URL it emits — the emailed reset link, the Gmail OAuth
+`redirect_uri`, the bookmarklet's target origin, the calendar feed URL — is built from `Request.Scheme` and
+`Request.Host`, so each one follows whichever host the request arrived on.
+`ForwardedProtoTests.Every_absolute_url_follows_the_host_the_request_arrived_on` pins that for both.
+
+To add one:
+
+1. **Railway first.** Service → **Settings → Networking → Custom Domain** → enter the hostname. Railway
+   responds with a CNAME target unique to that domain; you need it for step 2.
+2. **Then DNS.** Add a `CNAME` for the subdomain pointing at the target Railway printed. On Cloudflare set
+   **Proxy status to *DNS only* (grey cloud)** — Railway issues its own Let's Encrypt certificate and needs
+   to reach the host to validate it. If you later turn the orange cloud on, Cloudflare's SSL/TLS mode must be
+   **Full** or **Full (strict)**; *Flexible* makes Cloudflare talk http to Railway, which redirects to https,
+   which loops.
+3. **Wait for the certificate.** Railway shows the domain as issued/active. Until then the host serves a TLS
+   error, not a 404.
+4. **Google OAuth**, if the Gmail integration is on: add
+   `https://<new-host>/Integrations/Gmail/Callback` to the OAuth client's **Authorized redirect URIs** and
+   **keep the existing one**. The redirect URI is derived per request, so every live hostname needs an entry.
+
+**Do not set `Google__RedirectBaseUrl` to force one origin while both hostnames are live.** The OAuth state
+cookie (`itai_gmail_state`) is host-scoped — no `Domain` attribute — so a flow begun on host A and redirected
+back to host B arrives without the cookie and the callback fails. Leave it unset and let each host derive its
+own; pin it only if you retire the other hostname.
+
+Two more consequences of running on two hostnames, neither of them a fault:
+
+- **Sessions don't cross.** Auth cookies are host-scoped too, so signing in on one hostname leaves you signed
+  out on the other. Data Protection keys live in the database, so the cookies themselves stay valid across
+  deploys and both hosts can decrypt what they issued.
+- **Password-reset links are bound to the host that issued them**, which is the host the user was on.
 
 ### Behind the proxy
 

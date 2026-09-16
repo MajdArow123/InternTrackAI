@@ -8,7 +8,7 @@ namespace InternTrackAI.Models.ViewModels;
 /// </summary>
 public class BookmarkletViewModel
 {
-    /// <summary>Origin of the running site, e.g. <c>https://interntrackai.up.railway.app</c> (no trailing slash).</summary>
+    /// <summary>Origin of the running site, e.g. <c>https://interntrackai.majdarow.com</c> (no trailing slash).</summary>
     public required string BaseUrl { get; init; }
 
     /// <summary>Absolute URL of the capture endpoint the bookmarklet opens, e.g. <c>{BaseUrl}/Capture</c>.</summary>

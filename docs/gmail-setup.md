@@ -42,6 +42,7 @@ not completed verification" screen rather than returning an error to the app.
 - **Authorized redirect URIs** — add both, so the same client works locally and in production:
   - `http://localhost:5240/Integrations/Gmail/Callback`
   - `https://<your-app>.up.railway.app/Integrations/Gmail/Callback`
+  - …and one line per **additional** hostname the app answers on. The redirect URI is derived per request from the host, so every live hostname needs its own entry; removing one breaks the flow for anyone arriving on it. For this deployment both `https://interntrackai.majdarow.com/Integrations/Gmail/Callback` and the original `up.railway.app` one are registered.
 
 Google matches the redirect URI exactly, including scheme, host, port and path.
 

@@ -6,7 +6,7 @@
 [![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet)](https://dotnet.microsoft.com/)
 [![ASP.NET Core MVC](https://img.shields.io/badge/ASP.NET%20Core-MVC-512BD4?logo=dotnet)](https://learn.microsoft.com/aspnet/core)
 [![OpenAI](https://img.shields.io/badge/AI-GPT--4o--mini-412991?logo=openai)](https://platform.openai.com/)
-[![Deployed on Railway](https://img.shields.io/badge/Deployed%20on-Railway-0B0D0E?logo=railway)](https://interntrackai-production.up.railway.app)
+[![Deployed on Railway](https://img.shields.io/badge/Deployed%20on-Railway-0B0D0E?logo=railway)](https://interntrackai.majdarow.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 InternTrackAI is a full-stack internship application tracker built with ASP.NET Core 9 MVC. It replaces the typical spreadsheet with a real pipeline: paste a job posting and let AI fill out the form, see instantly how well your resume matches, track every application through five stages, and generate cover letters and interview prep on demand — all in one place, in a clean Apple-style interface with full dark mode.
@@ -15,7 +15,7 @@ InternTrackAI is a full-stack internship application tracker built with ASP.NET 
 
 ## 🚀 Live Demo
 
-**[interntrackai-production.up.railway.app](https://interntrackai-production.up.railway.app)**
+**[interntrackai.majdarow.com](https://interntrackai.majdarow.com)**
 
 Click **Try the live demo** on the landing page to be signed straight into a shared demo account — no
 signup. It comes preloaded with a profile, two resume versions and 15 applications spanning every

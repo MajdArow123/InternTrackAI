@@ -85,6 +85,7 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
     [Fact] public async Task JobApplications_Edit_GET()   => await Assert404(await _f.Alice.GetAsync($"/JobApplications/Edit/{_f.BobAppId}"));
     [Fact] public async Task JobApplications_Delete_GET() => await Assert404(await _f.Alice.GetAsync($"/JobApplications/Delete/{_f.BobAppId}"));
     [Fact] public async Task JobApplications_Notes_GET()  => await Assert404(await _f.Alice.GetAsync($"/JobApplications/Notes?appId={_f.BobAppId}"));
+    [Fact] public async Task JobApplications_KeywordCoverage_POST() => await Assert404(await _f.Alice.PostAsync("/JobApplications/KeywordCoverage", _f.Form(("AppId", _f.BobAppId.ToString()))));
 
     [Fact]
     public async Task JobApplications_Edit_POST_cannot_overwrite_or_take_over()

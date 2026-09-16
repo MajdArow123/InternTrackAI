@@ -24,13 +24,16 @@ public class JobApplicationsController : Controller
     private readonly ReminderService _reminders;
     private readonly UserClockProvider _clocks;
     private readonly SuggestionService _suggestions;
+    private readonly KeywordCoverageService _keywords;
 
-    public JobApplicationsController(ApplicationDbContext context, ReminderService reminders, UserClockProvider clocks, SuggestionService suggestions)
+    public JobApplicationsController(ApplicationDbContext context, ReminderService reminders, UserClockProvider clocks,
+                                     SuggestionService suggestions, KeywordCoverageService keywords)
     {
         _context     = context;
         _reminders   = reminders;
         _clocks      = clocks;
         _suggestions = suggestions;
+        _keywords    = keywords;
     }
 
     /// <summary>
@@ -631,6 +634,69 @@ public class JobApplicationsController : Controller
             .ToListAsync();
 
         return Json(notes.Select(n => new { n.Id, n.Text, createdAt = clock.LocalDateTime(n.CreatedAt) }));
+    }
+
+    // ── Keyword coverage ─────────────────────────────────
+
+    public sealed class KeywordCoverageRequest
+    {
+        /// <summary>An existing application to read the stored posting from (drawer, Edit).</summary>
+        public int? AppId { get; set; }
+
+        /// <summary>A posting the user is still typing, when there is no application id yet (Create).</summary>
+        public string? Description { get; set; }
+
+        /// <summary>
+        /// The Create form's own company / role / location, so the employer's name and city are filtered out
+        /// of the terms exactly as they are for a saved application. Ignored when <see cref="AppId"/> is set.
+        /// </summary>
+        public string? Company { get; set; }
+        public string? Role { get; set; }
+        public string? Location { get; set; }
+    }
+
+    /// <summary>
+    /// Which of a posting's literal terms the user's active resume does not contain — the ATS-style
+    /// counterpart to the AI match score. Deterministic, so there is no <c>"ai"</c> rate-limit policy and no
+    /// demo carve-out: <see cref="KeywordCoverageService"/> makes no model call.
+    ///
+    /// Two shapes, one action. With <c>appId</c> it reads that application's stored posting (owner-scoped,
+    /// 404 on a miss like every other id-taking endpoint). Without one it uses the posted description, which
+    /// is how the Create form checks a posting that has not been saved yet. Either way the resume is the
+    /// caller's own active version, so the result always reflects the resume that is active right now.
+    /// </summary>
+    /// <returns>
+    /// JSON <c>{ available, reason, covered, total, missing: [{ term, count, inRequirements, context,
+    /// nearMiss }] }</c>. <c>available</c> false means <c>reason</c> is a one-line explanation to show
+    /// instead of a list.
+    /// </returns>
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> KeywordCoverage([FromForm] KeywordCoverageRequest request, CancellationToken ct)
+    {
+        var uid = UserId();
+
+        var coverage = request.AppId is int id
+            ? await _keywords.GetAsync(id, uid, ct)
+            : await _keywords.GetForDescriptionAsync(request.Description, request.Company, request.Role, request.Location, uid, ct);
+
+        if (coverage is null) return NotFound();
+
+        return Json(new
+        {
+            coverage.Available,
+            coverage.Reason,
+            coverage.Covered,
+            coverage.Total,
+            Missing = coverage.Missing.Select(m => new
+            {
+                m.Term,
+                m.Count,
+                m.InRequirements,
+                m.Context,
+                m.NearMiss
+            })
+        });
     }
 
     /// <summary>Appends a new note to an application's activity timeline.</summary>

@@ -1,0 +1,42 @@
+@*
+    Keyword coverage: the posting's literal terms that the active resume doesn't contain.
+
+    One shell, three placements (application drawer, Edit, the Create analyzer panel). Everything is bound by
+    the data-keyword-coverage root and .js-* classes rather than ids, so several instances can sit on one page
+    without colliding. wwwroot/js/keyword-coverage.js fills it in; see that file for how each placement is
+    triggered.
+
+    Model: the application id to load on sight, or null when the caller supplies the posting text itself
+    (the Create form, which has no saved application yet).
+*@
+@model int?
+
+<div class="keyword-coverage" data-keyword-coverage @(Model is int id ? $"data-app-id={id}" : "")>
+    <div class="keyword-head">
+        <h3 class="keyword-title">Keyword coverage</h3>
+        <p class="keyword-help">
+            Exact terms from the posting, for resume scanners. Different from the match score, which
+            understands equivalent experience.
+        </p>
+    </div>
+
+    <div class="keyword-loading js-keyword-loading" hidden aria-hidden="true">
+        <div class="skeleton-line keyword-skeleton-count"></div>
+        <div class="skeleton-line keyword-skeleton-chips"></div>
+    </div>
+
+    <p class="keyword-reason js-keyword-reason" hidden></p>
+
+    <div class="keyword-body js-keyword-body" hidden>
+        <p class="keyword-count js-keyword-count"></p>
+        <ul class="keyword-chips js-keyword-chips"></ul>
+        <p class="keyword-footnote js-keyword-footnote" hidden></p>
+    </div>
+
+    <div class="keyword-error js-keyword-error" role="alert" hidden>
+        <p class="match-error-banner mb-0 js-keyword-error-text"></p>
+        <button type="button" class="btn btn-sm btn-outline-primary js-keyword-retry">Retry</button>
+    </div>
+
+    <p class="visually-hidden js-keyword-status" aria-live="polite"></p>
+</div>

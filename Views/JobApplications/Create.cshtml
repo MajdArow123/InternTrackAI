@@ -152,6 +152,14 @@
                       placeholder="Paste the job description or add notes..."></textarea>
         </div>
 
+        @* Sits beside the description rather than inside the analyzer panel: the check is free and runs off
+           the field itself, so burying it behind the collapsible AI panel would hide it from anyone who
+           pastes a posting straight into the form. No application id yet — application-form.js posts the
+           text. *@
+        <div class="form-card mb-4" id="keywordCoverageWrap" hidden>
+            <partial name="_KeywordCoverage" model="@((int?)null)" />
+        </div>
+
         <div class="d-flex gap-2 form-actions">
             <button type="submit" class="btn btn-primary px-4">Save application</button>
             <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
@@ -163,6 +171,7 @@
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
     <script src="~/js/duplicate-warning.js" asp-append-version="true"></script>
+    <script src="~/js/keyword-coverage.js" asp-append-version="true"></script>
     <script src="~/js/application-form.js" asp-append-version="true"></script>
     <script src="~/js/salary-insight.js" asp-append-version="true"></script>
 }

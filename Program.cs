@@ -103,6 +103,7 @@ builder.Services.AddScoped<ResumeTextService>();        // the only way to read 
 builder.Services.AddScoped<ReminderService>();
 builder.Services.AddScoped<ResumeAnalyticsService>();   // "Resume performance" card + profile stats
 builder.Services.AddScoped<SkillGapService>();          // "Skills you're missing most" card (stored data only, no AI)
+builder.Services.AddScoped<KeywordCoverageService>();   // ATS keyword coverage (deterministic, no AI)
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<UserClockProvider>();
 

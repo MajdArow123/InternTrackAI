@@ -43,6 +43,12 @@
                 <div class="match-result-card" id="drawer-match-card"></div>
             </section>
 
+            @* Its own section, not part of the AI Analysis card: this is a different question, and it
+               shows for applications that were never AI-analysed. *@
+            <section id="drawer-keywords-section" class="drawer-section">
+                <partial name="_KeywordCoverage" model="@((int?)null)" />
+            </section>
+
             <!-- Additional Info -->
             <section class="drawer-section">
                 <div class="drawer-info-grid">

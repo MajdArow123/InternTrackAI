@@ -49,26 +49,10 @@ public class SkillGapService
     public const string NothingMissing = "Nothing missing so far — your resume covered every requirement in the postings you've analyzed.";
 
     /// <summary>
-    /// Obvious spellings of the same skill, keyed by the lower-cased normalised spelling; the value is the
-    /// canonical display name. Keep it small and unambiguous: a false merge ("React" into "React Native")
-    /// hides a real gap, which is worse than a duplicate bar. To extend, add every spelling (canonical one
-    /// included) pointing at the same display name.
+    /// Obvious spellings of the same skill, shared with the keyword-coverage check — see
+    /// <see cref="SkillAliases"/>, which is where the map itself lives and where new spellings are added.
     /// </summary>
-    public static readonly IReadOnlyDictionary<string, string> Aliases = BuildAliases(new Dictionary<string, string[]>
-    {
-        ["Node.js"]    = new[] { "node", "node.js", "nodejs", "node js" },
-        ["PostgreSQL"] = new[] { "postgres", "postgresql" },
-        ["CI/CD"]      = new[] { "ci/cd", "cicd", "ci cd", "ci-cd" },
-        ["Kubernetes"] = new[] { "kubernetes", "k8s" },
-        ["JavaScript"] = new[] { "javascript", "js" },
-        ["TypeScript"] = new[] { "typescript", "ts" },
-        ["Go"]         = new[] { "go", "golang" },
-        ["React"]      = new[] { "react", "react.js", "reactjs" },
-        ["C#"]         = new[] { "c#", "csharp" },
-        [".NET"]       = new[] { ".net", "dotnet" },
-        ["AWS"]        = new[] { "aws", "amazon web services" },
-        ["REST APIs"]  = new[] { "rest", "rest api", "rest apis", "restful api", "restful apis" },
-    });
+    public static IReadOnlyDictionary<string, string> Aliases => SkillAliases.Map;
 
     private static readonly Regex Words = new(@"[\p{L}\p{N}+#]+", RegexOptions.Compiled);
 
@@ -318,16 +302,5 @@ public class SkillGapService
         var s = text.ToLowerInvariant();
         foreach (var (pattern, joined) in RoleCompounds) s = pattern.Replace(s, joined);
         return Words.Matches(s).Select(m => m.Value).Where(w => !w.All(char.IsDigit)).ToList();
-    }
-
-    private static Dictionary<string, string> BuildAliases(Dictionary<string, string[]> groups)
-    {
-        var map = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (var (canonical, spellings) in groups)
-        {
-            map[canonical.ToLowerInvariant()] = canonical;
-            foreach (var s in spellings) map[s] = canonical;
-        }
-        return map;
     }
 }

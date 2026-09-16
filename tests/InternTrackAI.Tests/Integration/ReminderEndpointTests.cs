@@ -27,6 +27,14 @@ public class ReminderEndpointTests : IClassFixture<TestAppFactory>
         return (client, token, (await users.FindByEmailAsync(email))!.Id);
     }
 
+    /// <summary>
+    /// "Today" in the user's own time zone, which is what <see cref="ReminderService"/> counts days from.
+    /// Seeding from <c>DateTime.UtcNow.Date</c> instead makes every "N days ago" assertion off by one for the
+    /// hours when UTC has rolled into tomorrow but the user's zone has not (after 20:00 in Toronto).
+    /// </summary>
+    private static DateTime Today =>
+        TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZones.Resolve(null)).Date;
+
     private async Task<int> SeedAsync(JobApplication app)
     {
         using var scope = _factory.Services.CreateScope();
@@ -57,7 +65,7 @@ public class ReminderEndpointTests : IClassFixture<TestAppFactory>
         var id = await SeedAsync(new JobApplication
         {
             UserId = uid, CompanyName = "Follow Co", RoleTitle = "Intern", Status = ApplicationStatus.Applied,
-            DateApplied = DateTime.UtcNow.Date.AddDays(-10), FollowUpAt = DateTime.UtcNow.Date.AddDays(-1)
+            DateApplied = Today.AddDays(-10), FollowUpAt = Today.AddDays(-1)
         });
 
         var res  = await client.SendAsync(Ajax($"/JobApplications/{id}/contacted", token));
@@ -80,7 +88,7 @@ public class ReminderEndpointTests : IClassFixture<TestAppFactory>
         var id = await SeedAsync(new JobApplication
         {
             UserId = uid, CompanyName = "Snooze Co", RoleTitle = "Intern", Status = ApplicationStatus.Applied,
-            DateApplied = DateTime.UtcNow.Date.AddDays(-10)
+            DateApplied = Today.AddDays(-10)
         });
 
         var res = await client.PostAsync($"/JobApplications/{id}/snooze", new FormUrlEncodedContent(new Dictionary<string, string>
@@ -99,9 +107,9 @@ public class ReminderEndpointTests : IClassFixture<TestAppFactory>
     public async Task Needs_attention_filter_shows_only_flagged_applications()
     {
         var (client, _, uid) = await SignedInUserAsync();
-        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Quiet Co", RoleTitle = "Intern", Status = ApplicationStatus.Applied, DateApplied = DateTime.UtcNow.Date.AddDays(-1) });
-        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Overdue Co", RoleTitle = "Intern", Status = ApplicationStatus.Saved, Deadline = DateTime.UtcNow.Date.AddDays(-3) });
-        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Interview Co", RoleTitle = "Intern", Status = ApplicationStatus.Interview, InterviewAt = DateTime.UtcNow.Date.AddDays(2).AddHours(14) });
+        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Quiet Co", RoleTitle = "Intern", Status = ApplicationStatus.Applied, DateApplied = Today.AddDays(-1) });
+        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Overdue Co", RoleTitle = "Intern", Status = ApplicationStatus.Saved, Deadline = Today.AddDays(-3) });
+        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Interview Co", RoleTitle = "Intern", Status = ApplicationStatus.Interview, InterviewAt = Today.AddDays(2).AddHours(14) });
 
         var all = await (await client.GetAsync("/JobApplications?view=list")).Content.ReadAsStringAsync();
         Assert.Contains("Quiet Co", all);
@@ -121,8 +129,8 @@ public class ReminderEndpointTests : IClassFixture<TestAppFactory>
     public async Task Dashboard_lists_attention_items_with_reasons()
     {
         var (client, _, uid) = await SignedInUserAsync();
-        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Nudge Co", RoleTitle = "Intern", Status = ApplicationStatus.Applied, DateApplied = DateTime.UtcNow.Date.AddDays(-9) });
-        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Soon Co", RoleTitle = "Intern", Status = ApplicationStatus.Saved, Deadline = DateTime.UtcNow.Date.AddDays(2) });
+        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Nudge Co", RoleTitle = "Intern", Status = ApplicationStatus.Applied, DateApplied = Today.AddDays(-9) });
+        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Soon Co", RoleTitle = "Intern", Status = ApplicationStatus.Saved, Deadline = Today.AddDays(2) });
 
         var html = await (await client.GetAsync("/Home/Dashboard")).Content.ReadAsStringAsync();
         Assert.Contains("Applied 9 days ago, no reply", html);
@@ -134,7 +142,7 @@ public class ReminderEndpointTests : IClassFixture<TestAppFactory>
     public async Task Profile_follow_up_window_is_validated_and_applied()
     {
         var (client, token, uid) = await SignedInUserAsync();
-        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Window Co", RoleTitle = "Intern", Status = ApplicationStatus.Applied, DateApplied = DateTime.UtcNow.Date.AddDays(-4) });
+        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Window Co", RoleTitle = "Intern", Status = ApplicationStatus.Applied, DateApplied = Today.AddDays(-4) });
 
         Task<HttpResponseMessage> Save(string days) => client.PostAsync("/Profile/SaveReminderSettings", new FormUrlEncodedContent(new Dictionary<string, string>
         {

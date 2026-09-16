@@ -283,4 +283,60 @@
             }
         }
     })();
+
+    // ── Keyword coverage ─────────────────────────────────
+    // Deliberately not tied to the analyzer: the check is free and instant, so requiring a paid AI analysis
+    // before showing a free result would be backwards. It runs off the Job description field itself — after
+    // the analyzer fills it in, and whenever the user finishes pasting or editing a posting by hand.
+    (function () {
+        const wrap    = document.getElementById('keywordCoverageWrap');
+        const field   = document.querySelector('#appForm [name="JobDescription"]');
+        if (!wrap || !field || !window.keywordCoverage) return;
+
+        const root = wrap.querySelector('[data-keyword-coverage]');
+        if (!root) return;
+
+        // Below this there is nothing a keyword check could say; the server's own floor then decides
+        // whether the posting is substantial enough to be worth a list.
+        const MIN_CHARS = 200;
+        // Sent with the posting so the employer's own name and city are filtered out of the terms, exactly as
+        // they are once the application is saved. Without them the count changes on save, which reads as a bug.
+        const company  = document.querySelector('#appForm [name="CompanyName"]');
+        const role     = document.querySelector('#appForm [name="RoleTitle"]');
+        const location = document.querySelector('#appForm [name="Location"]');
+
+        let lastSent = null;
+        let timer = null;
+
+        function check() {
+            const text = field.value.trim();
+            if (text.length < MIN_CHARS) {
+                wrap.hidden = true;
+                lastSent = null;
+                return;
+            }
+
+            const payload = {
+                description: text,
+                company: company?.value.trim() || '',
+                role: role?.value.trim() || '',
+                location: location?.value.trim() || ''
+            };
+            const key = JSON.stringify(payload);
+            if (key === lastSent) return;      // nothing changed since the last look
+            lastSent = key;
+            wrap.hidden = false;
+            window.keywordCoverage.load(root, payload);
+        }
+
+        // Blur catches the paste-then-click-away case; the debounced input handler catches the analyzer
+        // filling the field in, which never fires a blur.
+        field.addEventListener('blur', check);
+        field.addEventListener('input', function () {
+            clearTimeout(timer);
+            timer = setTimeout(check, 800);
+        });
+        // Filling in the company or role after the posting changes which terms are the employer's own.
+        [company, role, location].forEach(function (el) { el?.addEventListener('blur', check); });
+    })();
 })();

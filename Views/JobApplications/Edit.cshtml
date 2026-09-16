@@ -149,6 +149,12 @@
             <textarea asp-for="JobDescription" class="form-control" placeholder="Paste the job description or add notes..."></textarea>
         </div>
 
+        @* Edit has no analyzer panel, so keyword coverage gets its own card here. It reads the posting that
+           is already saved, so it reflects the last save rather than unsaved edits to the textarea above. *@
+        <div class="form-card mb-4">
+            <partial name="_KeywordCoverage" model="@((int?)Model.Id)" />
+        </div>
+
         <div class="d-flex gap-2 form-actions">
             <button type="submit" class="btn btn-primary px-4">Save changes</button>
             <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
@@ -167,4 +173,5 @@
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
     <script src="~/js/duplicate-warning.js" asp-append-version="true"></script>
     <script src="~/js/salary-insight.js" asp-append-version="true"></script>
+    <script src="~/js/keyword-coverage.js" asp-append-version="true"></script>
 }

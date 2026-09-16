@@ -250,6 +250,11 @@
         intBtn.dataset.appId = data.id;
         intBtn.onclick = function() { window.location.href = '/InterviewPrep/Prep?appId=' + data.id; };
 
+        // Keyword coverage — fetched on open rather than rendered into the row's data-* like everything
+        // else here, because it reads the resume and only matters once the drawer is actually open.
+        const keywordRoot = document.querySelector('#drawer-keywords-section [data-keyword-coverage]');
+        if (keywordRoot && window.keywordCoverage) window.keywordCoverage.load(keywordRoot, { appId: data.id });
+
         // Notes / activity timeline
         loadNoteTimeline(data.id);
 

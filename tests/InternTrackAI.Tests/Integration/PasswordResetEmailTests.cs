@@ -21,37 +21,6 @@ public class PasswordResetEmailTests
 {
     private const string DemoEmail = "demo@interntrack.test";
 
-    /// <summary>Records every Resend request and answers from a scripted queue (last reply repeats).</summary>
-    private sealed class FakeResend
-    {
-        public List<string> Bodies { get; } = new();
-        public List<Func<HttpResponseMessage>> Replies { get; } = new();
-
-        public JsonElement Payload(int index = 0) => JsonDocument.Parse(Bodies[index]).RootElement;
-
-        public void AlwaysFail(HttpStatusCode status) => Replies.Add(() => new HttpResponseMessage(status)
-        {
-            Content = new StringContent($"{{\"statusCode\":{(int)status},\"name\":\"application_error\",\"message\":\"boom\"}}",
-                Encoding.UTF8, "application/json")
-        });
-
-        public sealed class Handler(FakeResend state) : HttpMessageHandler
-        {
-            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
-            {
-                var body = await request.Content!.ReadAsStringAsync(ct);
-                int count;
-                lock (state.Bodies) { state.Bodies.Add(body); count = state.Bodies.Count; }
-
-                if (state.Replies.Count == 0)
-                    return new HttpResponseMessage(HttpStatusCode.OK)
-                    { Content = new StringContent("{\"id\":\"stub-0001\"}", Encoding.UTF8, "application/json") };
-
-                return state.Replies[Math.Min(count - 1, state.Replies.Count - 1)]();
-            }
-        }
-    }
-
     private sealed class Host : IDisposable
     {
         public TestAppFactory Parent { get; } = new();

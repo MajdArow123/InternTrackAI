@@ -91,6 +91,9 @@ which of the two is live.
 | `Email__From` | — | Sender, in `Name <address>` form, e.g. `InternTrackAI <noreply@majdarow.com>`. The domain must be verified in Resend or every send is rejected. Required whenever `Resend__ApiKey` is set |
 | `Email__ReplyTo` | — | Optional address for replies |
 | `Resend__BaseUrl` | `https://api.resend.com` | Stub endpoint for local verification only, like `OpenAI__BaseUrl` |
+| `RateLimiting__PasswordReset__PerIpPerHour` | `5` | Reset requests one client may make per hour |
+| `RateLimiting__PasswordReset__PerAddressPerHour` | `2` | Emails one address may receive per hour |
+| `RateLimiting__PasswordReset__WindowMinutes` | `60` | Length of both windows |
 
 **Resend setup.** Create a Resend account → **Domains → Add domain** → add the DKIM and SPF records it
 prints at your DNS provider → wait for *Verified*. Then **API Keys → Create**, with *Sending access*, and
@@ -149,6 +152,18 @@ path, status, duration and user id. No bodies, headers, cookies or secrets are l
 send logs the status and Resend's error name but never the recipient, the message body or the reset link.
 
 ### Password reset email
+
+The page is anonymous, so it is rate limited two ways: **5 requests per client per hour**, checked before the
+account lookup so probing unknown addresses costs the prober as much as real ones, and **2 emails per address
+per hour**, taken only when a message is really about to go out so probes can't burn a real user's allowance.
+Addresses are never stored — the per-address bucket is keyed by a salted SHA-256 under a salt generated fresh
+each process. A refused request renders the identical confirmation, with no 429 and no different wording: if
+being rate limited looked any different, the limit would answer "does this address have an account?".
+
+`/Identity/Account/ResendEmailConfirmation` is switched off (404). Identity UI maps it, but registration never
+sends a confirmation (`RequireConfirmedAccount = false`), and left alone it was an anonymous, unthrottled way
+to make the app mail any registered address. If confirmation is ever turned on, re-enable it in `Program.cs`
+and give it the same limits as the reset page.
 
 `ResendEmailSender` posts to Resend's API and retries once on a 5xx, a 429 or a network failure, never on
 any other 4xx. Both attempts carry the same `Idempotency-Key`, so a retry after a lost response cannot

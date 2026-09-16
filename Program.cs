@@ -93,6 +93,12 @@ else
 // names have to reach the one implementation chosen above.
 builder.Services.AddScoped<IEmailSender>(sp => sp.GetRequiredService<IAppEmailSender>());
 
+// ForgotPassword is anonymous and spends email quota, so it carries its own per-IP and per-address limits.
+// Singleton because the buckets must outlive the request, like AiUsageLimiter.
+builder.Services.Configure<PasswordResetRateLimitOptions>(
+    builder.Configuration.GetSection(PasswordResetRateLimitOptions.SectionName));
+builder.Services.AddSingleton<PasswordResetLimiter>();
+
 // ── Upload storage ───────────────────────────────────────────────────────────
 // Resolves the on-disk root for user uploads from UPLOADS_PATH (defaults to ./uploads).
 // Singleton so the root is computed and created once at startup.
@@ -150,9 +156,19 @@ builder.Services.AddControllersWithViews();
 
 // The shared demo account can't change its password or email, turn on two-factor, link logins or delete itself.
 // Applied to the whole Manage folder so Identity UI's built-in (non-scaffolded) pages are covered too.
-builder.Services.AddRazorPages(options => options.Conventions.AddAreaFolderApplicationModelConvention(
-    "Identity", InternTrackAI.Areas.Identity.DemoAccountGuardFilter.ManageFolder,
-    model => model.Filters.Add(new InternTrackAI.Areas.Identity.DemoAccountGuardFilter())));
+builder.Services.AddRazorPages(options =>
+{
+    options.Conventions.AddAreaFolderApplicationModelConvention(
+        "Identity", InternTrackAI.Areas.Identity.DemoAccountGuardFilter.ManageFolder,
+        model => model.Filters.Add(new InternTrackAI.Areas.Identity.DemoAccountGuardFilter()));
+
+    // Identity UI maps ResendEmailConfirmation even though this app never sends a confirmation email
+    // (RequireConfirmedAccount = false). Anonymous and backed by IEmailSender, it was an unthrottled way to
+    // make the app send real mail to any registered address; it now 404s. See UnusedIdentityPageFilter.
+    foreach (var page in InternTrackAI.Areas.Identity.UnusedIdentityPageFilter.DisabledPages)
+        options.Conventions.AddAreaPageApplicationModelConvention("Identity", page,
+            model => model.Filters.Add(new InternTrackAI.Areas.Identity.UnusedIdentityPageFilter()));
+});
 
 // ── Health checks ────────────────────────────────────────────────────────────
 // /health verifies the database connection (Railway's health check path points here).

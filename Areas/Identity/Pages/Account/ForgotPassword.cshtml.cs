@@ -96,7 +96,9 @@ public class ForgotPasswordModel : PageModel
 
         // The stated expiry is the token's real lifespan rather than a number typed into the copy.
         // No cancellation token: the send should finish even if the browser goes away mid-request.
-        await _email.SendAsync(Input.Email, EmailTemplates.PasswordReset(callbackUrl, _tokenOptions.Value.TokenLifespan));
+        // The recipient is echoed in the footer, so it is the address the message is actually going to —
+        // what the visitor typed — not the account's canonical email.
+        await _email.SendAsync(Input.Email, EmailTemplates.PasswordReset(callbackUrl, _tokenOptions.Value.TokenLifespan, Input.Email));
 
         return Page();
     }

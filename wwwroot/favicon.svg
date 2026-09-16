@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="InternTrackAI">
+  <rect width="32" height="32" rx="7" fill="#0A84FF"/>
+  <rect x="4.5" y="15.2" width="11.5" height="1.6" rx="0.8" fill="#84C2FF"/>
+  <circle cx="5.8" cy="16" r="2.1" fill="#84C2FF"/>
+  <circle cx="11.2" cy="16" r="2.1" fill="#84C2FF"/>
+  <rect x="16" y="9.5" width="11" height="13" rx="2.4" fill="#ffffff"/>
+  <rect x="19.4" y="7.6" width="4.2" height="3.4" rx="1.6" fill="#84C2FF"/>
+  <path d="M18.6 16.4 L20.5 18.3 L24.4 14" fill="none" stroke="#0A84FF"
+        stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

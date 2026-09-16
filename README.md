@@ -17,16 +17,12 @@ InternTrackAI is a full-stack internship application tracker built with ASP.NET 
 
 **[interntrackai-production.up.railway.app](https://interntrackai-production.up.railway.app)**
 
-Click **Try the live demo** on the landing page to be signed straight into a demo account with a sample profile, a resume, and job applications spanning every match-score tier. No signup needed.
+Click **Try the live demo** on the landing page to be signed straight into a shared demo account — no
+signup. It comes preloaded with a profile, two resume versions and 15 applications spanning every
+match-score tier, so every card and chart has real data behind it. The account is wiped and reseeded
+nightly, so explore freely: add, edit and delete applications, and try the AI features.
 
-If you'd rather sign in manually:
-
-| | |
-|---|---|
-| **Email** | `demo@interntrackai.com` |
-| **Password** | `CvjOukfKXS8YaAR7!` |
-
-> The demo account is shared and public — please don't change its password or delete its data. Feel free to add, edit, or delete job applications to explore the AI features.
+> Please don't change the demo account's password or delete its profile — it's shared.
 
 ## ✨ Key Features
 
@@ -78,135 +74,36 @@ If you'd rather sign in manually:
 
 ## 📸 Screenshots
 
-| Sign In | Dashboard |
-|---|---|
-| ![Sign In](docs/screenshots/login.png) | ![Dashboard](docs/screenshots/dashboard.png) |
-
-| Applications | Detail Drawer |
-|---|---|
-| ![Applications](docs/screenshots/applications.png) | ![Detail Drawer](docs/screenshots/drawer.png) |
-
-| Kanban Board |
-|---|
-| ![Kanban Board](docs/screenshots/board.png) |
-
-| Attention card — overdue, deadline soon, follow-up due, upcoming interview |
-|---|
-| ![Attention card](docs/screenshots/attention.png) |
-
-| Resume performance — which resume version gets responses |
-|---|
-| ![Resume performance card](docs/screenshots/resume_performance.png) |
-
-| Skills you're missing most — aggregated gaps across analyzed postings |
-|---|
-| ![Skill gap card](docs/screenshots/skill_gaps.png) |
-
-| Add Application — AI Analysis + Resume Match |
-|---|
-| ![Add Application](docs/screenshots/create.png) |
-
-| Cover Letter | Interview Prep |
-|---|---|
-| ![Cover Letter](docs/screenshots/cover_letter.png) | ![Interview Prep](docs/screenshots/interview_prep.png) |
-
-| Dark Mode | Profile |
-|---|---|
-| ![Dark Mode](docs/screenshots/dark_mode.png) | ![Profile](docs/screenshots/profile.png) |
-
-| Save-from-anywhere bookmarklet |
-|:--:|
-| ![Bookmarklet install page](docs/screenshots/bookmarklet.png) |
-
-| Inbox suggestions — status changes spotted in your Gmail |
-|---|
-| ![Inbox suggestions card](docs/screenshots/inbox_suggestions.png) |
+_Placeholder — replaced in the next commit._
 
 ## 💻 How to Run Locally
 
-**Prerequisites:** .NET 9 SDK, an OpenAI API key
+**Prerequisites:** .NET 9 SDK. An OpenAI API key is optional — without one the app runs normally and the AI
+features report that they aren't configured.
 
 ```bash
 git clone https://github.com/MajdArow123/InternTrackAI.git
 cd InternTrackAI
-```
-
-Set your OpenAI API key using .NET User Secrets (never stored in source files):
-
-```bash
-dotnet user-secrets set "OpenAI:ApiKey" "sk-..."
-```
-
-Run the app:
-
-```bash
+dotnet user-secrets set "OpenAI:ApiKey" "sk-..."   # optional
 dotnet run
 ```
 
-Open [http://localhost:5240](http://localhost:5240) and register an account to get started. Locally, the app uses a SQLite file (`app.db`) created automatically via EF Core migrations — no extra database setup needed. Uploaded files go to `./uploads` unless you set `UPLOADS_PATH`.
+Open [http://localhost:5240](http://localhost:5240) and register an account. Locally the app uses a SQLite
+file (`app.db`) created automatically by EF Core migrations — no database setup needed. Uploads go to
+`./uploads` unless you set `UPLOADS_PATH`.
 
-> AI features require billing credits on your OpenAI account, added at [platform.openai.com/settings/billing](https://platform.openai.com/settings/billing). GPT-4o-mini costs roughly $0.00015 per analysis.
+> AI features need billing credits on your OpenAI account, added at
+> [platform.openai.com/settings/billing](https://platform.openai.com/settings/billing). GPT-4o-mini costs
+> roughly $0.00015 per analysis.
 
-Optional: to enable the one-click **Try the live demo** button locally, point it at any account you've registered:
+Run the tests with `dotnet test InternTrackAI.sln`.
 
-```bash
-dotnet user-secrets set "Demo:Email" "you@example.com"
-dotnet user-secrets set "Demo:Password" "your-password"
-```
+## 📚 Documentation
 
-### Optional: Gmail status suggestions (Google OAuth)
-
-The Gmail integration is off until both Google keys are present; without them the app runs exactly as before (no Gmail card, no background job). To turn it on:
-
-1. Create a project in the [Google Cloud console](https://console.cloud.google.com/) (or reuse one).
-2. **APIs & Services → Library**: enable the **Gmail API**.
-3. **APIs & Services → OAuth consent screen**: External, keep it in **Testing**, add the scope `https://www.googleapis.com/auth/gmail.readonly` and add your Gmail address under *Test users* (Testing mode is enough for a personal deployment; Google caps it at 100 test users).
-4. **Credentials → Create credentials → OAuth client ID**, type *Web application*, with these two **Authorized redirect URIs**:
-   - `http://localhost:5240/Integrations/Gmail/Callback`
-   - `https://<your-app>.up.railway.app/Integrations/Gmail/Callback`
-5. Store the client id and secret — locally in user secrets, on Railway as the two environment variables:
-
-```bash
-dotnet user-secrets set "Google:ClientId" "1234567890-abc.apps.googleusercontent.com"
-dotnet user-secrets set "Google:ClientSecret" "GOCSPX-..."
-```
-
-Then open **Profile → Connected accounts → Connect Gmail**. Every time the flow starts the app logs the exact `redirect_uri` it sends to Google (`Starting Gmail OAuth flow ... redirect_uri ...`), so a `redirect_uri_mismatch` can be checked against the console entry. Behind Railway the app derives the `https://` origin from the proxy's `X-Forwarded-*` headers; `Google__RedirectBaseUrl` overrides that derivation if you ever need to pin it. The background sync runs every `Gmail:SyncIntervalMinutes` (default 30); **Sync now** on the profile runs one immediately and reports what it found.
-
-**Privacy.** Only the `gmail.readonly` scope is ever requested — the app cannot send, modify, label or delete mail. Email bodies are read once for classification and never stored: a suggestion keeps the subject, sender, date, Gmail message id and the AI's one-sentence summary. OAuth tokens are encrypted at rest with ASP.NET Data Protection, and **Disconnect** revokes the grant with Google before deleting the row. Each AI classification counts against the same per-user AI rate limit as every other AI feature.
-
-## ☁️ Deployment
-
-The live instance runs on [Railway](https://railway.app), built directly from the `Dockerfile` in this repo:
-
-- **Database** — Railway-managed PostgreSQL. `Program.cs` detects the `DATABASE_URL` environment variable Railway injects and switches the EF Core provider from SQLite to Npgsql automatically.
-- **Persistent storage** — uploaded resumes and profile photos are written to the directory named by `UPLOADS_PATH`, which points at a mounted Railway volume so files survive redeploys. Resumes are never served as static files; only profile photos are public.
-- **Data Protection keys** — persisted to the database so antiforgery tokens and cookies stay valid across container restarts.
-- **Migrations** — applied automatically on startup, so deploying a new migration is just a `git push`.
-- **Health check** — `GET /health` returns `{"status":"Healthy"}` (HTTP 200) when the database answers and 503 otherwise. `railway.toml` already sets `healthcheckPath = "/health"`; if you configure the service by hand, set **Settings → Deploy → Healthcheck Path** to `/health`.
-- **Logging** — Serilog writes structured lines to the console (which Railway captures): one line per request with method, path, status, duration, and user id. No bodies, headers, cookies, or secrets are logged. Override levels with a `Serilog__MinimumLevel__Default` variable if needed.
-- **Gmail sync job** — `GmailSyncHostedService` syncs every connected Gmail account every 30 minutes (`Gmail__SyncIntervalMinutes`), one account at a time so one expired token never blocks the others. It logs counts only, never email content, and stays idle when the Google keys are absent (the startup log says which).
-- **Demo account reset** — `DemoResetService` can wipe the demo account nightly and reseed 15 realistic applications, notes, three pending inbox suggestions, and a saved cover letter (the profile and active resume are kept; a second labelled resume version is added and the applications are split between the two so the Resume performance card shows a comparison; the profile's target roles are reset to three demo roles and its display name to "Demo User" and the seeded missing skills give the skill gap card a clear top skill, a mid tier and a tail). It is off unless `Demo__AutoReset=true`. Sign in as the `Admin__Email` account and open `/Admin/ResetDemo` to run the same reseed by hand and check the result before turning the nightly job on. The startup log states whether auto-reset is enabled.
-
-To deploy your own copy: create a Railway project, add a PostgreSQL service, attach a volume (mounted at `/data`), point Railway at this repo, and set these variables on the service — `railway.toml` already configures the build and health check.
-
-| Variable | Purpose |
-|---|---|
-| `OpenAI__ApiKey` | OpenAI API key for all AI features |
-| `UPLOADS_PATH` | Upload root on the volume, e.g. `/data/uploads` |
-| `Demo__Email` / `Demo__Password` | Optional. Credentials of the account behind the **Try the live demo** button; leave unset to hide it |
-| `RateLimiting__AI__PermitLimit` | Optional (default `20`). AI requests allowed per user per window, across all AI features |
-| `RateLimiting__AI__WindowMinutes` | Optional (default `60`). Length of the rate-limit window |
-| `RateLimiting__AI__DemoPermitLimit` | Optional (default `10`). Tighter allowance for the shared demo account |
-| `Demo__AutoReset` | Optional (default `false`). When `true` (and `Demo__Email` is set) the demo account is wiped and reseeded every night |
-| `Demo__ResetTimeUtc` | Optional (default `04:00`). Time of day, UTC, for the nightly demo reset |
-| `Admin__Email` | Optional. The one account allowed to call `POST /Admin/ResetDemo` (manual reseed); unset disables the endpoint |
-| `Capture__AnalyzeTimeoutSeconds` | Optional (default `15`). How long the bookmarklet's `/Capture` endpoint waits for the AI analyzer before falling back to manual entry |
-| `Google__ClientId` / `Google__ClientSecret` | Optional. Google OAuth web-client credentials for **Gmail status suggestions**; leave both unset to hide the feature entirely |
-| `Google__RedirectBaseUrl` | Optional. Public origin (e.g. `https://<your-app>.up.railway.app`) used verbatim for the Gmail OAuth `redirect_uri`. Normally unnecessary: the app trusts Railway's `X-Forwarded-Proto`/`X-Forwarded-Host` headers and derives the https origin itself. Set it only if the redirect URI logged at the start of the flow ever differs from the one registered in the Google console |
-| `Gmail__SyncIntervalMinutes` | Optional (default `30`). How often connected Gmail accounts are synced in the background |
-
-(`DATABASE_URL` and `PORT` are injected by Railway automatically.)
+- **[Deployment](docs/deployment.md)** — the full environment-variable table, Railway setup (volume,
+  health check, auto-migrate on push), and the PostgreSQL migration gotcha to read before adding a migration.
+- **[Gmail setup](docs/gmail-setup.md)** — the Google Cloud OAuth walkthrough for the optional inbox
+  suggestions feature, and what the app does and doesn't do with your mail.
 
 ## License
 

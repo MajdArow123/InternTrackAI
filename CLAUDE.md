@@ -67,7 +67,7 @@ The installed global `dotnet-ef` is 10.0.2 against EF Core 9.0.20 packages.
 | `wwwroot/js/` | One file per page/feature (section 8) |
 | `wwwroot/lib/` | Vendored front-end libraries |
 | `tests/InternTrackAI.Tests/` | xUnit: unit tests at the root, WebApplicationFactory tests + fakes in `Integration/`; excluded from the main csproj globs |
-| `docs/screenshots/` | README screenshots. No other docs exist yet (`docs/deployment.md` does not exist) |
+| `docs/` | `deployment.md` (env-var table, Railway setup, the Postgres migration gotcha), `gmail-setup.md` (Google OAuth walkthrough), `screenshots/` (README screenshots) |
 | `.github/workflows/ci.yml` | restore, build Release, test on push/PR to `main` (ubuntu, .NET 9) |
 | `Dockerfile`, `railway.toml` | Railway build and deploy config |
 
@@ -280,12 +280,12 @@ Account, demo, admin
 - Railway builds `Dockerfile` (sdk:9.0 publish → aspnet:9.0, `ENTRYPOINT dotnet InternTrackAI.dll`). `railway.toml`: `healthcheckPath = "/health"`, timeout 100, restart ON_FAILURE ×3.
 - PostgreSQL via Railway-injected `DATABASE_URL`; `PORT` is injected and bound in Program.cs.
 - `db.Database.Migrate()` runs on every startup, so shipping a migration is a push.
-- Uploads: `UPLOADS_PATH` points at a mounted Railway volume (README: volume at `/data`, `UPLOADS_PATH=/data/uploads`; not verifiable from the repo).
+- Uploads: `UPLOADS_PATH` points at a mounted Railway volume (`docs/deployment.md`: volume at `/data`, `UPLOADS_PATH=/data/uploads`; not verifiable from the repo).
 - `/health`: 200 `{"status":"Healthy",...}` when the DB answers, 503 otherwise; logged at Verbose.
 - Production has no `appsettings.json` (gitignored); defaults live in code and `appsettings.Production.json`. Configure with `__` env vars.
 - Exception handler `/Home/Error` + HSTS outside Development; `UseStatusCodePagesWithReExecute("/Home/NotFound")` everywhere.
 
-Environment variables (to move to `docs/deployment.md` later; the README table is the other copy):
+Environment variables (`docs/deployment.md` is the user-facing copy — keep the two in step):
 
 | Variable | Default | Purpose |
 |---|---|---|

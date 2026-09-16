@@ -109,7 +109,7 @@ public class FollowUpEndpointTests
             var app = new JobApplication
             {
                 UserId = userId, CompanyName = "Stripe", RoleTitle = "Backend Intern", Status = ApplicationStatus.Applied,
-                WorkMode = WorkMode.Hybrid, Location = "Toronto, ON", DateApplied = DateTime.UtcNow.Date.AddDays(-10),
+                WorkMode = WorkMode.Hybrid, Location = "Toronto, ON", DateApplied = TestClock.Today.AddDays(-10),
                 JobDescription = "Build payment services in Go."
             };
             tweak?.Invoke(app);
@@ -156,7 +156,7 @@ public class FollowUpEndpointTests
             await db.SaveChangesAsync();
             return 0;
         });
-        var id = await h.SeedAppAsync(uid, a => { a.LastContactAt = DateTime.UtcNow.AddDays(-3); a.Deadline = DateTime.UtcNow.Date.AddDays(-5); });
+        var id = await h.SeedAppAsync(uid, a => { a.LastContactAt = TestClock.Instant(TestClock.Today.AddDays(-3)); a.Deadline = TestClock.Today.AddDays(-5); });
         await h.WithDb(async db =>
         {
             db.GeneratedCoverLetters.Add(new GeneratedCoverLetter { UserId = uid, JobApplicationId = id, Content = "I have shipped Go services to production.", IsActive = true, VersionNumber = 1 });
@@ -433,7 +433,7 @@ public class FollowUpEndpointTests
         using var h = new Host();
         var (client, _, uid) = await h.UserAsync();
         var due  = await h.SeedAppAsync(uid, a => a.CompanyName = "Due Co");
-        var soon = await h.SeedAppAsync(uid, a => { a.CompanyName = "Deadline Co"; a.Status = ApplicationStatus.Saved; a.DateApplied = null; a.Deadline = DateTime.UtcNow.Date.AddDays(2); });
+        var soon = await h.SeedAppAsync(uid, a => { a.CompanyName = "Deadline Co"; a.Status = ApplicationStatus.Saved; a.DateApplied = null; a.Deadline = TestClock.Today.AddDays(2); });
 
         var dash = await (await client.GetAsync("/Home/Dashboard")).Content.ReadAsStringAsync();
         Assert.Contains($"data-followup-open data-app-id=\"{due}\"", dash);

@@ -31,7 +31,7 @@ public class SuggestionEndpointTests : IClassFixture<TestAppFactory>
     {
         using var scope = _factory.Services.CreateScope();
         var db  = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        var app = new JobApplication { UserId = uid, CompanyName = company, RoleTitle = "Backend Intern", Status = current, DateApplied = DateTime.UtcNow.Date.AddDays(-3) };
+        var app = new JobApplication { UserId = uid, CompanyName = company, RoleTitle = "Backend Intern", Status = current, DateApplied = TestClock.Today.AddDays(-3) };
         db.JobApplications.Add(app);
         await db.SaveChangesAsync();
         var s = new StatusSuggestion

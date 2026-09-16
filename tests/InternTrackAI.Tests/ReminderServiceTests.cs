@@ -201,6 +201,68 @@ public class ReminderServiceTests
         Assert.Equal(("Deadline in 10 days", ""),       ReminderService.DeadlineChip(App(deadlineInDays: 10), Today));
     }
 
+    // ── One "today" per user, whatever UTC says ───────────
+
+    /// <summary>
+    /// 8am and 8pm on the same Toronto day. At 8pm EDT it is already the next day in UTC, so anything that
+    /// reached for <c>DateTime.UtcNow.Date</c> instead of the user's clock would silently age every
+    /// application by a day for the last four hours of every evening.
+    /// </summary>
+    private static readonly UserClock TorontoMorning = UserClock.For("America/Toronto", new DateTime(2026, 9, 15, 12, 0, 0, DateTimeKind.Utc));
+    private static readonly UserClock TorontoEvening = UserClock.For("America/Toronto", new DateTime(2026, 9, 16, 00, 0, 0, DateTimeKind.Utc));
+
+    [Fact]
+    public void Evening_and_morning_of_the_same_local_day_share_one_today()
+    {
+        Assert.Equal(new DateTime(2026, 9, 15), TorontoMorning.Today);
+        Assert.Equal(new DateTime(2026, 9, 15), TorontoEvening.Today);      // 8pm EDT, already Sep 16 in UTC
+        Assert.NotEqual(TorontoEvening.NowUtc.Date, TorontoEvening.Today);  // the trap this pins
+    }
+
+    [Theory]
+    [InlineData(6, false)]   // a day short of the window, morning and evening alike
+    [InlineData(7, true)]    // exactly the window — the boundary an off-by-one day would cross
+    [InlineData(8, true)]
+    public void Follow_up_due_does_not_change_between_morning_and_evening(int appliedDaysAgo, bool due)
+    {
+        // Built against the user's local today, the way a real row seeded "N days ago" would be.
+        var app = new JobApplication
+        {
+            Id = 1, UserId = "u", CompanyName = "Co", RoleTitle = "Intern",
+            Status = ApplicationStatus.Applied,
+            DateApplied = TorontoMorning.Today.AddDays(-appliedDaysAgo)
+        };
+
+        Assert.Equal(due, ReminderService.IsFollowUpDue(app, TorontoMorning, Window));
+        Assert.Equal(due, ReminderService.IsFollowUpDue(app, TorontoEvening, Window));
+    }
+
+    [Fact]
+    public void Every_rule_and_its_wording_is_identical_morning_and_evening()
+    {
+        var today = TorontoMorning.Today;
+        var apps = new[]
+        {
+            // One of each kind, each sitting on its boundary so a one-day drift would be visible.
+            new JobApplication { Id = 1, UserId = "u", CompanyName = "Follow Co",   RoleTitle = "Intern", Status = ApplicationStatus.Applied, DateApplied = today.AddDays(-9) },
+            new JobApplication { Id = 2, UserId = "u", CompanyName = "Overdue Co",  RoleTitle = "Intern", Status = ApplicationStatus.Saved,   Deadline = today.AddDays(-1) },
+            new JobApplication { Id = 3, UserId = "u", CompanyName = "Deadline Co", RoleTitle = "Intern", Status = ApplicationStatus.Saved,   Deadline = today.AddDays(7) },
+            new JobApplication { Id = 4, UserId = "u", CompanyName = "Interview Co",RoleTitle = "Intern", Status = ApplicationStatus.Interview,
+                                 InterviewAt = TorontoMorning.ToUtc(today.AddDays(14).AddHours(10)) }
+        };
+
+        static List<string> Lines(IEnumerable<JobApplication> apps, UserClock clock) =>
+            ReminderService.Build(apps, Window, clock).Select(i => $"{i.Application.Id}:{i.Kind}:{i.Reason}").ToList();
+
+        var morning = Lines(apps, TorontoMorning);
+        var evening = Lines(apps, TorontoEvening);
+
+        Assert.Equal(4, morning.Count);
+        Assert.Equal(morning, evening);
+        Assert.Contains("1:FollowUpDue:Applied 9 days ago, no reply", morning);
+        Assert.Contains("3:DeadlineSoon:Deadline in 7 days", morning);
+    }
+
     [Fact]
     public void Analyzer_iso_date_parsing_is_strict()
     {

@@ -49,6 +49,9 @@ public class TimeZoneFlowTests : IClassFixture<TestAppFactory>
         var (client, token, uid) = await SignedInUserAsync();
 
         // Create: the form posts the user's wall-clock time (a date next week so the reminder chip renders too).
+        // A wall-clock date the user types into the form, not a today-relative comparison: every
+        // assertion below converts it through the same UserClock, so which calendar day it lands on
+        // is irrelevant. Deliberately not TestClock.Today — there is nothing here to keep in step with.
         var day = DateTime.UtcNow.Date.AddDays(5);
         var typed = $"{day:yyyy-MM-dd}T14:00";
         var create = await client.PostAsync("/JobApplications/Create", new FormUrlEncodedContent(new Dictionary<string, string>

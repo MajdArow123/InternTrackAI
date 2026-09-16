@@ -50,8 +50,8 @@ public class CalendarTests : IClassFixture<TestAppFactory>
     public async Task Profile_page_issues_a_token_and_the_feed_returns_every_event()
     {
         var (client, _, uid) = await SignedInUserAsync();
-        var d = DateTime.UtcNow.Date;
-        await SeedAsync(uid, "Feed Co, Inc; Ltd", deadline: d.AddDays(5), interview: d.AddDays(2).AddHours(14), followUp: d.AddDays(1));
+        var d = TestClock.Today;
+        await SeedAsync(uid, "Feed Co, Inc; Ltd", deadline: d.AddDays(5), interview: TestClock.Instant(d.AddDays(2), 14), followUp: TestClock.Instant(d.AddDays(1)));
         await SeedAsync(uid, "Second Co", deadline: d.AddDays(9));
         await SeedAsync(uid, "No Dates Co");
 
@@ -75,7 +75,7 @@ public class CalendarTests : IClassFixture<TestAppFactory>
     public async Task Feed_is_anonymous_but_rejects_wrong_or_missing_tokens()
     {
         var (client, _, uid) = await SignedInUserAsync();
-        await SeedAsync(uid, "Secret Co", deadline: DateTime.UtcNow.Date.AddDays(3));
+        await SeedAsync(uid, "Secret Co", deadline: TestClock.Today.AddDays(3));
         await client.GetAsync("/Profile");
         var token = await CalendarTokenAsync(uid);
 
@@ -116,7 +116,7 @@ public class CalendarTests : IClassFixture<TestAppFactory>
     {
         var (owner, _, ownerId) = await SignedInUserAsync();
         var (other, _, _)       = await SignedInUserAsync();
-        var id = await SeedAsync(ownerId, "Mine Co", interview: DateTime.UtcNow.Date.AddDays(1).AddHours(9));
+        var id = await SeedAsync(ownerId, "Mine Co", interview: TestClock.Instant(TestClock.Today.AddDays(1)));
 
         var mine = await owner.GetAsync($"/Calendar/application/{id}.ics");
         Assert.Equal(HttpStatusCode.OK, mine.StatusCode);

@@ -180,6 +180,16 @@ resume selects a different row rather than invalidating anything. Branch on `Res
 than re-implementing the "is there enough text" check; `Text` is populated even for `NoText` so best-effort
 callers (cover letter, interview prep) can use `.Text ?? ""` and ignore the status.
 
+**Time in tests.** Integration tests can't pin the clock, so seed dates through `Integration/TestClock.cs`, never
+`DateTime.UtcNow.Date`: a registered user has no `TimeZoneId` and therefore gets `America/Toronto`, whose date
+disagrees with UTC's for the last four hours of every summer evening. `TestClock.Today` for calendar dates
+(Deadline, DateApplied), `TestClock.Instant(localDate, hour)` for the instants (InterviewAt, FollowUpAt,
+LastContactAt) — seeding one of those as a bare local value drifts the hour and can cross midnight. Plain
+`DateTime.UtcNow` stays correct for instants that are only ever compared with other instants (token expiry,
+email dates, note timestamps). Unit tests pin a fixed clock instead and need none of this.
+`ReminderServiceTests.Every_rule_and_its_wording_is_identical_morning_and_evening` guards the service side, so a
+date test failing only in the evening is a bad seed, not a rule.
+
 **Time.** Store UTC; convert only through `UserClock`. In views: `var clock = await Clocks.GetAsync();`. Calendar dates (Deadline, DateApplied) are never shifted: `clock.Date(...)`. Instants (InterviewAt, FollowUpAt, LastContactAt, note/upload/generation stamps): `clock.LocalDate/LocalDateTime/LocalTime`. Create/Edit forms bind InterviewAt/FollowUpAt with `asp-for`, so the controller converts the entity before render and after post (`UtcToForm`/`FormToUtc` in JobApplicationsController). `UserClock.InputDateTime/InputDate` exist but are currently unused. "Today" for any N-days rule is `clock.Today`. Never `DateTime.Now`, never `.ToString(...)` a DateTime for display in a view (the one existing raw format, `Views/JobApplications/Edit.cshtml` LastContactAt hidden input, is a UTC round-trip, not display).
 
 **Migrations.** `dotnet ef migrations add` scaffolds against SQLite: DateTime columns come out `type: "TEXT"` (on Postgres that becomes a `text` column: inserts coerce, every read throws `InvalidCastException`), `double` as `REAL` (float4 on Postgres), and new tables get only `Sqlite:Autoincrement`, so Postgres inserts fail with 23502. Rule: every migration that adds/alters a DateTime, floating-point or identity column must branch on `migrationBuilder.ActiveProvider == "Npgsql.EntityFrameworkCore.PostgreSQL"` (`timestamp with time zone` / `double precision` vs `TEXT` / `REAL`) and add `.Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn)` to new identity keys. Templates: `20260913225431_AddGmailConnections.cs`, `20260913230212_AddStatusSuggestions.cs`. Verify with `tests/InternTrackAI.Tests/MigrationColumnTypeTests.cs`, which replays all migrations through the Npgsql SQL generator (no DB): it fails automatically on any non-timestamptz date column, but the identity check only covers tables listed in its `[InlineData]` — add every new table there. Optional real-Postgres check: `Integration/PostgresMigrationTests.cs` with `INTERNTRACK_PG_CONNECTION` set (drops and recreates that database). `PendingModelChangesWarning` is suppressed on Npgsql in Program.cs because the snapshot is SQLite-flavoured.
@@ -258,7 +268,7 @@ Account, demo, admin
 
 ## 10. Testing
 
-- Run: `dotnet test InternTrackAI.sln`. Current count: **701 tests, all passing** (2026-09-15, ~28 s; the 3 `PostgresMigrationTests` are no-ops unless `INTERNTRACK_PG_CONNECTION` is set). CI runs the same on every push/PR to `main`.
+- Run: `dotnet test InternTrackAI.sln`. Current count: **706 tests, all passing** (2026-09-15, ~28 s; the 3 `PostgresMigrationTests` are no-ops unless `INTERNTRACK_PG_CONNECTION` is set). CI runs the same on every push/PR to `main`.
 - `Integration/TestAppFactory.cs` boots the real `Program` in environment `Testing` against a private SQLite in-memory connection and a temp `UPLOADS_PATH`. Helpers and fakes in `Integration/`: `Http.cs` (antiforgery token scraping, `RegisterAsync` via the real Register page), `GmailFakes.cs` (`FakeGoogleOAuthClient`, `FakeGmailClient`, `FakeStatusClassifier`, `GmailTestHost`), `FakeProfileExtractor.cs`, `TestPdf.cs` (generates real text PDFs). Replace services with `WithWebHostBuilder` + `RemoveAll`. Assert on `WebUtility.HtmlDecode`d HTML (Razor entity-encodes non-ASCII).
 - Tests must never reach OpenAI or Google: the `Testing` environment loads no user-secrets, so no API key is present, and Google-facing clients are faked. Keep it that way.
 - Convention: every new endpoint that takes an id gets an ownership test (foreign user's id → 404, data unchanged). Existing ones: `OwnershipTests.cs`, `FollowUpEndpointTests.cs`, `ResumeRewriteEndpointTests.cs`, `KeywordCoverageEndpointTests.cs`, `BoardEndpointTests.cs`, `CalendarTests.cs`, `SuggestionEndpointTests.cs`, `GmailConnectTests.cs`. Gap: `Profile/RenameResume` has no foreign-id test.

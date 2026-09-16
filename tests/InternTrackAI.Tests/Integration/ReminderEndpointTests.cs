@@ -27,13 +27,8 @@ public class ReminderEndpointTests : IClassFixture<TestAppFactory>
         return (client, token, (await users.FindByEmailAsync(email))!.Id);
     }
 
-    /// <summary>
-    /// "Today" in the user's own time zone, which is what <see cref="ReminderService"/> counts days from.
-    /// Seeding from <c>DateTime.UtcNow.Date</c> instead makes every "N days ago" assertion off by one for the
-    /// hours when UTC has rolled into tomorrow but the user's zone has not (after 20:00 in Toronto).
-    /// </summary>
-    private static DateTime Today =>
-        TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, TimeZones.Resolve(null)).Date;
+    /// <summary>The test user's own "today" — see <see cref="TestClock"/> for why it isn't UtcNow.Date.</summary>
+    private static DateTime Today => TestClock.Today;
 
     private async Task<int> SeedAsync(JobApplication app)
     {
@@ -65,7 +60,7 @@ public class ReminderEndpointTests : IClassFixture<TestAppFactory>
         var id = await SeedAsync(new JobApplication
         {
             UserId = uid, CompanyName = "Follow Co", RoleTitle = "Intern", Status = ApplicationStatus.Applied,
-            DateApplied = Today.AddDays(-10), FollowUpAt = Today.AddDays(-1)
+            DateApplied = Today.AddDays(-10), FollowUpAt = TestClock.Instant(Today.AddDays(-1))
         });
 
         var res  = await client.SendAsync(Ajax($"/JobApplications/{id}/contacted", token));
@@ -109,7 +104,7 @@ public class ReminderEndpointTests : IClassFixture<TestAppFactory>
         var (client, _, uid) = await SignedInUserAsync();
         await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Quiet Co", RoleTitle = "Intern", Status = ApplicationStatus.Applied, DateApplied = Today.AddDays(-1) });
         await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Overdue Co", RoleTitle = "Intern", Status = ApplicationStatus.Saved, Deadline = Today.AddDays(-3) });
-        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Interview Co", RoleTitle = "Intern", Status = ApplicationStatus.Interview, InterviewAt = Today.AddDays(2).AddHours(14) });
+        await SeedAsync(new JobApplication { UserId = uid, CompanyName = "Interview Co", RoleTitle = "Intern", Status = ApplicationStatus.Interview, InterviewAt = TestClock.Instant(Today.AddDays(2), 14) });
 
         var all = await (await client.GetAsync("/JobApplications?view=list")).Content.ReadAsStringAsync();
         Assert.Contains("Quiet Co", all);

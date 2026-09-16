@@ -45,10 +45,12 @@ environment, so `OpenAI__ApiKey` here is `OpenAI:ApiKey` in `appsettings.json` o
 | `Admin__Email` | — | The one account allowed to call `POST /Admin/ResetDemo` for a manual reseed. Unset disables the endpoint, which is never advertised in the UI |
 
 The reseed purges the demo account and rebuilds it: 15 realistic applications, notes, three pending inbox
-suggestions and a saved cover letter. The profile and active resume are kept, a second labelled resume
+suggestions and a saved cover letter. The profile row and active resume are kept, a second labelled resume
 version is added, and the applications are split between the two so the Resume performance card has a real
-comparison to show. Target roles and display name are reset, and the seeded missing skills give the skill
-gap card a clear top skill, a middle tier and a tail.
+comparison to show. Every profile field the seeder owns — name, country, display name, skills and target
+roles — is restored rather than left as a visitor edited it, and the seeded skills are exactly the ones the
+seeded match scores imply, so the profile never contradicts the skill gap card. The seeded missing skills
+give that card a clear top skill, a middle tier and a tail.
 
 Sign in as `Admin__Email` and open `/Admin/ResetDemo` to run it by hand and check the result before turning
 the nightly job on. The startup log states whether auto-reset is armed.

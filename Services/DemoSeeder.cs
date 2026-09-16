@@ -22,7 +22,7 @@ public sealed record DemoResetResult(bool UserFound, string? Email, int Applicat
 /// due, upcoming interview) is recreated along with a few notes and one saved letter. Two resume
 /// versions are guaranteed ("Backend focus", the active one, and "General") and the applications
 /// are split between them so the dashboard's Resume performance card shows a real comparison. The profile's
-/// target roles are set to <see cref="TargetRoles"/> and its display name to <see cref="DisplayName"/>, and the seeded missing skills give the skill gap card a clear
+/// target roles are set to <see cref="TargetRoles"/>, its skills to <see cref="Skills"/> and its display name to <see cref="DisplayName"/>, and the seeded missing skills give the skill gap card a clear
 /// top skill (Docker, 6 of 11), a mid tier (Go, C++) and a tail of singles.
 /// Used by <see cref="DemoResetService"/> nightly and by <c>POST /Admin/ResetDemo</c> on demand.
 /// </summary>
@@ -110,11 +110,25 @@ public class DemoSeeder
     /// <summary>Display name the demo profile is restored to on every reset (the Manage and Profile pages refuse changes to it).</summary>
     public const string DisplayName = "Demo User";
 
+    /// <summary>Name shown on the profile card. Without it the card reads "Your name", which looks unfinished.</summary>
+    public const string FullName = "Demo User";
+
+    /// <summary>Matches the Toronto locations and default time zone the rest of the seed uses.</summary>
+    public const string Country = "Canada";
+
     /// <summary>
-    /// Resets the kept profile's fixed fields (creating the row if missing): target roles to exactly <see cref="TargetRoles"/>,
-    /// replaced rather than merged so roles a visitor added, or an earlier seed's roles, never add pills to the split; and the
-    /// display name to <see cref="DisplayName"/>, a backstop in case a change ever gets past the demo account guard.
+    /// Skills the demo profile is restored to. Every one of these appears in the <c>matching</c> list of at
+    /// least one seeded application — they are exactly what the seeded match scores claim the demo resume
+    /// demonstrates — and none appears in any <c>missing</c> list, so the profile can never contradict the
+    /// skill gap card sitting beside it on the dashboard. Add a skill here only alongside a seeded match
+    /// that justifies it.
     /// </summary>
+    public static readonly string[] Skills =
+    {
+        "Git", "SQL", "Python", "Java", "JavaScript", "TypeScript", "React", "Node.js",
+        "PostgreSQL", "REST APIs", "Linux", "Bash", "Data Structures", "Algorithms", "Testing"
+    };
+
     /// <summary>
     /// The demo user's own "today". The seeded applications are all relative dates ("applied 9 days ago"),
     /// and every rule that reads them back — <see cref="ReminderService"/>, the Attention card, the board
@@ -131,6 +145,13 @@ public class DemoSeeder
         return UserClock.For(zoneId);
     }
 
+    /// <summary>
+    /// Resets the kept profile's fixed fields (creating the row if missing): target roles to exactly
+    /// <see cref="TargetRoles"/> and skills to exactly <see cref="Skills"/> — replaced rather than merged, so
+    /// roles or skills a visitor added, or an earlier seed's, never accumulate across resets; the display name
+    /// to <see cref="DisplayName"/>, a backstop in case a change ever gets past the demo account guard; and the
+    /// name and country the profile card would otherwise show as placeholder text.
+    /// </summary>
     private async Task EnsureProfileAsync(string userId, CancellationToken ct)
     {
         var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct);
@@ -141,7 +162,10 @@ public class DemoSeeder
         }
 
         profile.TargetRolesJson = ProfileTags.ToJson(TargetRoles);
+        profile.SkillsJson      = ProfileTags.ToJson(Skills);
         profile.DisplayName     = DisplayName;
+        profile.FullName        = FullName;
+        profile.Country         = Country;
         await _db.SaveChangesAsync(ct);
     }
 
@@ -369,7 +393,7 @@ public class DemoSeeder
             deadlineInDays: -35, appliedDaysAgo: 75, salary: "$50/hr", link: "https://www.palantir.com/careers/fdse-intern",
             description: "Forward Deployed Software Engineers embed with customers to solve their hardest data problems using Palantir Foundry. Interns build data pipelines and applications in Python, TypeScript, and SQL, and present directly to customer stakeholders.\n\nRequirements: strong programming and communication skills, comfort with ambiguity, willingness to travel. Preferred: experience with data engineering, Spark, Docker, or building customer-facing applications.",
             score: 27, summary: "Weak fit. Your technical skills partially overlap, but the role is primarily about data engineering at scale and customer-facing delivery, neither of which appears in your experience.",
-            matching: new[] { "Python", "SQL", "Communication" }, missing: new[] { "Spark", "Data Engineering", "Customer Delivery", "TypeScript", "Docker" }),
+            matching: new[] { "Python", "SQL", "Communication" }, missing: new[] { "Spark", "Data Engineering", "Customer Delivery", "Scala", "Docker" }),
     };
 
     private static List<ApplicationNote> BuildNotes(string userId, List<JobApplication> apps)

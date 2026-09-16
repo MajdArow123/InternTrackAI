@@ -40,9 +40,10 @@ public class DemoResetTests
             db.JobApplications.AddRange(visitorApp, otherApp);
             await db.SaveChangesAsync();
             db.ApplicationNotes.Add(new ApplicationNote { UserId = demoId, JobApplicationId = visitorApp.Id, Text = "stale note" });
-            // Registration already created the profile row; give it a name we can check survives the reset.
+            // Registration already created the profile row; dirty every field the reset is supposed to restore.
             var profile = await db.UserProfiles.SingleOrDefaultAsync(p => p.UserId == demoId) ?? db.UserProfiles.Add(new UserProfile { UserId = demoId }).Entity;
             profile.FullName = "Demo Person";
+            profile.Country  = "Nowhere";
             profile.DisplayName = "Renamed By A Visitor";   // slipped past the guard somehow: the reset must put it back
             profile.SkillsJson = "[\"C#\"]";
             profile.TargetRolesJson = "[\"Frontend Engineering Intern\",\"Visitor Role\"]";   // an earlier seed's role + a visitor's
@@ -87,10 +88,14 @@ public class DemoResetTests
             // Profile and the active resume survive; the visitor's extra resume version is gone and the
             // seeder's own second version ("General") takes its place, with the applications split between them.
             var demoProfile = await db.UserProfiles.SingleAsync(p => p.UserId == demoId);
-            Assert.Equal("Demo Person", demoProfile.FullName);
             Assert.Equal(DemoSeeder.DisplayName, demoProfile.DisplayName);
             Assert.Equal("Demo User", demoProfile.DisplayName);
+            // The profile row survives the purge, but every field the seeder owns is restored rather than
+            // left as a visitor edited it — otherwise the page shows placeholder text for a name and no skills.
+            Assert.Equal(DemoSeeder.FullName, demoProfile.FullName);
+            Assert.Equal(DemoSeeder.Country,  demoProfile.Country);
             Assert.Equal(DemoSeeder.TargetRoles, ProfileTags.FromJson(demoProfile.TargetRolesJson));   // replaced, not merged
+            Assert.Equal(DemoSeeder.Skills, ProfileTags.FromJson(demoProfile.SkillsJson));             // the visitor's "C#" is gone
             var resumes = await db.ResumeVersions.Where(r => r.UserId == demoId).OrderBy(r => r.Id).ToListAsync();
             Assert.Equal(2, resumes.Count);
             Assert.DoesNotContain(resumes, r => r.OriginalFileName == "visitor.pdf");

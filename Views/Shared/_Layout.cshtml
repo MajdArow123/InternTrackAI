@@ -20,7 +20,7 @@
         <link rel="stylesheet" href="~/css/tour.css" asp-append-version="true" />
     }
     <script>
-    (function(){var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);})();
+    (function(){var t='light';try{t=localStorage.getItem('theme')||'light';}catch(e){}document.documentElement.setAttribute('data-theme',t);})();
     </script>
 </head>
 <body>
@@ -187,7 +187,8 @@
                 var curr = document.documentElement.getAttribute('data-theme');
                 var next = curr === 'dark' ? 'light' : 'dark';
                 document.documentElement.setAttribute('data-theme', next);
-                localStorage.setItem('theme', next);
+                // Blocked site data: the theme still switches, it just isn't remembered.
+                try { localStorage.setItem('theme', next); } catch (e) { /* not fatal */ }
             });
         }
 

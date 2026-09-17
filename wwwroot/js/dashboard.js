@@ -89,12 +89,17 @@
 (function () {
     var banner = document.getElementById('onboardingBanner');
     if (!banner) return;
-    if (localStorage.getItem('onboardingDismissed') === '1') {
+    // Storage throws in private mode / with site data blocked. An unreadable flag
+    // counts as "not dismissed" — the banner shows, and dismissing it still works
+    // for this page view even if the choice can't be stored.
+    var dismissed = null;
+    try { dismissed = localStorage.getItem('onboardingDismissed'); } catch (e) { /* not fatal */ }
+    if (dismissed === '1') {
         banner.style.display = 'none';
         return;
     }
     document.getElementById('onboardingClose').addEventListener('click', function () {
-        localStorage.setItem('onboardingDismissed', '1');
+        try { localStorage.setItem('onboardingDismissed', '1'); } catch (e) { /* not fatal */ }
         banner.style.display = 'none';
     });
 })();

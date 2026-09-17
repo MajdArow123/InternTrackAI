@@ -12,8 +12,10 @@ and the restart policy, so a fresh service mostly configures itself.
    every push to `main`; no build command or start command needs setting.
 2. **Add a PostgreSQL service.** Railway injects `DATABASE_URL`, which is all the app needs to switch
    providers — see [Database](#database) below.
-3. **Attach a volume**, mounted at `/data`, and set `UPLOADS_PATH=/data/uploads`. Without this, uploaded
-   resumes and photos live in the container filesystem and vanish on the next deploy.
+3. **Attach a volume** and point `UPLOADS_PATH` at a directory inside its mount. Without this, uploaded
+   resumes and photos live in the container filesystem and vanish on the next deploy. The live deployment
+   mounts its volume at `/app/uploads` and sets `UPLOADS_PATH=/app/uploads/uploads`; any mount path works
+   as long as `UPLOADS_PATH` sits inside it.
 4. **Set the environment variables** below. Only `OpenAI__ApiKey` and `UPLOADS_PATH` are needed for a
    working deployment; everything else is optional — with the caveat that without `Resend__ApiKey` the
    password-reset link is only written to the log, so nobody can actually reset a password.
@@ -37,7 +39,7 @@ environment, so `OpenAI__ApiKey` here is `OpenAI:ApiKey` in `appsettings.json` o
 | Variable | Default | Purpose |
 |---|---|---|
 | `OpenAI__ApiKey` | — | OpenAI API key. Every AI feature checks it and degrades gracefully when it is blank or left as the `your-openai-api-key-here` placeholder, so the app still runs without one — the AI features just report that they are not configured |
-| `UPLOADS_PATH` | `./uploads` | Upload root. Point at the mounted volume, e.g. `/data/uploads` |
+| `UPLOADS_PATH` | `./uploads` | Upload root. Point at a directory inside the mounted volume — the live deployment uses `/app/uploads/uploads`, inside a volume mounted at `/app/uploads` |
 
 ### Demo account
 
@@ -137,6 +139,11 @@ migration step to run, and no window where the code is ahead of the schema.
 Resumes and profile photos are written under `UPLOADS_PATH`. Resumes are never served as static files —
 they are streamed back through a controller action that checks ownership first. Only profile photos are
 public.
+
+`UploadStorage` creates the tree it needs under that root: `photos/{userId}.{ext}` and
+`resumes/{userId}/{guid}.pdf`. On the live deployment that resolves to
+`/app/uploads/uploads/photos/…` and `/app/uploads/uploads/resumes/…` — the doubled segment is the
+volume's mount path (`/app/uploads`) plus the upload root inside it, not a typo.
 
 ### Data Protection keys
 

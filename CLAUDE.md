@@ -288,7 +288,7 @@ Account, demo, admin
 - Railway builds `Dockerfile` (sdk:9.0 publish → aspnet:9.0, `ENTRYPOINT dotnet InternTrackAI.dll`). `railway.toml`: `healthcheckPath = "/health"`, timeout 100, restart ON_FAILURE ×3.
 - PostgreSQL via Railway-injected `DATABASE_URL`; `PORT` is injected and bound in Program.cs.
 - `db.Database.Migrate()` runs on every startup, so shipping a migration is a push.
-- Uploads: `UPLOADS_PATH` points at a mounted Railway volume (`docs/deployment.md`: volume at `/data`, `UPLOADS_PATH=/data/uploads`; not verifiable from the repo).
+- Uploads: `UPLOADS_PATH` points at a directory inside a mounted Railway volume. The live service mounts `interntrackai-volume` at `/app/uploads` and sets `UPLOADS_PATH=/app/uploads/uploads` (read from the Railway service on 2026-09-17; not verifiable from the repo).
 - `/health`: 200 `{"status":"Healthy",...}` when the DB answers, 503 otherwise; logged at Verbose.
 - Production has no `appsettings.json` (gitignored); defaults live in code and `appsettings.Production.json`. Configure with `__` env vars.
 - Exception handler `/Home/Error` + HSTS outside Development; `UseStatusCodePagesWithReExecute("/Home/NotFound")` everywhere.

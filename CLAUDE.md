@@ -225,6 +225,8 @@ date test failing only in the evening is a bad seed, not a rule.
 
 Non-colour tokens: `--radius` 16px, `--radius-md` 12px, `--radius-sm` 10px, `--radius-pill` 999px, `--shadow-xs/-sm/-/-lg` and `--focus-ring` (both themes), `--ease`, `--duration` 180ms, `--font`.
 
+**Guided tour.** Copy and targets live in `wwwroot/js/tour-steps.js` — the only file to edit for either; `tour.js` is the engine and knows nothing about individual steps. A target must be `#id` or `[data-tour="…"]`: class and descendant selectors fail `Integration/TourTests.cs` by design, because the tests verify each selector by string-matching the rendered page rather than pulling in an HTML parser. For the same reason `tour-steps.js` assigns a **strict-JSON** object literal (double-quoted keys, no trailing commas) — keep comments outside the object or the tests can't parse it. The `?` key is still the keyboard-shortcuts modal, not the tour; the tour is the "Tour" button in the nav (`_Layout.cshtml`, signed-in pages only). Auto-run is gated on `localStorage["itai.tour.v1"]`, never a user record — the demo account is shared, so a per-account flag would let the first visitor dismiss it for everyone.
+
 **Dependencies.** No new NuGet packages, vendored libraries or CDN scripts without asking the user first.
 
 **Working rules from the user.**
@@ -268,6 +270,7 @@ Account, demo, admin
 - Profile: photo (avatar is the upload control), basic info, skills/roles chips, resume versions, GitHub repos — `ProfileController`, `GitHubService`.
 - Account deletion — `DeletePersonalData` page + `UserDataPurger`. Password reset via Identity; real email through Resend when `Resend:ApiKey` is set, otherwise the link is written to the log.
 - Demo login — `AccountController.DemoLogin`. Demo reset — `DemoSeeder` + `DemoResetService`. Admin reset — `AdminController.ResetDemo`.
+- Guided tour: auto-runs once on the dashboard, plus opt-in page tours from the nav "Tour" button — `wwwroot/js/tour-steps.js` (definitions), `tour.js` (engine), `tour.css`, `_Layout.cshtml`.
 - Dark mode toggle and keyboard shortcuts (`?`, N, D, C, P, S, Esc) — `_Layout.cshtml`. Landing hero interactive preview — `_HeroPreview`, `landing-preview.js`.
 - There is **no job feed** feature (no controller, service, or view for one).
 

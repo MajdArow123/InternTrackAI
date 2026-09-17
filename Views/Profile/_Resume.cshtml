@@ -24,7 +24,7 @@
         @if (Model.Resumes.Any())
         {
             <form id="resumeRenameForm" hidden>@Html.AntiForgeryToken()</form>
-            <div class="doc-list mb-3">
+            <div class="doc-list mb-3" data-tour="resume-versions">
                 @foreach (var r in Model.Resumes)
                 {
                     <div class="doc-row @(r.IsActive ? "doc-active" : "")">

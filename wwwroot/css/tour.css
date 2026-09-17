@@ -1,0 +1,147 @@
+/* ══════════════════════════════════════════════════════
+   Guided tour — overlay, spotlight, tooltip, nav button.
+   Every colour is a site.css token, so light/dark follow
+   html[data-theme] with no extra work. The one new token is
+   --tour-scrim: site.css has no backdrop colour to reuse
+   (the drawer and confirm overlays hardcode their rgba).
+   Layering: site-nav 1000, drawer 1030, compare 9997,
+   confirm/shortcuts 9998, toast 9999. The tour sits above
+   the nav and drawer, below the modals and toasts.
+   ══════════════════════════════════════════════════════ */
+
+:root { --tour-scrim: rgba(0,0,0,.45); }
+html[data-theme="dark"] { --tour-scrim: rgba(0,0,0,.62); }
+
+/* ── Nav button ──────────────────────────────────────── */
+.tour-btn {
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-2);
+  font-family: var(--font);
+  font-size: .82rem;
+  font-weight: 500;
+  line-height: 1;
+  padding: .44rem .72rem;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease), border-color var(--duration) var(--ease);
+}
+.tour-btn:hover { background: var(--accent-soft); color: var(--accent-text); border-color: transparent; }
+.tour-btn:active { transform: scale(.96); }
+.tour-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ── Overlay + spotlight ─────────────────────────────── */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9990;
+  background: transparent;          /* the scrim is the spotlight's shadow */
+}
+/* Steps with no target dim the whole page instead. */
+.tour-overlay--plain { background: var(--tour-scrim); }
+
+.tour-spotlight {
+  position: fixed;
+  border-radius: var(--radius-md);
+  pointer-events: none;
+  box-shadow: 0 0 0 2px rgba(var(--accent-rgb), .55), 0 0 0 9999px var(--tour-scrim);
+  transition: top var(--duration) var(--ease), left var(--duration) var(--ease),
+              width var(--duration) var(--ease), height var(--duration) var(--ease);
+}
+.tour-spotlight[hidden] { display: none; }
+
+/* ── Tooltip ─────────────────────────────────────────── */
+.tour-tip {
+  position: fixed;
+  z-index: 9991;
+  width: min(360px, calc(100vw - 24px));
+  box-sizing: border-box;
+  padding: 1.05rem 1.15rem .95rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  font-family: var(--font);
+  color: var(--text);
+  animation: tourTipIn var(--duration) var(--ease);
+}
+@keyframes tourTipIn { from { opacity: 0; } to { opacity: 1; } }
+
+.tour-tip:focus { outline: none; }
+.tour-tip:focus-visible { outline: none; box-shadow: var(--shadow-lg), var(--focus-ring); }
+
+.tour-tip--center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+.tour-tip-title {
+  margin: 0 1.6rem .4rem 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: -.01em;
+  color: var(--text);
+}
+.tour-tip-body {
+  margin: 0 0 .9rem;
+  font-size: .88rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.tour-tip-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+.tour-count {
+  font-size: .76rem;
+  font-weight: 500;
+  color: var(--muted-2);
+  font-variant-numeric: tabular-nums;
+}
+.tour-tip-actions { display: inline-flex; gap: .4rem; }
+.tour-tip-actions .btn { border-radius: var(--radius-sm); }
+
+.tour-close {
+  position: absolute;
+  top: .6rem;
+  right: .6rem;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+.tour-close:hover { background: var(--surface-3); color: var(--text); }
+.tour-close:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.tour-close svg { width: 14px; height: 14px; display: block; }
+
+/* ── Small screens: dock to the bottom, keep the spotlight ── */
+@media (max-width: 639.98px) {
+  .tour-tip--docked {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: none;
+    transform: none;
+    border-radius: var(--radius) var(--radius) 0 0;
+    border-bottom: 0;
+    padding-bottom: calc(.95rem + env(safe-area-inset-bottom, 0px));
+  }
+  .tour-tip--docked.tour-tip--center { transform: none; }
+}
+
+/* ── Reduced motion ──────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .tour-spotlight { transition: none; }
+  .tour-tip { animation: none; }
+  .tour-btn:active { transform: none; }
+}

@@ -15,6 +15,10 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/InternTrackAI.styles.css" asp-append-version="true" />
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <link rel="stylesheet" href="~/css/tour.css" asp-append-version="true" />
+    }
     <script>
     (function(){var t=localStorage.getItem('theme')||'light';document.documentElement.setAttribute('data-theme',t);})();
     </script>
@@ -44,7 +48,7 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
                 <div class="navbar-collapse collapse d-md-inline-flex justify-content-between align-items-center">
-                    <ul class="navbar-nav flex-grow-1 gap-1 ms-md-2">
+                    <ul class="navbar-nav flex-grow-1 gap-1 ms-md-2" data-tour="nav">
                         <li class="nav-item">
                             <a class="nav-link @(IsActive("Home","Index") ? "active" : "")"
                                asp-area="" asp-controller="Home" asp-action="Index">Home</a>
@@ -67,6 +71,13 @@
                         </li>
                     </ul>
                     <div class="d-flex align-items-center gap-2 nav-actions">
+                        @* Every signed-in page resolves to a tour: a page tour where one
+                           exists, the overview everywhere else. Auth pages use _AuthLayout
+                           and get no button. *@
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <button type="button" id="tour-btn" class="tour-btn" aria-label="Start guided tour">Tour</button>
+                        }
                         <button id="theme-toggle" class="dark-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
                             <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
@@ -114,6 +125,11 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <script src="~/js/tour-steps.js" asp-append-version="true"></script>
+        <script src="~/js/tour.js" asp-append-version="true"></script>
+    }
     @await RenderSectionAsync("Scripts", required: false)
 
     @if (TempData["Toast"] is string toastData)

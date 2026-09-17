@@ -18,7 +18,7 @@
         string? attentionRoute = curAttention ? "true" : null;
         var pillOrder = new[] { ApplicationStatus.Saved, ApplicationStatus.Applied, ApplicationStatus.Interview, ApplicationStatus.Offer, ApplicationStatus.Rejected };
     }
-    <div class="filter-pills mb-3" role="navigation" aria-label="Filter by status">
+    <div class="filter-pills mb-3" role="navigation" aria-label="Filter by status" data-tour="stage-pills">
         <a class="filter-pill @(curStatus == "" && !curAttention ? "active" : "")"
            asp-action="@filterAction" asp-route-search="@curSearch" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort">
             All <span class="filter-pill-count">@totalCount</span>
@@ -35,7 +35,7 @@
                 <span class="filter-pill-dot"></span>@st
             </a>
         }
-        <div class="view-toggle" role="group" aria-label="View">
+        <div class="view-toggle" role="group" aria-label="View" data-tour="view-toggle">
             <a class="filter-pill @(isBoard ? "" : "active")" aria-current="@(isBoard ? null : "page")"
                asp-action="Index" asp-route-view="list" asp-route-search="@curSearch" asp-route-status="@curStatus" asp-route-workMode="@curWorkMode" asp-route-sortBy="@curSort" asp-route-attention="@attentionRoute">List</a>
             <a class="filter-pill @(isBoard ? "active" : "")" aria-current="@(isBoard ? "page" : null)"
@@ -44,7 +44,7 @@
     </div>
 
     <!-- ── Filter Bar ── -->
-    <form method="get" asp-action="@filterAction" class="filter-bar mb-3">
+    <form method="get" asp-action="@filterAction" class="filter-bar mb-3" data-tour="filters">
         <input type="hidden" name="status" value="@curStatus" />
         @if (curAttention)
         {

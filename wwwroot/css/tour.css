@@ -95,7 +95,7 @@ html[data-theme="dark"] { --tour-scrim: rgba(0,0,0,.62); }
 .tour-count {
   font-size: .76rem;
   font-weight: 500;
-  color: var(--muted-2);
+  color: var(--text-2);
   font-variant-numeric: tabular-nums;
 }
 .tour-tip-actions { display: inline-flex; gap: .4rem; }

@@ -11,18 +11,24 @@
   --surface-2:     #F4F4F7;   /* table heads, drawer sections, AI boxes, hover rows */
   --surface-3:     #EFEFF2;   /* pressed / neutral chips */
   --text:          #1D1D1F;
-  --text-2:        #6E6E73;
-  --muted:         #6E6E73;
-  --muted-2:       #AEAEB2;
+  /* #6E6E73 measured 4.38:1 on --bg and 4.42:1 on --surface-3 — just under AA, and it is the
+     colour of every nav link, form hint and table meta line, so it failed on 13 of 13 pages.
+     #67676C clears 4.5:1 on all four light surfaces (4.86 on --bg, the worst case). */
+  --text-2:        #67676C;
+  --muted:         #67676C;
+  --muted-2:       #AEAEB2;   /* decorative only — never the sole carrier of information */
   --border:        rgba(0,0,0,.06);
   --border-strong: rgba(0,0,0,.12);
 
-  /* Accent */
-  --accent:        #0A84FF;
-  --accent-h:      #0071E3;
-  --accent-soft:   rgba(10,132,255,.10);
+  /* Accent. Darkened from #0A84FF, which carried white text at only 3.65:1 — .btn-primary fills
+     from --accent, so every primary button failed AA in both themes (dark does not override it).
+     #0066CC gives 5.57:1, and --accent-h stays a shade darker again so hover still deepens.
+     -soft/-rgb move with it so the tints, focus ring and chart fills stay one colour. */
+  --accent:        #0066CC;
+  --accent-h:      #0059B3;
+  --accent-soft:   rgba(0,102,204,.10);
   --accent-text:   #0066CC;
-  --accent-rgb:    10,132,255;
+  --accent-rgb:    0,102,204;
 
   /* Semantic — chips and alerts only */
   --success:       #30D158;
@@ -54,7 +60,7 @@
   --shadow-sm:     0 1px 2px rgba(0,0,0,.04), 0 4px 14px rgba(0,0,0,.05);
   --shadow:        0 2px 6px rgba(0,0,0,.05), 0 12px 32px rgba(0,0,0,.08);
   --shadow-lg:     0 8px 24px rgba(0,0,0,.10), 0 28px 72px rgba(0,0,0,.14);
-  --focus-ring:    0 0 0 4px rgba(10,132,255,.22);
+  --focus-ring:    0 0 0 4px rgba(0,102,204,.22);
 
   /* Floating surfaces — tooltips stay dark-on-light in light mode */
   --tooltip-bg:     #1D1D1F;
@@ -79,7 +85,7 @@ html[data-theme="dark"] {
   --border:        rgba(255,255,255,.08);
   --border-strong: rgba(255,255,255,.14);
   --accent-text:   #409CFF;
-  --accent-soft:   rgba(10,132,255,.16);
+  --accent-soft:   rgba(0,102,204,.16);
   --success-text:  #30D158;
   --warning-text:  #FFB340;
   --danger-text:   #FF6961;
@@ -91,7 +97,7 @@ html[data-theme="dark"] {
   --shadow-sm:     0 1px 2px rgba(0,0,0,.3), 0 4px 14px rgba(0,0,0,.35);
   --shadow:        0 2px 6px rgba(0,0,0,.35), 0 12px 32px rgba(0,0,0,.45);
   --shadow-lg:     0 8px 24px rgba(0,0,0,.5), 0 28px 72px rgba(0,0,0,.6);
-  --focus-ring:    0 0 0 4px rgba(10,132,255,.32);
+  --focus-ring:    0 0 0 4px rgba(0,102,204,.32);
   /* An elevated grey, not the near-black card colour, so tooltips sit above dark cards */
   --tooltip-bg:     #3A3A3C;
   --tooltip-color:  #F5F5F7;

@@ -211,11 +211,11 @@ date test failing only in the evening is a bad seed, not a rule.
 | `--card` | #FBFBFD | #1C1C1E |
 | `--surface-2` / `--surface-3` | #F4F4F7 / #EFEFF2 | #232326 / #2C2C2E |
 | `--text` | #1D1D1F | #F5F5F7 |
-| `--text-2`, `--muted` | #6E6E73 | #98989D |
+| `--text-2`, `--muted` | #67676C | #98989D |
 | `--muted-2` | #AEAEB2 | #636366 |
 | `--border` / `--border-strong` | rgba(0,0,0,.06) / rgba(0,0,0,.12) | rgba(255,255,255,.08) / rgba(255,255,255,.14) |
-| `--accent` / `--accent-h` / `--accent-rgb` | #0A84FF / #0071E3 / 10,132,255 | inherited |
-| `--accent-soft` / `--accent-text` | rgba(10,132,255,.10) / #0066CC | rgba(10,132,255,.16) / #409CFF |
+| `--accent` / `--accent-h` / `--accent-rgb` | #0066CC / #0059B3 / 0,102,204 | inherited |
+| `--accent-soft` / `--accent-text` | rgba(0,102,204,.10) / #0066CC | rgba(0,102,204,.16) / #409CFF |
 | `--success` / `-soft` / `-text` | #30D158 / rgba(48,209,88,.14) / #1B8F3A | inherited / inherited / #30D158 |
 | `--warning` / `-soft` / `-text` | #FF9F0A / rgba(255,159,10,.16) / #B36B00 | inherited / inherited / #FFB340 |
 | `--danger` / `-soft` / `-text` | #FF453A / rgba(255,69,58,.12) / #C62F26 | inherited / inherited / #FF6961 |
@@ -224,6 +224,8 @@ date test failing only in the evening is a bad seed, not a rule.
 | `--tooltip-bg` / `-color` / `-border` | #1D1D1F / #F5F5F7 / transparent | #3A3A3C / #F5F5F7 / rgba(255,255,255,.12) |
 | `--dark` | #1D1D1F | #3A3A3C |
 | `--primary`, `--primary-h` | legacy aliases of accent | — |
+
+The accent and secondary-text values are contrast-load-bearing, not taste: `--text-2`/`--muted` at #6E6E73 measured 4.38:1 on `--bg` (AA wants 4.5), and `--accent` at #0A84FF carried the white `.btn-primary` label at 3.65:1 in both themes. #67676C and #0066CC clear it (4.86 and 5.57); `--accent-h`, `--accent-soft`, `--accent-rgb` and `--focus-ring` moved with the accent so the palette stays one colour. Darkening either further, or lightening `--accent` back for a brighter dark theme, re-breaks AA — white on the fill is the binding constraint. `wwwroot/js/dashboard.js` reads `--accent`/`--muted` at runtime so charts follow automatically; **`Services/EmailTemplates.cs` does not** — its `Accent`/`Muted` literals are still #0A84FF / #6E6E73 and are the one copy left to bring in step.
 
 Non-colour tokens: `--radius` 16px, `--radius-md` 12px, `--radius-sm` 10px, `--radius-pill` 999px, `--shadow-xs/-sm/-/-lg` and `--focus-ring` (both themes), `--ease`, `--duration` 180ms, `--font`.
 

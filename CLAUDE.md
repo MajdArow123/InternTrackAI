@@ -281,7 +281,20 @@ Account, demo, admin
 - Tests must never reach OpenAI or Google: the `Testing` environment loads no user-secrets, so no API key is present, and Google-facing clients are faked. Keep it that way.
 - Convention: every new endpoint that takes an id gets an ownership test (foreign user's id → 404, data unchanged). Existing ones: `OwnershipTests.cs`, `FollowUpEndpointTests.cs`, `ResumeRewriteEndpointTests.cs`, `KeywordCoverageEndpointTests.cs`, `BoardEndpointTests.cs`, `CalendarTests.cs`, `SuggestionEndpointTests.cs`, `GmailConnectTests.cs`. Gap: `Profile/RenameResume` has no foreign-id test.
 - Migration guard: `MigrationColumnTypeTests.cs` (section 8).
-- Playwright: not part of the repo, no committed scripts or package.json. Browser verification is done ad hoc from a session scratchpad using gstack's install (`~/.claude/skills/gstack/node_modules/playwright`, symlink `node_modules` into the scratchpad; browsers cached in `~/Library/Caches/ms-playwright`). User rule: any refactor of the Applications views needs a Playwright click-through of every action on the page. Seed data through the UI (Register, CSV import, Create form hidden inputs), not the database.
+- Re-running the QA suite (`e2e/`, added 2026-09-19 by the dd-web-full-test audit; report-only, six dimensions, 223 checks). It is **not** part of `dotnet test` and nothing about it is on the NuGet or npm side — the specs are plain Node ESM driven by a borrowed Playwright and the system Chrome channel, so no browser download and no package lands in this repo. Start the app first, with the placeholder key so no dimension can spend:
+
+  ```bash
+  ASPNETCORE_ENVIRONMENT=Development OpenAI__ApiKey=your-openai-api-key-here \
+    dotnet run --no-launch-profile --urls http://localhost:5240
+
+  npm install --prefix /tmp/qa-axe axe-core        # axe-core is not on this machine; ~1 s, outside the repo
+  NODE_PATH=$HOME/.claude/skills/gstack/node_modules \
+  AXE_PATH=/tmp/qa-axe/node_modules/axe-core/axe.min.js \
+    node e2e/run-all.mjs                            # or: node e2e/run-all.mjs security a11y
+  ```
+
+  `NODE_PATH` is how `e2e/lib/harness.mjs` resolves `playwright` (it falls back to the gstack path on its own, so the variable is belt-and-braces); without `AXE_PATH` the axe scans record `SKIP` and the manual keyboard checks still run. `BASE_URL` overrides the target — never point it at either production host. Results land in `e2e/artifacts/` and `TEST-REPORT.html`, both gitignored. The suite registers throwaway `qa.*@example.test` accounts through the real Register page and leaves them behind; delete them through `Identity/Account/Manage/DeletePersonalData`, never with SQL.
+- Playwright: no npm project and no `package.json` in the repo — the only committed scripts are the `e2e/` suite above. The library comes from gstack's install (`~/.claude/skills/gstack/node_modules/playwright`, 1.58.2), reached with `NODE_PATH` or by symlinking `node_modules` into a scratchpad. **No Playwright browsers are downloaded on this machine** — there is no `~/Library/Caches/ms-playwright` (nor `~/.cache/ms-playwright`), so every launch uses the installed Google Chrome via `chromium.launch({ channel: 'chrome' })`, as `e2e/lib/harness.mjs` does. Running `npx playwright install` would be the only way to get Firefox or WebKit, which is why the audit records those two engines as `SKIP`. Ad-hoc verification follows the same pattern. User rule: any refactor of the Applications views needs a Playwright click-through of every action on the page. Seed data through the UI (Register, CSV import, Create form hidden inputs), not the database.
 
 ## 11. Deployment
 
@@ -343,4 +356,13 @@ Genuinely unfinished or known issues:
 - `OpenAI:BaseUrl` is ignored by the analyzer, matcher, cover letter, interview prep and salary services.
 - `Profile/RenameResume` lacks an ownership test.
 - `GeneratedCoverLetter` XML comment claims letters survive application deletion; the controller deletes them.
-- `ResumeMatcherService` is the one AI service that never got the prompt-hardening pass: it interpolates the resume and the job description straight into the prompt (`ResumeMatcherService.cs:74-91`) with no `PromptData` tagged sections, data-rule or tag-look-alike stripping, unlike `FollowUpService` and `ResumeRewriteService`. It also logs the **entire OpenAI error body** (`:118`), where `ResumeRewriteService.cs` deliberately logs the status code only because an error body can echo parts of the request. Both are known and deliberately deferred, not oversights — fix them together when the matcher is next touched.
+- `ResumeMatcherService` is the one AI service that never got the prompt-hardening pass: it interpolates the resume and the job description straight into the prompt (`ResumeMatcherService.cs:74-91`) with no `PromptData` tagged sections, data-rule or tag-look-alike stripping, unlike `FollowUpService` and `ResumeRewriteService`. It also logs the **entire OpenAI error body** (`:118`), where `ResumeRewriteService.cs` deliberately logs the status code only because an error body can echo parts of the request. Both are known and deliberately deferred, not oversights — fix them together when the matcher is next touched. 
+
+## Testing (dd-web-full-test skill)
+- "test my app thoroughly" → full 6-dimension audit
+- "security scan" → security only
+- Tests go in `e2e/`. Results go in `TEST-REPORT.html`.
+- NEVER run tests against production: https://interntrackai.majdarow.com
+  or https://interntrackai-production.up.railway.app. Only test the local dev server.
+- The UI is ASP.NET Core MVC + Razor views (server-rendered HTML), not React.
+  Test it through the browser with Playwright; skip Vitest/React Testing Library.

@@ -7,7 +7,7 @@
         <form hidden aria-hidden="true">@Html.AntiForgeryToken()</form>
         <section class="attention-card anim-fade-up" id="attention-card" aria-labelledby="attention-heading">
             <div class="card-header-clean">
-                <h5 id="attention-heading">Attention <span class="attention-count" id="attention-count">@Model.AttentionTotal</span></h5>
+                <h2 id="attention-heading" class="h5">Attention <span class="attention-count" id="attention-count">@Model.AttentionTotal</span></h2>
                 <a asp-controller="JobApplications" asp-action="Index" asp-route-attention="true" asp-route-view="list"
                    class="btn btn-sm btn-outline-secondary @(Model.AttentionTotal == 0 ? "d-none" : "")" id="attention-view-all">View all</a>
             </div>

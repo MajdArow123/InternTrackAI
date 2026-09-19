@@ -501,10 +501,10 @@ html[data-theme="dark"] .lp-shot-nav button.on { background: rgba(255,255,255,.1
 .lp-shot-hint { margin: .9rem 0 0; font-size: .8667rem; color: var(--text-2); }
 .lp-shot-body { padding: 1.6rem 1.6rem 1.75rem; background: var(--bg); }
 .lp-shot-head { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 1.1rem; }
-.lp-shot-head h3 { margin: 0; font-size: 1.4667rem; font-weight: 600; letter-spacing: -.03em; }
+.lp-shot-head h3, .lp-shot-head .lp-shot-title { margin: 0; font-size: 1.4667rem; font-weight: 600; letter-spacing: -.03em; }
 .lp-shot-head span { font-size: .8667rem; color: var(--text-2); }
 .lp-mini-card { background: var(--card); border-radius: 14px; box-shadow: var(--shadow-sm); padding: 1rem 1.15rem; }
-.lp-mini-card h4 { margin: 0 0 .75rem; font-size: .9333rem; font-weight: 600; letter-spacing: -.01em; }
+.lp-mini-card h4, .lp-mini-card .lp-card-title { margin: 0 0 .75rem; font-size: .9333rem; font-weight: 600; letter-spacing: -.01em; }
 .lp-shot-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; margin-bottom: .75rem; }
 .lp-stat .l { font-size: .8rem; color: var(--text-2); margin-bottom: .4rem; }
 .lp-stat .n { font-size: 1.7333rem; font-weight: 600; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; }
@@ -538,7 +538,7 @@ html[data-theme="dark"] .lp-shot-nav button.on { background: rgba(255,255,255,.1
 .lp-story li { padding: .5rem 0; border-top: 1px solid var(--border); display: flex; gap: .75rem; }
 .lp-story li::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex: none; margin-top: .6rem; }
 .lp-frag { background: var(--card); border-radius: 20px; box-shadow: var(--shadow-lg), 0 0 0 1px var(--border); padding: 1.4rem 1.5rem; }
-.lp-frag h5 { margin: 0 0 .9rem; font-size: .8667rem; font-weight: 500; color: var(--text-2); letter-spacing: 0; }
+.lp-frag h5, .lp-frag .lp-frag-title { margin: 0 0 .9rem; font-size: .8667rem; font-weight: 500; color: var(--text-2); letter-spacing: 0; }
 .lp-score { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
 .lp-kv { font-size: .8667rem; color: var(--text-2); line-height: 1.5; }
 .lp-kv b { color: var(--text); font-weight: 500; }
@@ -870,7 +870,7 @@ textarea.form-control { min-height: 100px; resize: vertical; }
   gap: .75rem;
 }
 
-.card-header-clean h5 {
+.card-header-clean h5, .card-header-clean .h5 {
   font-size: 1.1333rem;
   font-weight: 600;
   letter-spacing: -.01em;
@@ -999,7 +999,7 @@ textarea.form-control { min-height: 100px; resize: vertical; }
 }
 .analyzer-icon svg { width: 20px; height: 20px; }
 
-.analyzer-header h6 {
+.analyzer-header h6, .analyzer-header .h6 {
   color: var(--text);
   font-weight: 600;
   font-size: 1rem;
@@ -4202,7 +4202,7 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .lp-textarea { min-height: 64px; color: var(--text-2) !important; }
 .lp-powered { font-size: .7333rem; color: var(--text-2); align-self: center; }
 .lp-card-top { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; margin-bottom: .6rem; }
-.lp-card-top h4 { margin: 0; }
+.lp-card-top h4, .lp-card-top .lp-card-title { margin: 0; }
 .lp-card-top .word-count { font-size: .7333rem; }
 .lp-shot-panel .lp-aibox { font-size: .8rem; }
 .lp-aibox p { margin: 0 0 .55rem; line-height: 1.55; }

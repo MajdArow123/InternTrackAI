@@ -273,8 +273,12 @@
         // Clicking the row background focuses nothing, so activeElement is <body> on a mouse open.
         // Fall back to that row's own opener button: closing then lands the caret somewhere useful
         // instead of dumping it at the top of the document.
+        // Only a real tab stop counts as the thing that opened this. Clicking a row focuses the
+        // nearest focusable ancestor, which since the skip link is <main tabindex="-1"> - returning
+        // focus there would drop the user at the top of the page instead of back on their row.
         var active = document.activeElement;
-        lastTrigger = (active instanceof HTMLElement && active !== document.body && active !== drawer)
+        var isTabStop = active instanceof HTMLElement && active !== drawer && active.tabIndex >= 0;
+        lastTrigger = isTabStop
             ? active
             : (appRow && appRow.querySelector ? appRow.querySelector(".row-open") : null);
         focusFirst();

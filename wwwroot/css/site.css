@@ -731,6 +731,20 @@ html[data-theme="dark"] .lp-shot-nav button.on { background: rgba(255,255,255,.1
 html[data-theme="dark"] .app-table-wrapper .table tbody tr:hover td { background: rgba(255,255,255,.04); }
 .app-table-wrapper .table tbody tr:last-child td { border-bottom: none; }
 
+/* Skip link: off-screen until focused, then the first thing a keyboard user sees. Sits above
+   the sticky header, which is position:sticky at z-index below this. */
+.skip-link {
+  position: absolute; left: 0; top: 0; z-index: 2000;
+  transform: translateY(-120%);
+  background: var(--card); color: var(--accent-text);
+  padding: .6rem 1.1rem; margin: .5rem;
+  border-radius: var(--radius-sm); border: 1px solid var(--border-strong);
+  font-size: .9333rem; font-weight: 600; text-decoration: none;
+  box-shadow: var(--shadow);
+}
+.skip-link:focus { transform: translateY(0); outline: none; box-shadow: var(--focus-ring); }
+#main-content:focus { outline: none; }
+
 .company-name { font-weight: 600; color: var(--text); }
 /* The row itself is not focusable any more (nested-interactive: it held a checkbox and three
    link-buttons). This is the keyboard way into the drawer — a real button that looks like the

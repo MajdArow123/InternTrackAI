@@ -24,6 +24,7 @@
     </script>
 </head>
 <body>
+    <a class="skip-link" href="#main-content">Skip to content</a>
     @{
         var ctrl   = ViewContext.RouteData.Values["controller"]?.ToString();
         var action = ViewContext.RouteData.Values["action"]?.ToString();
@@ -93,7 +94,7 @@
         </nav>
     </header>
 
-    <main role="main" class="anim-fade-up" style="animation-duration:.35s">
+    <main id="main-content" role="main" class="anim-fade-up" style="animation-duration:.35s" tabindex="-1">
         @RenderBody()
     </main>
 

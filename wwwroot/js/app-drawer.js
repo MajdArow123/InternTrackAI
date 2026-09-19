@@ -12,6 +12,7 @@
     const closeBtn = document.getElementById('drawer-close');
     const closeFooterBtn = document.getElementById('drawer-close-btn');
     const appRows = document.querySelectorAll('.app-row');
+    let lastTrigger = null;   // the control that opened the drawer, so focus can go back to it
 
     // Mirrors Models/Enums/ApplicationStatus.cs — numeric values are read out of
     // each row's data-status attribute and looked up against these maps to
@@ -262,8 +263,36 @@
         drawer.classList.add('active');
         backdrop.classList.add('active');
         drawer.setAttribute('aria-hidden', 'false');
+        drawer.setAttribute('aria-modal', 'true');
         backdrop.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
+
+        // role="dialog" is a promise: focus moves in, stays in, and comes back out to whatever
+        // opened it. Without this a keyboard user tabs straight through to the page behind and a
+        // screen reader is never told the panel opened.
+        // Clicking the row background focuses nothing, so activeElement is <body> on a mouse open.
+        // Fall back to that row's own opener button: closing then lands the caret somewhere useful
+        // instead of dumping it at the top of the document.
+        var active = document.activeElement;
+        lastTrigger = (active instanceof HTMLElement && active !== document.body && active !== drawer)
+            ? active
+            : (appRow && appRow.querySelector ? appRow.querySelector(".row-open") : null);
+        focusFirst();
+    }
+
+    /** Everything inside the drawer a keyboard can land on, in DOM order. */
+    function focusables() {
+        return Array.prototype.filter.call(
+            drawer.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+            function (el) { return el.offsetParent !== null || el === document.activeElement; }
+        );
+    }
+
+    function focusFirst() {
+        // The close button is the honest first stop: it is the way out, and it is the first
+        // control in the panel either way.
+        var first = closeBtn && closeBtn.offsetParent !== null ? closeBtn : focusables()[0];
+        if (first) first.focus();
     }
 
     // ── Inbox suggestions ──────────────────────────────
@@ -422,8 +451,26 @@
         drawer.classList.remove('active');
         backdrop.classList.remove('active');
         drawer.setAttribute('aria-hidden', 'true');
+        drawer.removeAttribute('aria-modal');
         backdrop.setAttribute('aria-hidden', 'true');
         document.body.style.overflow = '';
+
+        // Back to whatever opened it, so the tab position is not lost. isConnected guards the
+        // case where the row was re-rendered while the drawer was open.
+        if (lastTrigger && lastTrigger.isConnected) lastTrigger.focus();
+        lastTrigger = null;
+    }
+
+    /** Keeps Tab inside the open drawer, wrapping at either end. */
+    function trapTab(e) {
+        if (e.key !== 'Tab' || !drawer.classList.contains('active')) return;
+        var items = focusables();
+        if (!items.length) return;
+        var first = items[0];
+        var last  = items[items.length - 1];
+        if (!drawer.contains(document.activeElement)) { e.preventDefault(); first.focus(); return; }
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
     }
 
     // Event listeners
@@ -456,6 +503,7 @@
     closeBtn.addEventListener('click', closeDrawer);
     closeFooterBtn.addEventListener('click', closeDrawer);
     backdrop.addEventListener('click', closeDrawer);
+    document.addEventListener('keydown', trapTab);
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape' && drawer.classList.contains('active')) {
             closeDrawer();

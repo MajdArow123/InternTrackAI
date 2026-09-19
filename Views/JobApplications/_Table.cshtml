@@ -86,9 +86,7 @@
                                 data-resume="@(ResumeDisplay.Label(item.ResumeVersionId, resumes) ?? "")"
                                 data-job-description="@(Uri.EscapeDataString(item.JobDescription ?? ""))"
                                 data-suggestions="@SuggestionsJson(item.Id)"
-                                class="app-row"
-                                role="button"
-                                tabindex="0">
+                                class="app-row">
                                 <td class="ps-3 col-check">
                                     <input type="checkbox" class="form-check-input row-check"
                                            value="@item.Id" aria-label="Select @item.CompanyName" />
@@ -96,7 +94,8 @@
                                 <td class="ps-2">
                                     <div class="d-flex align-items-center gap-2">
                                         <span class="company-avatar">@StatusDisplay.Initials(item.CompanyName)</span>
-                                        <span class="company-name">@item.CompanyName</span>
+                                        <button type="button" class="company-name row-open"
+                                                aria-label="Open details for @item.CompanyName, @item.RoleTitle">@item.CompanyName</button>
                                     </div>
                                 </td>
                                 <td class="role-name">

@@ -6,6 +6,9 @@ import { flush, summary, ARTIFACTS } from './lib/harness.mjs';
 import path from 'node:path';
 
 const ALL = ['functional', 'visual', 'a11y', 'security', 'compat', 'perf'];
+// Not in ALL: run it explicitly (node e2e/run-all.mjs applications-clickthrough) after touching
+// the Applications views, per the CLAUDE.md rule.
+ALL.push('applications-clickthrough');
 const wanted = process.argv.slice(2).filter((a) => ALL.includes(a));
 const dims = wanted.length ? wanted : ALL;
 

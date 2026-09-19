@@ -120,7 +120,7 @@
                     <div class="form-hint mt-1">The follow-up reminder stays quiet until this date.</div>
                 </div>
                 <div class="col-sm-6">
-                    <label asp-for="ResumeVersionId" class="form-label">Resume used <span class="text-muted fw-normal">(optional)</span></label>
+                    <label for="resumeVersionSelect" class="form-label">Resume used <span class="text-muted fw-normal">(optional)</span></label>
                     <select asp-for="ResumeVersionId" class="form-select" id="resumeVersionSelect">
                         <option value="">None</option>
                         @foreach (var r in (ViewBag.ResumeOptions as IEnumerable<InternTrackAI.Models.ResumeVersion>) ?? Enumerable.Empty<InternTrackAI.Models.ResumeVersion>())

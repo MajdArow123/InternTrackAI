@@ -60,8 +60,8 @@
             </div>
         </div>
         <div class="filter-group">
-            <label class="filter-label">Work Mode</label>
-            <select name="workMode" class="form-select">
+            <label class="filter-label" for="filterWorkMode">Work Mode</label>
+            <select name="workMode" id="filterWorkMode" class="form-select">
                 <option value="">All Modes</option>
                 @foreach (var wm in Enum.GetValues<WorkMode>())
                 {
@@ -79,8 +79,8 @@
         @if (!isBoard)
         {
         <div class="filter-group">
-            <label class="filter-label">Sort By</label>
-            <select name="sortBy" class="form-select">
+            <label class="filter-label" for="filterSortBy">Sort By</label>
+            <select name="sortBy" id="filterSortBy" class="form-select">
                 @{
                     string sb = ViewBag.SortBy ?? "";
                 }

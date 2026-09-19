@@ -732,6 +732,14 @@ html[data-theme="dark"] .app-table-wrapper .table tbody tr:hover td { background
 .app-table-wrapper .table tbody tr:last-child td { border-bottom: none; }
 
 .company-name { font-weight: 600; color: var(--text); }
+/* The row itself is not focusable any more (nested-interactive: it held a checkbox and three
+   link-buttons). This is the keyboard way into the drawer — a real button that looks like the
+   text it replaced. Its click bubbles to the row handler, so mouse and keyboard take one path. */
+.row-open {
+  background: none; border: 0; padding: 0; margin: 0;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.row-open:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
 .role-name    { color: var(--muted); }
 
 /* ── Company avatar ──────────────────────────────────── */

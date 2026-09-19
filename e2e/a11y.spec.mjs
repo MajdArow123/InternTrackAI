@@ -170,6 +170,65 @@ export async function run() {
     return 'focus stayed inside the drawer for 30 tab presses';
   });
 
+  await check(D, 'The drawer announces itself as a modal dialog', async () => {
+    await page.goto(BASE + '/JobApplications?view=list', { waitUntil: 'networkidle' });
+    await page.click('tr[data-app-id]');
+    await page.waitForTimeout(400);
+    const open = await page.evaluate(() => {
+      const d = document.querySelector('.app-drawer');
+      return { role: d.getAttribute('role'), modal: d.getAttribute('aria-modal'), hidden: d.getAttribute('aria-hidden'), label: d.getAttribute('aria-label') };
+    });
+    assertEqual(open.role, 'dialog', 'drawer role');
+    assertEqual(open.modal, 'true', 'aria-modal while open');
+    assertEqual(open.hidden, 'false', 'aria-hidden while open');
+    assert(open.label, 'dialog has no accessible name');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+    const closed = await page.evaluate(() => {
+      const d = document.querySelector('.app-drawer');
+      return { modal: d.getAttribute('aria-modal'), hidden: d.getAttribute('aria-hidden') };
+    });
+    assertEqual(closed.hidden, 'true', 'aria-hidden after close');
+    assert(!closed.modal, `aria-modal left behind after close: ${closed.modal}`);
+    return `role=dialog aria-modal toggles, labelled "${open.label}"`;
+  });
+
+  await check(D, 'The drawer can be opened from the keyboard alone', async () => {
+    await page.goto(BASE + '/JobApplications?view=list', { waitUntil: 'networkidle' });
+    // Tab to the row's opener button and press Enter - no mouse anywhere in this test.
+    const reached = await page.evaluate(() => {
+      const b = document.querySelector('tr[data-app-id] .row-open');
+      if (!b) return false;
+      b.focus();
+      return document.activeElement === b;
+    });
+    assert(reached, 'no focusable opener on the row');
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
+    const state = await page.evaluate(() => ({
+      open: document.querySelector('.app-drawer')?.classList.contains('active'),
+      focusInside: document.querySelector('.app-drawer')?.contains(document.activeElement),
+    }));
+    assert(state.open, 'Enter on the opener did not open the drawer');
+    assert(state.focusInside, 'focus did not move into the drawer');
+    return 'Enter on the row opener opens the drawer and moves focus in';
+  });
+
+  await check(D, 'Closing the drawer returns focus to the row that opened it', async () => {
+    await page.goto(BASE + '/JobApplications?view=list', { waitUntil: 'networkidle' });
+    await page.evaluate(() => document.querySelector('tr[data-app-id] .row-open').focus());
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(400);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(400);
+    const back = await page.evaluate(() => ({
+      onOpener: document.activeElement?.classList.contains('row-open'),
+      where: `${document.activeElement.tagName}.${(document.activeElement.className || '').toString().slice(0, 30)}`,
+    }));
+    assert(back.onOpener, `focus landed on ${back.where}, not the opener button`);
+    return 'focus returned to the row opener';
+  });
+
   await check(D, 'Escape closes the drawer and focus returns to the row', async () => {
     await page.goto(BASE + '/JobApplications?view=list', { waitUntil: 'networkidle' });
     await page.click('tr[data-app-id]');
@@ -182,6 +241,8 @@ export async function run() {
       onRow: Boolean(document.activeElement.closest?.('tr[data-app-id]')),
     }));
     assert(!state.open, 'Escape did not close the drawer');
+    // Opened by clicking the row background, so nothing was focused at open time; the fallback
+    // puts focus on that row's opener rather than dropping it on <body>.
     assert(state.onRow, `focus did not return to the triggering row (it is on ${state.focus})`);
     return 'drawer closed, focus restored to the row';
   });

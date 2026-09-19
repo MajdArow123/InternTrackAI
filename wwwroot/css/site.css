@@ -33,13 +33,13 @@
   /* Semantic — chips and alerts only */
   --success:       #30D158;
   --success-soft:  rgba(48,209,88,.14);
-  --success-text:  #1B8F3A;
+  --success-text:  #177A32;   /* 3.64:1 on --success-soft was under AA; 4.74:1 now */
   --warning:       #FF9F0A;
   --warning-soft:  rgba(255,159,10,.16);
   --warning-text:  #B36B00;
   --danger:        #FF453A;
   --danger-soft:   rgba(255,69,58,.12);
-  --danger-text:   #C62F26;
+  --danger-text:   #B0271F;   /* 4.11:1 on the danger tint was under AA; 4.99:1 now */
   --purple:        #BF5AF2;
   --purple-soft:   rgba(191,90,242,.14);
   --purple-text:   #8944AB;
@@ -2490,7 +2490,7 @@ html[data-theme="dark"] .rec-badge--noapply { background: rgba(255,69,58,.12); c
 
 /* Status badges */
 html[data-theme="dark"] .badge-saved     { background: rgba(142,142,147,.12); color: var(--muted-2); border-color: var(--text-2); }
-html[data-theme="dark"] .badge-applied   { background: rgba(10,132,255,.12); color: var(--accent); border-color: var(--accent-text); }
+html[data-theme="dark"] .badge-applied   { background: rgba(10,132,255,.12); color: var(--accent-text); border-color: var(--accent-text); }
 html[data-theme="dark"] .badge-interview { background: rgba(255,159,10,.12); color: var(--warning); border-color: var(--warning-text); }
 html[data-theme="dark"] .badge-offer     { background: rgba(48,209,88,.12); color: var(--success); border-color: var(--success-text); }
 html[data-theme="dark"] .badge-rejected  { background: rgba(255,69,58,.12); color: var(--danger); border-color: var(--danger-text); }
@@ -2503,10 +2503,10 @@ html[data-theme="dark"] .match-tier-3 { color: var(--warning); background: rgba(
 
 /* Skill tags */
 html[data-theme="dark"] .skill-tag--match   { background: rgba(48,209,88,.12); color: var(--success); border-color: rgba(48,209,88,.3); }
-html[data-theme="dark"] .skill-tag--missing { background: rgba(255,69,58,.12); color: var(--danger); border-color: rgba(255,69,58,.3); }
+html[data-theme="dark"] .skill-tag--missing { background: rgba(255,69,58,.12); color: var(--danger-text); border-color: rgba(255,69,58,.3); }
 
 /* Interview prep badges */
-html[data-theme="dark"] .prep-cat-technical  { background: rgba(10,132,255,.12); color: var(--accent); border-color: rgba(10,132,255,.3); }
+html[data-theme="dark"] .prep-cat-technical  { background: rgba(10,132,255,.12); color: var(--accent-text); border-color: rgba(10,132,255,.3); }
 html[data-theme="dark"] .prep-cat-behavioral { background: rgba(191,90,242,.12); color: var(--purple); border-color: rgba(191,90,242,.3); }
 html[data-theme="dark"] .prep-cat-company    { background: rgba(48,209,88,.12); color: var(--success); border-color: rgba(48,209,88,.3); }
 
@@ -3176,7 +3176,7 @@ html[data-theme="dark"] .prep-question-card:hover { border-color: rgba(10,132,25
 .mini-stat-rejected  { color: var(--danger-text); }
 
 html[data-theme="dark"] .mini-stat-saved     { color: var(--muted-2); }
-html[data-theme="dark"] .mini-stat-applied   { color: var(--accent); }
+html[data-theme="dark"] .mini-stat-applied   { color: var(--accent-text); }
 html[data-theme="dark"] .mini-stat-interview { color: var(--warning); }
 html[data-theme="dark"] .mini-stat-offer     { color: var(--success); }
 html[data-theme="dark"] .mini-stat-rejected  { color: var(--danger); }
@@ -3236,7 +3236,7 @@ html[data-theme="dark"] .btn-outline-secondary:hover {
 
 /* btn-outline-primary in dark */
 html[data-theme="dark"] .btn-outline-primary {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 html[data-theme="dark"] .btn-outline-primary:hover {

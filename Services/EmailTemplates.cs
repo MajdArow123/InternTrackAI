@@ -37,11 +37,13 @@ public static class EmailTemplates
     private const string Tagline = "InternTrackAI is an AI-assisted tracker for internship and job applications.";
 
     // Mirrors of the site.css tokens --accent / --text / --text-2 / --muted / --border, inlined for email
-    // clients. --card and --surface-2 become plain white and a near-white footer band.
-    private const string Accent  = "#0A84FF";
+    // clients. --card and --surface-2 become plain white and a near-white footer band. Keep these in
+    // step with the tokens: both were moved for contrast, not taste — the reset button is white text on
+    // Accent at 16px/600, which needs 4.5:1 and got 3.65:1 from the old #0A84FF (5.57:1 now).
+    private const string Accent  = "#0066CC";
     private const string Text    = "#1D1D1F";
     private const string Text2   = "#48484A";
-    private const string Muted   = "#6E6E73";
+    private const string Muted   = "#67676C";
     private const string Border  = "#E5E5EA";
     private const string Page    = "#F4F4F7";
     private const string Card    = "#FFFFFF";

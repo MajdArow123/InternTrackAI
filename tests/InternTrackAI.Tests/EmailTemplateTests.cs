@@ -148,7 +148,14 @@ public class EmailTemplateTests
         Assert.DoesNotContain("var(--", html);
 
         // The brand dot is a coloured cell, not a graphic, so it is there with images blocked.
-        Assert.Contains("bgcolor=\"#0A84FF\"", html);
+        // Matched as "some hex", not a specific one: the accent moved once already for contrast
+        // (#0A84FF -> #0066CC, white-on-accent was 3.65:1), and pinning the literal here only
+        // produces a failing test that says nothing about whether the dot still renders.
+        var bgcolors = System.Text.RegularExpressions.Regex.Matches(html, "bgcolor=\"(#[0-9A-Fa-f]{6})\"")
+            .Select(m => m.Groups[1].Value).ToList();
+        Assert.NotEmpty(bgcolors);
+        // The dot and the call-to-action button are both the accent, so the brand colour is one value.
+        Assert.Single(bgcolors.Distinct(StringComparer.OrdinalIgnoreCase));
     }
 
     /// <summary>The <c>font-size:NNpx</c> governing the text at <paramref name="index"/> — the nearest one before it.</summary>

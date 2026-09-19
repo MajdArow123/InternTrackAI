@@ -39,19 +39,33 @@ public class LoginModel : PageModel
         public bool RememberMe { get; set; }
     }
 
+    /// <summary>
+    /// Reduces a caller-supplied returnUrl to something safe to redirect to, falling back to the
+    /// home page for anything that isn't a local path. <see cref="ControllerBase.LocalRedirect"/>
+    /// refuses an off-site target by throwing, and by then the user is already signed in — so a
+    /// crafted <c>?ReturnUrl=https://elsewhere.example/</c> link turned a *successful* login into a
+    /// 500. Applied on both handlers, so the two-factor hand-off carries a safe value too, and the
+    /// POST re-checks whatever the form sends back rather than trusting the hidden field.
+    /// </summary>
+    private string SafeReturnUrl(string? returnUrl) =>
+        !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
+
     public async Task OnGetAsync(string? returnUrl = null)
     {
         if (!string.IsNullOrEmpty(ErrorMessage))
             ModelState.AddModelError(string.Empty, ErrorMessage);
 
-        returnUrl ??= Url.Content("~/");
+        returnUrl = SafeReturnUrl(returnUrl);
+        // asp-for renders from ModelState before the page property, and ModelState still holds the raw
+        // query argument — without this the hidden ReturnUrl field would echo the hostile value back.
+        ModelState.Remove(nameof(ReturnUrl));
         await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
         ReturnUrl = returnUrl;
     }
 
     public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
     {
-        returnUrl ??= Url.Content("~/");
+        returnUrl = SafeReturnUrl(returnUrl);
 
         if (!ModelState.IsValid) return Page();
 

@@ -75,7 +75,18 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 // Wires up ASP.NET Core Identity (registration, login, password reset, etc.) backed
 // by ApplicationDbContext. RequireConfirmedAccount = false means users can sign in
 // immediately after registering, without first confirming their email address.
-builder.Services.AddDefaultIdentity<IdentityUser>(options => options.SignIn.RequireConfirmedAccount = false)
+builder.Services.AddDefaultIdentity<IdentityUser>(options =>
+    {
+        options.SignIn.RequireConfirmedAccount = false;
+
+        // Login.cshtml.cs passes lockoutOnFailure, so these bounds are what actually stops password
+        // guessing: 5 wrong passwords buy a 15-minute wait. Each attempt costs the server a
+        // 100k-iteration PBKDF2 hash, so the cap is a CPU guard as much as a credential one. The
+        // shared demo account is exempted at the call site, not here — see Login.cshtml.cs.
+        options.Lockout.MaxFailedAccessAttempts = 5;
+        options.Lockout.DefaultLockoutTimeSpan  = TimeSpan.FromMinutes(15);
+        options.Lockout.AllowedForNewUsers      = true;
+    })
     .AddEntityFrameworkStores<ApplicationDbContext>();
 
 // ── Email ────────────────────────────────────────────────────────────────────

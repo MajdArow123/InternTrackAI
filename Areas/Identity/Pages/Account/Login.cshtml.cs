@@ -1,8 +1,10 @@
 using System.ComponentModel.DataAnnotations;
+using InternTrackAI.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
 
 namespace InternTrackAI.Areas.Identity.Pages.Account;
 
@@ -10,11 +12,19 @@ public class LoginModel : PageModel
 {
     private readonly SignInManager<IdentityUser> _signInManager;
     private readonly ILogger<LoginModel> _logger;
+    private readonly IConfiguration _config;
+    private readonly IdentityOptions _identityOptions;
 
-    public LoginModel(SignInManager<IdentityUser> signInManager, ILogger<LoginModel> logger)
+    public LoginModel(
+        SignInManager<IdentityUser> signInManager,
+        ILogger<LoginModel> logger,
+        IConfiguration config,
+        IOptions<IdentityOptions> identityOptions)
     {
         _signInManager = signInManager;
         _logger = logger;
+        _config = config;
+        _identityOptions = identityOptions.Value;
     }
 
     [BindProperty]
@@ -50,6 +60,19 @@ public class LoginModel : PageModel
     private string SafeReturnUrl(string? returnUrl) =>
         !string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl) ? returnUrl : Url.Content("~/");
 
+    /// <summary>
+    /// What a locked-out visitor is told. Phrased from the configured window so the number in the
+    /// message can never drift from the number Identity enforces, and it points at the password
+    /// reset, which is the way out that does not involve waiting.
+    /// </summary>
+    public static string LockedOutMessage(TimeSpan window)
+    {
+        var minutes = Math.Max(1, (int)Math.Round(window.TotalMinutes));
+        var unit    = minutes == 1 ? "minute" : "minutes";
+        return $"Too many failed sign-in attempts. This account is locked for {minutes} {unit}. " +
+               "Wait and try again, or reset your password.";
+    }
+
     public async Task OnGetAsync(string? returnUrl = null)
     {
         if (!string.IsNullOrEmpty(ErrorMessage))
@@ -69,8 +92,14 @@ public class LoginModel : PageModel
 
         if (!ModelState.IsValid) return Page();
 
+        // The demo account is shared and its credentials are handed out by the landing page, so any
+        // visitor could otherwise lock it for everyone else by mistyping the password five times.
+        // It is the one account that keeps the old unlimited-attempts behaviour. ConfiguredAccounts
+        // is the only sanctioned way to match Demo:Email (trimmed, case-insensitive).
+        var isDemoAccount = ConfiguredAccounts.IsConfigured(Input.Email, _config, ConfiguredAccounts.DemoEmailKey);
+
         var result = await _signInManager.PasswordSignInAsync(
-            Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+            Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: !isDemoAccount);
 
         if (result.Succeeded)
         {
@@ -82,7 +111,16 @@ public class LoginModel : PageModel
             return RedirectToPage("./LoginWith2fa", new { ReturnUrl = returnUrl, Input.RememberMe });
 
         if (result.IsLockedOut)
-            return RedirectToPage("./Lockout");
+        {
+            // Identity returns LockedOut whether or not the password was right, so this is the only
+            // place a locked-out visitor learns why nothing works. The old code redirected to a
+            // "./Lockout" page that was never scaffolded here; saying it inline keeps the person on
+            // the form with their email still filled in.
+            _logger.LogWarning("Login blocked: account locked out after {Attempts} failed attempts.",
+                _identityOptions.Lockout.MaxFailedAccessAttempts);
+            ModelState.AddModelError(string.Empty, LockedOutMessage(_identityOptions.Lockout.DefaultLockoutTimeSpan));
+            return Page();
+        }
 
         ModelState.AddModelError(string.Empty, "Incorrect email or password.");
         return Page();

@@ -242,6 +242,11 @@ forwardedHeaders.KnownNetworks.Clear();
 forwardedHeaders.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedHeaders);
 
+// Security headers on everything, static files included — so this has to sit above UseStaticFiles,
+// which short-circuits. Values and the reasoning for each live in Services/SecurityHeaders.cs; the
+// CSP is report-only until the last inline scripts move out of _Layout and Prep.cshtml.
+app.UseSecurityHeaders();
+
 // ── Request pipeline ────────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())
 {

@@ -222,6 +222,116 @@ public class ForwardedProtoTests
         Assert.Equal("https://pinned.example/Integrations/Gmail/Callback", RedirectUriOf(await client.SendAsync(Proxied(HttpMethod.Get, "/Integrations/Gmail/Connect"))));
     }
 
+    /// <summary>
+    /// Boots a host whose reset emails are captured, optionally with <c>Email:BaseUrl</c> set.
+    /// </summary>
+    private static (WebApplicationFactory<Program> Factory, CapturingEmailSender Emails) ResetLinkHost(
+        TestAppFactory parent, string? emailBaseUrl = null)
+    {
+        var emails = new CapturingEmailSender();
+        var configured = emailBaseUrl is null
+            ? parent
+            : parent.WithWebHostBuilder(b => b.UseSetting(EmailLinkBase.ConfigKey, emailBaseUrl));
+
+        return (BehindProxy(configured, s =>
+        {
+            s.RemoveAll<IAppEmailSender>();
+            s.RemoveAll<IEmailSender>();
+            s.AddSingleton<IAppEmailSender>(emails);
+            s.AddSingleton<IEmailSender>(emails);
+        }), emails);
+    }
+
+    /// <summary>Asks for a reset for <paramref name="email"/> over a request claiming <paramref name="host"/>.</summary>
+    private static async Task RequestResetAsync(HttpClient client, string email, string host, bool forwarded)
+    {
+        var token = await Http.GetAntiforgeryTokenAsync(client, "/Identity/Account/ForgotPassword");
+        var content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Input.Email"] = email,
+            ["__RequestVerificationToken"] = token,
+        });
+
+        HttpRequestMessage req;
+        if (forwarded)
+        {
+            req = ProxiedFrom(host, HttpMethod.Post, "/Identity/Account/ForgotPassword", content);
+        }
+        else
+        {
+            // No proxy in front: the caller's own Host header is all there is.
+            req = new HttpRequestMessage(HttpMethod.Post, "/Identity/Account/ForgotPassword") { Content = content };
+            req.Headers.Host = host;
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(req)).StatusCode);
+    }
+
+    /// <summary>
+    /// The reset link is the one absolute URL the app puts in somebody's mailbox, so with
+    /// <c>Email:BaseUrl</c> configured the host named in it must not be a host the caller chose — neither a
+    /// spoofed <c>Host</c> header nor a spoofed <c>X-Forwarded-Host</c>.
+    /// </summary>
+    [Theory]
+    [InlineData(true)]   // X-Forwarded-Host, as a proxied request carries it
+    [InlineData(false)]  // a plain Host header on a direct connection
+    public async Task A_spoofed_host_cannot_change_the_emailed_reset_link(bool forwarded)
+    {
+        using var parent = new TestAppFactory();
+        var (factory, emails) = ResetLinkHost(parent, "https://interntrackai.majdarow.com/");
+        using var _ = factory;
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var email = await Http.RegisterAsync(client);
+
+        await RequestResetAsync(client, email, "evil.example", forwarded);
+
+        var (_, _, body) = Assert.Single(emails.Sent);
+        Assert.Contains("https://interntrackai.majdarow.com/Identity/Account/ResetPassword?code=", body);
+        Assert.DoesNotContain("evil.example", body);
+        Assert.DoesNotContain("http://", body);
+    }
+
+    /// <summary>
+    /// The control for the test above: with <c>Email:BaseUrl</c> unset the link still follows the request, so
+    /// the assertions there are the setting doing the work and not something else in the pipeline. This is
+    /// also the documented default, and what
+    /// <see cref="Every_absolute_url_follows_the_host_the_request_arrived_on"/> depends on.
+    /// </summary>
+    [Fact]
+    public async Task Without_a_configured_base_url_the_reset_link_still_follows_the_request()
+    {
+        using var parent = new TestAppFactory();
+        var (factory, emails) = ResetLinkHost(parent);
+        using var _ = factory;
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var email = await Http.RegisterAsync(client);
+
+        await RequestResetAsync(client, email, "evil.example", forwarded: true);
+
+        var (_, _, body) = Assert.Single(emails.Sent);
+        Assert.Contains("https://evil.example/Identity/Account/ResetPassword?code=", body);
+    }
+
+    /// <summary>A base URL that isn't an absolute http(s) origin is ignored rather than pasted into a link.</summary>
+    [Theory]
+    [InlineData("not-a-url")]
+    [InlineData("/Identity")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("   ")]
+    public async Task An_unusable_base_url_falls_back_to_the_request(string configured)
+    {
+        using var parent = new TestAppFactory();
+        var (factory, emails) = ResetLinkHost(parent, configured);
+        using var _ = factory;
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var email = await Http.RegisterAsync(client);
+
+        await RequestResetAsync(client, email, PublicHost, forwarded: true);
+
+        var (_, _, body) = Assert.Single(emails.Sent);
+        Assert.Contains($"https://{PublicHost}/Identity/Account/ResetPassword?code=", body);
+    }
+
     [Fact]
     public async Task Password_reset_email_links_are_https_when_the_proxy_forwards_https()
     {

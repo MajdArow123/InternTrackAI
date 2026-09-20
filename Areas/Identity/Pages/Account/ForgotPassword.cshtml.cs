@@ -86,13 +86,23 @@ public class ForgotPasswordModel : PageModel
 
         var code = await _userManager.GeneratePasswordResetTokenAsync(user);
 
-        // Request.Scheme, not a hard-coded host: behind Railway's proxy the forwarded headers are what make
-        // this come out https (see the forwarded-headers block in Program.cs and ForwardedProtoTests).
-        var callbackUrl = Url.Page(
-            "/Account/ResetPassword",
-            pageHandler: null,
-            values: new { code },
-            protocol: Request.Scheme) ?? string.Empty;
+        // Where the link points is decided here rather than by the request whenever Email:BaseUrl is set: this
+        // is the one absolute URL the app puts in somebody's mailbox, so the host it names should not be one
+        // the caller supplied. Unset — the default — it falls back to Request.Scheme/Request.Host, which behind
+        // Railway's proxy the forwarded headers make https (see the forwarded-headers block in Program.cs and
+        // ForwardedProtoTests). A value that isn't an absolute http(s) URL is ignored rather than shipped.
+        var configuredBase = EmailLinkBase.Resolve(_config[EmailLinkBase.ConfigKey]);
+        if (configuredBase is null && !string.IsNullOrWhiteSpace(_config[EmailLinkBase.ConfigKey]))
+            _logger.LogWarning("{Key} is set but is not an absolute http(s) URL; falling back to the request's origin.",
+                EmailLinkBase.ConfigKey);
+
+        var callbackUrl = configuredBase is not null
+            ? EmailLinkBase.Combine(configuredBase, Url.Page("/Account/ResetPassword", pageHandler: null, values: new { code }) ?? string.Empty)
+            : Url.Page(
+                "/Account/ResetPassword",
+                pageHandler: null,
+                values: new { code },
+                protocol: Request.Scheme) ?? string.Empty;
 
         // The stated expiry is the token's real lifespan rather than a number typed into the copy.
         // No cancellation token: the send should finish even if the browser goes away mid-request.

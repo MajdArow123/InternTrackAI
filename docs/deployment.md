@@ -106,6 +106,7 @@ which of the two is live.
 | `Resend__ApiKey` | — | Resend API key (`re_…`). Set → reset emails are really sent; unset → they go to the log only |
 | `Email__From` | — | Sender, in `Name <address>` form, e.g. `InternTrackAI <noreply@majdarow.com>`. The domain must be verified in Resend or every send is rejected. Required whenever `Resend__ApiKey` is set |
 | `Email__ReplyTo` | — | Optional address for replies |
+| `Email__BaseUrl` | derived | Origin used for links inside emails, e.g. `https://interntrackai.majdarow.com`. Unset, the link follows the host the reset was requested from |
 | `Resend__BaseUrl` | `https://api.resend.com` | Stub endpoint for local verification only, like `OpenAI__BaseUrl` |
 | `RateLimiting__PasswordReset__PerIpPerHour` | `5` | Reset requests one client may make per hour |
 | `RateLimiting__PasswordReset__PerAddressPerHour` | `2` | Emails one address may receive per hour |
@@ -221,6 +222,13 @@ To add one:
 4. **Google OAuth**, if the Gmail integration is on: add
    `https://<new-host>/Integrations/Gmail/Callback` to the OAuth client's **Authorized redirect URIs** and
    **keep the existing one**. The redirect URI is derived per request, so every live hostname needs an entry.
+
+**`Email__BaseUrl` is safe to pin, unlike `Google__RedirectBaseUrl`.** A password-reset token is bound to the
+user and nothing else, so a link to the canonical domain works whichever hostname the reset was requested from —
+the only visible effect is that someone who asked from the Railway hostname lands on the custom domain. Setting it
+means the host named in an emailed link is one you configured rather than one the request supplied. Left unset the
+link follows the request, which is correct as long as Railway's proxy is the only thing that can set
+`X-Forwarded-Host`.
 
 **Do not set `Google__RedirectBaseUrl` to force one origin while both hostnames are live.** The OAuth state
 cookie (`itai_gmail_state`) is host-scoped — no `Domain` attribute — so a flow begun on host A and redirected

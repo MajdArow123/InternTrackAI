@@ -275,7 +275,12 @@ using (var scope = app.Services.CreateScope())
 // request is safe here; the proxy overwrites client-supplied X-Forwarded-* headers.
 var forwardedHeaders = new ForwardedHeadersOptions
 {
-    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost
+    ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost,
+    // One hop only, so the address Railway's proxy appended is the one that counts and a client-supplied
+    // X-Forwarded-For sits to its left and is discarded — which is what stops the per-client rate limiters
+    // being reset at will. This is already the framework default; it is written out because the limiters
+    // depend on it. Pinned by ForwardedProtoTests.Only_the_last_forwarded_for_entry_is_trusted.
+    ForwardLimit = 1
 };
 forwardedHeaders.KnownNetworks.Clear();
 forwardedHeaders.KnownProxies.Clear();

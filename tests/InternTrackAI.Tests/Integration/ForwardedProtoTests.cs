@@ -134,6 +134,56 @@ public class ForwardedProtoTests
         Assert.DoesNotContain("http://", body);
     }
 
+    /// <summary>
+    /// <c>ForwardLimit = 1</c> means the middleware consumes exactly one X-Forwarded-For entry, and it takes
+    /// the <b>rightmost</b> one — the address the nearest proxy appended. Anything the client put in the
+    /// header therefore sits to its left and is thrown away. That is the whole reason a client cannot reset
+    /// <see cref="RegistrationLimiter"/> or <see cref="PasswordResetLimiter"/> at will by inventing an
+    /// address, so it is pinned behaviourally rather than by reading the option back: raise the limit to
+    /// more than one hop and the key becomes a value the caller chose, and these assertions flip.
+    ///
+    /// <para>The registration limiter is the oracle because it is the one limit whose refusal is visible —
+    /// ForgotPassword answers a refusal with the same page as a success, on purpose.</para>
+    /// </summary>
+    [Fact]
+    public async Task Only_the_last_forwarded_for_entry_is_trusted()
+    {
+        using var parent = new TestAppFactory();
+        using var factory = BehindProxy(parent.WithWebHostBuilder(b =>
+            b.UseSetting("RateLimiting:Registration:PerIpPerHour", "1")));
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        async Task<HttpStatusCode> RegisterFrom(string forwardedFor)
+        {
+            var token = await Http.GetAntiforgeryTokenAsync(client, "/Identity/Account/ForgotPassword");
+            var req = new HttpRequestMessage(HttpMethod.Post, "/Identity/Account/Register")
+            {
+                Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["Input.Email"]           = $"fwd-{Guid.NewGuid():N}@example.test",
+                    ["Input.Password"]        = "Integration-Pass-1!",
+                    ["Input.ConfirmPassword"] = "Integration-Pass-1!",
+                    ["__RequestVerificationToken"] = token,
+                })
+            };
+            req.Headers.Add("X-Forwarded-For", forwardedFor);
+            return (await client.SendAsync(req)).StatusCode;
+        }
+
+        // Spends the one permit belonging to the rightmost address.
+        Assert.Equal(HttpStatusCode.Redirect, await RegisterFrom("203.0.113.1, 198.51.100.7"));
+
+        // A different client-supplied value on the left does not buy a fresh bucket: still the same client.
+        Assert.Equal(HttpStatusCode.TooManyRequests, await RegisterFrom("203.0.113.9, 198.51.100.7"));
+
+        // Changing the entry the proxy appended is what moves the bucket — and only the proxy can do that.
+        Assert.Equal(HttpStatusCode.Redirect, await RegisterFrom("203.0.113.1, 198.51.100.8"));
+
+        // A single entry is the ordinary shape behind one proxy, and it is that address that counts.
+        Assert.Equal(HttpStatusCode.Redirect, await RegisterFrom("198.51.100.9"));
+        Assert.Equal(HttpStatusCode.TooManyRequests, await RegisterFrom("198.51.100.9"));
+    }
+
     [Fact]
     public async Task OAuth_start_sends_Google_an_https_redirect_uri_when_the_proxy_forwards_https()
     {

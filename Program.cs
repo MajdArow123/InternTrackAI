@@ -6,6 +6,8 @@ using Microsoft.Extensions.FileProviders;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using InternTrackAI.Data;
+using System.IO.Compression;
+using Microsoft.AspNetCore.ResponseCompression;
 using InternTrackAI.Services;
 using InternTrackAI.Services.Gmail;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -165,6 +167,30 @@ builder.Services.AddHttpClient("UrlFetcher")
     .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddControllersWithViews();
 
+// ── Response compression ─────────────────────────────────────────────────────
+// This app ships unbundled, unminified CSS and JS by design (no npm, libraries vendored), so a
+// first visit decodes 600-850 KB of text per page; site.css alone is 177 KB on the wire. Brotli
+// first, gzip for anything that cannot take it.
+//
+// EnableForHttps is on deliberately. The BREACH/CRIME concern with compressing HTTPS responses
+// needs a secret reflected into a compressed body alongside attacker-controlled input; the
+// antiforgery token is the one such secret here, and ASP.NET Core sends it in a response header
+// and a form field on pages that are already Cache-Control: no-store, with a per-request value.
+// Railway terminates TLS and forwards plain HTTP, so without this flag compression would never
+// apply in production at all - the whole point of adding it.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
+    {
+        "application/json", "image/svg+xml", "text/calendar", "application/manifest+json",
+    });
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
+
 // The shared demo account can't change its password or email, turn on two-factor, link logins or delete itself.
 // Applied to the whole Manage folder so Identity UI's built-in (non-scaffolded) pages are covered too.
 builder.Services.AddRazorPages(options =>
@@ -246,6 +272,10 @@ app.UseForwardedHeaders(forwardedHeaders);
 // which short-circuits. Values and the reasoning for each live in Services/SecurityHeaders.cs; the
 // CSP is report-only until the last inline scripts move out of _Layout and Prep.cshtml.
 app.UseSecurityHeaders();
+
+// Above UseStaticFiles for the same reason the headers are: that middleware short-circuits, and
+// the static files are the bulk of what there is to compress.
+app.UseResponseCompression();
 
 // ── Request pipeline ────────────────────────────────────────────────────────
 if (app.Environment.IsDevelopment())

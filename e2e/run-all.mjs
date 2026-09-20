@@ -2,6 +2,7 @@
 //   NODE_PATH=$HOME/.claude/skills/gstack/node_modules \
 //   AXE_PATH=<path to axe.min.js> \
 //   node e2e/run-all.mjs [functional visual a11y security compat perf applications-clickthrough]
+// No arguments runs all seven; an unrecognised name is an error rather than a silent full run.
 import { flush, summary, ARTIFACTS } from './lib/harness.mjs';
 import path from 'node:path';
 
@@ -11,8 +12,19 @@ const ALL = ['functional', 'visual', 'a11y', 'security', 'compat', 'perf'];
 // gets forgotten; 25 checks and ~45 s is a cheap way to make that rule self-enforcing. It stays a
 // separate dimension so it can still be run on its own while working on those views.
 ALL.push('applications-clickthrough');
-const wanted = process.argv.slice(2).filter((a) => ALL.includes(a));
-const dims = wanted.length ? wanted : ALL;
+// An unrecognised name is a usage error, not a reason to run everything. Filtering the arguments
+// against ALL and falling back on an empty result meant a typo ("complat") silently ran the whole
+// suite instead of the one dimension that was asked for — slow, and easy to mistake for a clean run
+// of the thing you meant. Exit 2 is the usage-error code; the spec imports below never happen.
+const args = process.argv.slice(2);
+const unknown = args.filter((a) => !ALL.includes(a));
+if (unknown.length) {
+  console.error(`Unknown dimension${unknown.length > 1 ? 's' : ''}: ${unknown.join(', ')}`);
+  console.error(`Valid names: ${ALL.join(', ')}`);
+  console.error('Pass no arguments to run all of them.');
+  process.exit(2);
+}
+const dims = args.length ? args : ALL;
 
 for (const d of dims) {
   console.log(`\n===== ${d} =====`);

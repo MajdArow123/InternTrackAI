@@ -1283,9 +1283,14 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
   padding-bottom: 1.25rem;
   border-bottom: 1px solid var(--border);
 }
+/* min-width:0 lets the identity column shrink inside the flex row, but an email address is one
+   unbroken token: without overflow-wrap it keeps its full min-content width and pushes the whole
+   document wider than the viewport at 390px. `anywhere` (not `break-word`) is the one that also
+   shrinks min-content, which is what the flex item is sized from. Applied to the name too — a long
+   single-word name overflows the same way. */
 .profile-identity { min-width: 0; }
-.profile-photo-name    { font-size: 1.3333rem; font-weight: 600; letter-spacing: -.015em; margin-bottom: .1rem; color: var(--text); }
-.profile-photo-email   { font-size: .9333rem; color: var(--muted); margin-bottom: .6rem; }
+.profile-photo-name    { font-size: 1.3333rem; font-weight: 600; letter-spacing: -.015em; margin-bottom: .1rem; color: var(--text); overflow-wrap: anywhere; }
+.profile-photo-email   { font-size: .9333rem; color: var(--muted); margin-bottom: .6rem; overflow-wrap: anywhere; }
 
 /* The avatar circle is the photo control: hover/focus reveals a dark overlay with a camera
    icon and "Change"; clicking (or Enter/Space) opens the file picker. */

@@ -1,6 +1,9 @@
 using System.Net;
 using InternTrackAI.Services;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace InternTrackAI.Tests.Integration;
 
@@ -132,6 +135,31 @@ public class SecurityHeaderTests : IClassFixture<TestAppFactory>
             .Single(d => d.StartsWith(directive + " ", StringComparison.Ordinal));
 
         Assert.Contains(expected, value);
+    }
+
+    [Fact]
+    public void Kestrel_does_not_advertise_itself()
+    {
+        // Asserted on the configured option rather than on a response, because the tests run on
+        // TestServer, which is not Kestrel and never writes a Server header either way. The option
+        // is what ships, so the option is what has to be pinned.
+        var kestrel = _factory.Services
+            .GetRequiredService<IOptions<KestrelServerOptions>>().Value;
+
+        Assert.False(kestrel.AddServerHeader);
+    }
+
+    [Theory]
+    [InlineData("/")]
+    [InlineData("/health")]
+    [InlineData("/css/site.css")]
+    public async Task No_response_names_the_server(string url)
+    {
+        // Belt to the option's braces: nothing else in the pipeline (a middleware, a proxy shim)
+        // may put the banner back.
+        var res = await NewClient().GetAsync(url);
+
+        Assert.Null(Header(res, "Server"));
     }
 
     [Fact]

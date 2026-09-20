@@ -224,6 +224,12 @@ builder.Services.AddAiRateLimiting(builder.Configuration);
 builder.Services.AddDataProtection()
     .PersistKeysToDbContext<ApplicationDbContext>();
 
+// ── Kestrel ─────────────────────────────────────────────────────────────────
+// Kestrel stamps `Server: Kestrel` on every response by default. It tells anyone scanning which
+// server (and therefore which advisories) to aim at, and nothing in the app or the proxy reads it,
+// so it is turned off. Railway's edge proxy adds its own Server header in front of this one.
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
+
 // ── Port (Railway injects PORT) ──────────────────────────────────────────────
 var port = Environment.GetEnvironmentVariable("PORT");
 if (!string.IsNullOrEmpty(port))

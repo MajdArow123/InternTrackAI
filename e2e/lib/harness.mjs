@@ -91,9 +91,28 @@ export function uniqueEmail(tag = 'qa') {
 
 export const PASSWORD = 'QaAudit!2026x';
 
+/**
+ * A distinct synthetic client address, one per call. Registration is limited per client
+ * (RegistrationLimiter), and the app trusts X-Forwarded-For because Railway's proxy is the only
+ * thing in front of it (KnownProxies/KnownNetworks are cleared on purpose - see Program.cs). Without
+ * this every request in the suite arrives from 127.0.0.1 and shares one bucket, so the accounts
+ * these specs need would start being refused for reasons that have nothing to do with the check
+ * being run. 198.18.0.0/15 is the reserved benchmarking range, so a header built from it can never
+ * collide with a real client.
+ */
+let clientCounter = 0;
+export function syntheticClient() {
+  clientCounter += 1;
+  return { 'X-Forwarded-For': `198.18.${(clientCounter >> 8) & 0xff}.${clientCounter & 0xff}` };
+}
+
 /** Registers a throwaway account through the real Register page (never touches the DB). */
 export async function registerThroughUi(context, email, displayName = 'QA Audit') {
   const page = await context.newPage();
+  // Each throwaway account is its own visitor, so one spec's registrations never spend another's
+  // registration allowance. Set on the page, not the context: everything after registration goes on
+  // being plain localhost traffic.
+  await page.setExtraHTTPHeaders(syntheticClient());
   await page.goto(`${BASE}/Identity/Account/Register`, { waitUntil: 'domcontentloaded' });
   await page.fill('#Input_DisplayName', displayName).catch(() => {});
   await page.fill('#Input_Email', email);

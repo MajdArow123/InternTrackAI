@@ -1,6 +1,6 @@
 // Security dimension: ownership/IDOR, output escaping, antiforgery, headers, cookies,
 // redirect safety, rate limiting and information leakage. Application-owned surfaces only.
-import { chromium, BASE, check, assert, assertEqual, newSignedInContext, createApplication, antiforgery, postForm, postJson, uniqueEmail, PASSWORD } from './lib/harness.mjs';
+import { chromium, BASE, check, assert, assertEqual, newSignedInContext, createApplication, antiforgery, postForm, postJson, uniqueEmail, PASSWORD, syntheticClient } from './lib/harness.mjs';
 
 const D = 'Security';
 
@@ -302,6 +302,7 @@ export async function run() {
     const email = uniqueEmail('redir');
     const ctx = await browser.newContext();
     const p = await ctx.newPage();
+    await p.setExtraHTTPHeaders(syntheticClient());
     await p.goto(BASE + '/Identity/Account/Register', { waitUntil: 'domcontentloaded' });
     await p.fill('#Input_Email', email);
     await p.fill('#Input_Password', PASSWORD);
@@ -482,6 +483,9 @@ export async function run() {
   await check(D, 'Registration is throttled against automated account creation', async () => {
     const ctx = await browser.newContext();
     const p = await ctx.newPage();
+    // One address for all six posts, and one nothing else in the suite has used: this check is
+    // about what a single client can mint, so it needs a bucket of its own to fill.
+    await p.setExtraHTTPHeaders(syntheticClient());
     const statuses = [];
     for (let i = 0; i < 6; i++) {
       const t = await antiforgery(p, '/Identity/Account/Register');
@@ -493,6 +497,7 @@ export async function run() {
     }
     await ctx.close();
     assert(statuses.includes(429), `6 consecutive registrations all succeeded (statuses ${statuses.join(',')}) - no per-IP registration limit`);
+    assertEqual(statuses[0], 200, `the first registration from a fresh client was refused (statuses ${statuses.join(',')})`);
     return statuses.join(',');
   });
 

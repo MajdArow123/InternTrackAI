@@ -112,6 +112,13 @@ builder.Services.Configure<PasswordResetRateLimitOptions>(
     builder.Configuration.GetSection(PasswordResetRateLimitOptions.SectionName));
 builder.Services.AddSingleton<PasswordResetLimiter>();
 
+// Register is anonymous too, needs no confirmed email and signs the visitor straight in, so it
+// carries a per-client limit for the same reason: nothing else bounds how many accounts one client
+// can mint, and a fresh account is a fresh AI quota. Singleton for the same reason again.
+builder.Services.Configure<RegistrationRateLimitOptions>(
+    builder.Configuration.GetSection(RegistrationRateLimitOptions.SectionName));
+builder.Services.AddSingleton<RegistrationLimiter>();
+
 // ── Upload storage ───────────────────────────────────────────────────────────
 // Resolves the on-disk root for user uploads from UPLOADS_PATH (defaults to ./uploads).
 // Singleton so the root is computed and created once at startup.

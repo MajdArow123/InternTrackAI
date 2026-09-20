@@ -1,5 +1,5 @@
 // Functional dimension: user flows, form behaviour, CRUD, filters, API contracts.
-import { chromium, BASE, check, assert, assertEqual, newSignedInContext, createApplication, antiforgery, postForm, postJson, uniqueEmail, PASSWORD, assertSignedIn } from './lib/harness.mjs';
+import { chromium, BASE, check, assert, assertEqual, newSignedInContext, createApplication, antiforgery, postForm, postJson, uniqueEmail, PASSWORD, assertSignedIn, syntheticClient } from './lib/harness.mjs';
 
 const D = 'Functional';
 
@@ -58,6 +58,7 @@ export async function run() {
   await check(D, 'Register through the real Register page signs the user in', async () => {
     context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     const page = await context.newPage();
+    await page.setExtraHTTPHeaders(syntheticClient());
     await page.goto(BASE + '/Identity/Account/Register', { waitUntil: 'domcontentloaded' });
     await page.fill('#Input_DisplayName', 'QA Functional');
     await page.fill('#Input_Email', email);
@@ -74,6 +75,7 @@ export async function run() {
 
   await check(D, 'Register rejects a weak password with field validation', async () => {
     const page = await anon.newPage();
+    await page.setExtraHTTPHeaders(syntheticClient());
     await page.goto(BASE + '/Identity/Account/Register', { waitUntil: 'domcontentloaded' });
     await page.fill('#Input_Email', uniqueEmail('weak'));
     await page.fill('#Input_Password', 'abc');
@@ -89,6 +91,7 @@ export async function run() {
 
   await check(D, 'Register rejects a duplicate email address', async () => {
     const page = await anon.newPage();
+    await page.setExtraHTTPHeaders(syntheticClient());
     await page.goto(BASE + '/Identity/Account/Register', { waitUntil: 'domcontentloaded' });
     await page.fill('#Input_Email', email);
     await page.fill('#Input_Password', PASSWORD);

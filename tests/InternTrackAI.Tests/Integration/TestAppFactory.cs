@@ -28,6 +28,12 @@ public class TestAppFactory : WebApplicationFactory<Program>
         // to exist even though the DbContext registration is replaced below.
         builder.UseSetting("ConnectionStrings:DefaultConnection", "Data Source=:memory:");
         builder.UseSetting("UPLOADS_PATH", _uploads);
+        // Register carries a per-client limit (RegistrationLimiter), and every request from
+        // TestServer arrives with no RemoteIpAddress, so the whole suite would share one bucket and
+        // the sixth account any test asked for would be refused. Raised here rather than switched
+        // off, so the limiter is still in the pipeline; RegistrationRateLimitTests turns it back
+        // down to exercise it.
+        builder.UseSetting("RateLimiting:Registration:PerIpPerHour", "100000");
 
         builder.ConfigureServices(services =>
         {

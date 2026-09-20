@@ -71,6 +71,17 @@ One fixed window per user, shared across every AI feature.
 | `RateLimiting__AI__WindowMinutes` | `60` | Length of the window |
 | `RateLimiting__AI__DemoPermitLimit` | `10` | Tighter allowance for the shared demo account |
 
+### Registration rate limiting
+
+Registration is anonymous, sends no confirmation email and signs the visitor straight in, so one fixed
+window per client bounds how many accounts one connection can create. A refused post re-renders the form
+with the reason under a `429`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `RateLimiting__Registration__PerIpPerHour` | `5` | Registration attempts one client may make per window |
+| `RateLimiting__Registration__WindowMinutes` | `60` | Length of the window |
+
 ### Gmail integration
 
 Both Google keys must be present or the whole feature stays hidden. Full walkthrough in

@@ -153,6 +153,17 @@ html[data-theme="dark"] {
   .anim-fade-up { animation: none; opacity: 1; }
   .score-fill   { animation: none !important; }
   *, *::before, *::after { transition-duration: 0.01ms !important; }
+  /* Named selectors could not keep up: skeleton-shimmer loops forever on every AI loading state,
+     and fadeSlideUp runs on the compare modal, the confirm dialog and the shortcuts modal. Cancel
+     animation wholesale instead, which also covers anything added later.
+     iteration-count matters as much as duration - an infinite animation at 0.01ms still repeats. */
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  /* The one exception: the loading spinner is the only "still working" signal on the AI panels,
+     and a frozen spinner reads as a hung request. Motion is small, centred and non-parallax. */
+  .match-loading-text::before { animation-duration: .8s !important; animation-iteration-count: infinite !important; }
 }
 
 /* Shimmer placeholder bars for AI loading states */

@@ -20,7 +20,7 @@ function loadPlaywright() {
   throw new Error('playwright not resolvable; set PLAYWRIGHT_PATH or NODE_PATH');
 }
 
-export const { chromium, devices } = loadPlaywright();
+export const { chromium, firefox, webkit, devices } = loadPlaywright();
 export const BASE = process.env.BASE_URL || 'http://localhost:5240';
 export const ARTIFACTS = process.env.ARTIFACTS_DIR || path.join(process.cwd(), 'e2e', 'artifacts');
 
@@ -133,6 +133,19 @@ export async function newSignedInContext(browser, tag = 'main') {
   const email = uniqueEmail(tag);
   await registerThroughUi(context, email);
   return { context, email };
+}
+
+/**
+ * True for the console noise the app's report-only CSP produces. The policy is
+ * Content-Security-Policy-Report-Only on purpose (see SecurityHeaders.cs), so these messages mean
+ * "this inline block would be blocked if the policy were enforced" - the working list, not a
+ * failure. Chromium logs them below error level; Gecko and WebKit log them as errors, plus two
+ * WebKit notices about a report-only policy having no frame-ancestors and no report-to. Filtering
+ * them is what makes "no console errors" mean the same thing on all three engines.
+ */
+export function isCspReportNoise(text) {
+  const t = String(text);
+  return /Content[- ]Security[- ]Policy/i.test(t) || /\[Report Only\]/i.test(t);
 }
 
 /** Reads the antiforgery token out of a rendered page so raw fetch() posts are accepted. */

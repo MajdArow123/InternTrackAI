@@ -1,8 +1,9 @@
-// Compatibility dimension: device emulation, degraded environments (no JS, blocked storage,
-// offline, slow network), reduced motion, and non-Latin / RTL text.
-// Firefox and WebKit are not exercised: this machine has no Playwright browser download
-// (the run borrows the system Chrome channel), so those engines are recorded as SKIP.
-import { chromium, devices, BASE, check, assert, assertEqual, skip, newSignedInContext, createApplication, antiforgery, postForm, shot } from './lib/harness.mjs';
+// Compatibility dimension: browser engines, device emulation, degraded environments (no JS,
+// blocked storage, offline, slow network), reduced motion, and non-Latin / RTL text.
+// Chromium is the system Chrome channel; Firefox and WebKit come from the Playwright browser
+// download. If an engine is not installed its checks record SKIP with the install command, so the
+// dimension still runs on a machine that only has Chrome.
+import { chromium, firefox, webkit, devices, BASE, check, assert, assertEqual, skip, newSignedInContext, createApplication, antiforgery, postForm, shot, isCspReportNoise } from './lib/harness.mjs';
 
 const D = 'Compatibility';
 
@@ -15,10 +16,97 @@ export async function run() {
   await page.goto(BASE + '/JobApplications?view=list', { waitUntil: 'networkidle' });
   const appId = await page.evaluate(() => document.querySelector('tr[data-app-id]')?.getAttribute('data-app-id'));
 
-  for (const engine of ['Firefox', 'WebKit']) {
-    await check(D, `${engine} engine coverage`, async () => {
-      skip(`${engine} is not installed. This run borrows the system Chrome channel; covering ${engine} needs "npx playwright install ${engine.toLowerCase()}" (~100-300 MB), which was not approved for this audit.`);
-    });
+  // ------------------------------------------------------------ browser engines
+  // Everything else in this file is Chromium. These run the core of the app on Gecko and WebKit
+  // too: the pages the app is actually used through, the JS-built drawer and the filters, and a
+  // real form post. Each engine gets its own account, created through the Register page from its
+  // own synthetic client address.
+  for (const [name, engineType] of [['Firefox', firefox], ['WebKit', webkit]]) {
+    let engine = null;
+    try {
+      engine = await engineType.launch();
+    } catch (err) {
+      for (const label of ['pages render', 'drawer and filters work', 'a form post round-trips']) {
+        await check(D, `${name}: ${label}`, async () => {
+          skip(`${name} is not installed: ${String(err.message).split('\n')[0]}. Install it with "node <playwright>/cli.js install ${name.toLowerCase()}".`);
+        });
+      }
+      continue;
+    }
+
+    try {
+      const { context: ec } = await newSignedInContext(engine, name.toLowerCase());
+      const ep = await ec.newPage();
+      // The report-only CSP is separated out rather than counted: Gecko and WebKit log those
+      // reports as console errors and Chromium does not, so without this the same clean page
+      // "fails" on two engines out of three. The count is still reported as evidence.
+      const engineErrors = [];
+      const cspReports = [];
+      const note = (text) => (isCspReportNoise(text) ? cspReports : engineErrors).push(text);
+      ep.on('pageerror', (e) => note(e.message));
+      ep.on('console', (m) => { if (m.type() === 'error') note(`console: ${m.text()}`); });
+
+      await createApplication(ep, {
+        CompanyName: `${name} Co`, RoleTitle: 'Platform Intern', Location: 'Remote', Status: '1',
+        JobDescription: 'Requirements: Docker, Kubernetes, Go, PostgreSQL.',
+      });
+
+      await check(D, `${name}: pages render`, async () => {
+        const out = [];
+        for (const [label, url] of [['landing', '/'], ['dashboard', '/Home/Dashboard'], ['list', '/JobApplications?view=list'], ['board', '/JobApplications/Board'], ['create', '/JobApplications/Create'], ['profile', '/Profile']]) {
+          const res = await ep.goto(BASE + url, { waitUntil: 'networkidle' });
+          assertEqual(res.status(), 200, `${label} status on ${name}`);
+          const m = await ep.evaluate(() => ({
+            scrollW: document.documentElement.scrollWidth,
+            docW: document.documentElement.clientWidth,
+            text: document.body.textContent.replace(/\s+/g, ' ').trim().length,
+            bg: getComputedStyle(document.body).backgroundColor,
+          }));
+          assert(m.text > 200, `${label} renders almost nothing on ${name}`);
+          assert(m.bg && m.bg !== 'rgba(0, 0, 0, 0)', `${label} painted no background on ${name}`);
+          out.push(`${label}: ${m.scrollW}/${m.docW}${m.scrollW > m.docW + 1 ? ' OVERFLOW' : ''}`);
+        }
+        await shot(ep, `engine-${name.toLowerCase()}-list`);
+        const overflowing = out.filter((o) => o.includes('OVERFLOW'));
+        assertEqual(overflowing.length, 0, `horizontal overflow on ${name}: ${overflowing.join(', ')}`);
+        assertEqual(engineErrors.length, 0, `uncaught/console errors on ${name}: ${engineErrors.slice(0, 3).join(' | ')}`);
+        return `${out.join('; ')}; ${cspReports.length} report-only CSP notices (not errors)`;
+      });
+
+      await check(D, `${name}: drawer and filters work`, async () => {
+        await ep.goto(BASE + '/JobApplications?view=list', { waitUntil: 'networkidle' });
+        await ep.click('tr[data-app-id] .row-open');
+        await ep.waitForSelector('.app-drawer.active', { timeout: 5000 });
+        const d = await ep.evaluate(() => ({
+          company: document.querySelector('#drawer-company')?.textContent?.trim() || '',
+          focusInside: document.querySelector('.app-drawer').contains(document.activeElement),
+        }));
+        assert(d.company.length > 0, `drawer opened with no company on ${name}`);
+        await ep.click('#drawer-close');
+        await ep.waitForTimeout(400);
+        const closed = await ep.evaluate(() => !document.querySelector('.app-drawer').classList.contains('active'));
+        assert(closed, `the drawer close button did not close it on ${name}`);
+
+        await ep.goto(`${BASE}/JobApplications?view=list&search=${encodeURIComponent(name)}`, { waitUntil: 'networkidle' });
+        const rows = await ep.evaluate(() => document.querySelectorAll('tr[data-app-id]').length);
+        assert(rows > 0, `search returned nothing on ${name}`);
+        assertEqual(engineErrors.length, 0, `uncaught/console errors on ${name}: ${engineErrors.slice(0, 3).join(' | ')}`);
+        return `drawer opened on "${d.company}" (focus inside: ${d.focusInside}) and closed; search matched ${rows} row(s)`;
+      });
+
+      await check(D, `${name}: a form post round-trips`, async () => {
+        const marker = `${name} Form Co`;
+        await createApplication(ep, { CompanyName: marker, RoleTitle: 'Form Intern', Status: '0' });
+        await ep.goto(`${BASE}/JobApplications?view=list&search=${encodeURIComponent(marker)}`, { waitUntil: 'networkidle' });
+        const found = (await ep.textContent('body')).includes(marker);
+        assert(found, `the Create form did not round-trip on ${name}`);
+        return `"${marker}" created and listed`;
+      });
+
+      await ec.close();
+    } finally {
+      await engine.close();
+    }
   }
 
   // ------------------------------------------------------------ device emulation
@@ -218,8 +306,10 @@ export async function run() {
   await check(D, 'No console errors on the main pages', async () => {
     const found = [];
     const p = await context.newPage();
-    p.on('console', (m) => { if (m.type() === 'error') found.push(`${p.url().replace(BASE, '')}: ${m.text().slice(0, 160)}`); });
-    p.on('pageerror', (e) => found.push(`${p.url().replace(BASE, '')}: ${e.message.slice(0, 160)}`));
+    // Same report-only CSP filter as the engine checks above, so this check means the same thing
+    // whichever engine it is pointed at.
+    p.on('console', (m) => { if (m.type() === 'error' && !isCspReportNoise(m.text())) found.push(`${p.url().replace(BASE, '')}: ${m.text().slice(0, 160)}`); });
+    p.on('pageerror', (e) => { if (!isCspReportNoise(e.message)) found.push(`${p.url().replace(BASE, '')}: ${e.message.slice(0, 160)}`); });
     for (const url of ['/', '/Home/Dashboard', '/JobApplications?view=list', '/JobApplications/Board', '/JobApplications/Create', `/JobApplications/Edit/${appId}`, '/Profile', `/CoverLetter/Generate?appId=${appId}`, `/InterviewPrep/Prep?appId=${appId}`]) {
       await p.goto(BASE + url, { waitUntil: 'networkidle' });
       await p.waitForTimeout(300);

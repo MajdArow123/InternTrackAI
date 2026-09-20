@@ -1185,7 +1185,12 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
 :root .app-table-wrapper.app-table-sticky .table thead th { background-color: var(--card); }
 
 /* Sticky only from md up: below that the table scrolls sideways inside .table-responsive (overflow-x: auto), which
-   becomes the header's scroll container and stops it sticking to the viewport. */
+   becomes the header's scroll container and stops it sticking to the viewport.
+   The cost of that trade is paid in _Table.cshtml: with no scroll container left, a table wider than the
+   viewport widens the document instead of scrolling inside it, and the whole page goes sideways. The list's
+   columns bottom out at ~945px, which the page only has room for from 992px, so Location, Mode and Match are
+   marked d-none/d-lg-table-cell there and step out for the 768-991px band. Adding a column to that table means
+   re-checking that band; the compatibility and visual dimensions of the e2e suite both assert on it. */
 @media (min-width: 768px) {
   .app-table-sticky, .app-table-sticky .table-responsive { overflow: visible; }
   .app-table-sticky .table thead th {

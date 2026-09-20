@@ -50,10 +50,18 @@
                             </th>
                             <th class="ps-2">Company</th>
                             <th>Role</th>
-                            <th class="d-none d-md-table-cell">Location</th>
-                            <th class="d-none d-md-table-cell">Mode</th>
+                            @* Location, Mode and Match are out between 768px and 991px: below 768 the
+                               table scrolls sideways inside .table-responsive, but from 768 the sticky
+                               header needs overflow:visible and the full-width table would take the
+                               whole page sideways instead (see the sticky-header block in site.css).
+                               These three are the ones the row can lose — the drawer carries all three,
+                               work mode has its own filter in the toolbar, and Match is blank on every
+                               unanalyzed row. Match reappears at sm because the table scrolls there, so
+                               it needs the d-md-none step; Location and Mode simply start at lg. *@
+                            <th class="d-none d-lg-table-cell">Location</th>
+                            <th class="d-none d-lg-table-cell">Mode</th>
                             <th>Status</th>
-                            <th class="text-center d-none d-sm-table-cell col-match">Match</th>
+                            <th class="text-center d-none d-sm-table-cell d-md-none d-lg-table-cell col-match">Match</th>
                             <th class="d-none d-sm-table-cell">Deadline</th>
                             <th></th>
                         </tr>
@@ -105,8 +113,8 @@
                                         <div class="row-resume text-muted">@resumeName</div>
                                     }
                                 </td>
-                                <td class="text-muted d-none d-md-table-cell">@(item.Location ?? "—")</td>
-                                <td class="text-muted d-none d-md-table-cell">@item.WorkMode</td>
+                                <td class="text-muted d-none d-lg-table-cell">@(item.Location ?? "—")</td>
+                                <td class="text-muted d-none d-lg-table-cell">@item.WorkMode</td>
                                 <td>
                                     <span class="status-badge @StatusDisplay.BadgeClass(item.Status)">
                                         @Html.Raw(StatusDisplay.Icon(item.Status)) <span class="row-status-name">@item.Status</span>
@@ -116,7 +124,7 @@
                                         }
                                     </span>
                                 </td>
-                                <td class="text-center d-none d-sm-table-cell">
+                                <td class="text-center d-none d-sm-table-cell d-md-none d-lg-table-cell">
                                     @if (item.MatchScore.HasValue)
                                     {
                                         var action = StatusDisplay.MatchTooltip(item.MatchScore.Value);

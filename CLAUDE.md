@@ -65,7 +65,7 @@ The installed global `dotnet-ef` is 10.0.2 against EF Core 9.0.20 packages.
 | `Views/` | Razor views and partials; `Views/Shared/_Layout.cshtml` (app) and `_AuthLayout.cshtml` (Identity pages) |
 | `wwwroot/css/site.css` | The design system (tokens + all styles) |
 | `wwwroot/js/` | One file per page/feature (section 8) |
-| `wwwroot/lib/` | Vendored front-end libraries |
+| `wwwroot/lib/` | Vendored front-end libraries — only what a view actually loads (the eight minified builds, the two source maps those declare, and the licences). The unminified twins, the RTL Bootstrap builds and slim jQuery were removed; don't restore a whole package's `dist`, add the one file the view needs |
 | `tests/InternTrackAI.Tests/` | xUnit: unit tests at the root, WebApplicationFactory tests + fakes in `Integration/`; excluded from the main csproj globs |
 | `docs/` | `deployment.md` (env-var table, Railway setup, the Postgres migration gotcha), `gmail-setup.md` (Google OAuth walkthrough), `screenshots/` (README screenshots) |
 | `.github/workflows/ci.yml` | restore, build Release, test on push/PR to `main` (ubuntu, .NET 9) |

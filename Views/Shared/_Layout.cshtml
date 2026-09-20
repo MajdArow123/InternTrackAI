@@ -1,4 +1,5 @@
 @inject InternTrackAI.Services.Gmail.SuggestionService Suggestions
+@inject Microsoft.AspNetCore.Identity.SignInManager<Microsoft.AspNetCore.Identity.IdentityUser> LayoutSignInManager
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -224,5 +225,12 @@
         });
     })();
     </script>
+    @if (LayoutSignInManager.IsSignedIn(User))
+    {
+        @* Target of the nav's logout button. Rendered last so no page's first submit button is
+           ever this one; the button reaches it by its form attribute. *@
+        <form id="logout-form" class="d-none" asp-area="Identity" asp-page="/Account/Logout"
+              asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })"></form>
+    }
 </body>
 </html>

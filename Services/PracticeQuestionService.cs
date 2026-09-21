@@ -131,7 +131,7 @@ public class PracticeQuestionService
                 profileContext, company, role, jobDescription);
 
             var (ok, generated, error) = await CallModelAsync(prompt, ct);
-            if (!ok) return kept.Count == 0 ? PracticeGenerationResult.Failed(error!) : Done(kept, count, topicRejections);
+            if (!ok) return kept.Count == 0 ? PracticeGenerationResult.Failed(error!) : Done(kept, count, topicRejections, difficulty, category);
 
             foreach (var g in generated)
             {
@@ -174,7 +174,7 @@ public class PracticeQuestionService
         }
 
         var saved = await SaveAsync(kept, ct);
-        return Done(saved, count, topicRejections);
+        return Done(saved, count, topicRejections, difficulty, category);
     }
 
     /// <summary>
@@ -182,14 +182,23 @@ public class PracticeQuestionService
     /// is reported as a fact, not an error — an error would tell the user something is broken when the
     /// truth is that they have practised this a lot.
     /// </summary>
-    private static PracticeGenerationResult Done(List<PracticeQuestion> kept, int asked, int topicRejections)
+    private static PracticeGenerationResult Done(
+        List<PracticeQuestion> kept, int asked, int topicRejections,
+        PracticeDifficulty difficulty, QuestionCategory category)
     {
+        // Naming the combination matters more than it looks. The filters can both read "Any" while the
+        // generator is producing Medium/Technical, so "try another difficulty or category" against an
+        // unchanged count reads as the button having done nothing at all — which is exactly how an
+        // exhausted combination got reported as a broken progress card.
+        var combination = $"{difficulty} · {QuestionCategories.Display(category)}";
+
         if (kept.Count == 0)
-            return new PracticeGenerationResult(true, kept, "No new questions this time — you've covered a lot of ground here. Try another difficulty or category.", null)
+            return new PracticeGenerationResult(true, kept,
+                       $"No new questions this time — you've already covered {combination} pretty thoroughly. Pick a different difficulty or category above and try again.", null)
                    { TopicRejections = topicRejections };
 
         var note = kept.Count < asked
-            ? $"Generated {kept.Count} new question{(kept.Count == 1 ? "" : "s")} — you've covered a lot of ground on this topic."
+            ? $"Generated {kept.Count} new {combination} question{(kept.Count == 1 ? "" : "s")} — you've covered a lot of ground here."
             : null;
 
         return new PracticeGenerationResult(true, kept, note, null) { TopicRejections = topicRejections };

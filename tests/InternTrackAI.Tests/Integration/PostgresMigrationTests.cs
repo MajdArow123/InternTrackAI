@@ -19,6 +19,7 @@ namespace InternTrackAI.Tests.Integration;
 /// then verifies every date/time column's real type and that notes (and locked-out users) can be
 /// written and read back — the two things that were broken on Postgres before FixApplicationNoteCreatedAtType.
 /// </summary>
+[Collection(RealPostgresCollection.Name)]   // serialised with ProviderParityTests: both drop and recreate the same database
 public class PostgresMigrationTests
 {
     private readonly ITestOutputHelper _out;

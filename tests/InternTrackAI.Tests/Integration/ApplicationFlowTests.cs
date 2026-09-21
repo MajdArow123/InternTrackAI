@@ -16,6 +16,63 @@ public class ApplicationFlowTests : IClassFixture<TestAppFactory>
     private HttpClient NewClient() =>
         _factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
+    /// <summary>Registers a user and gives them one application, returning the signed-in client.</summary>
+    private async Task<HttpClient> WithApplication(string company, string role)
+    {
+        var client = NewClient();
+        await Http.RegisterAsync(client);
+
+        var token = await Http.GetAntiforgeryTokenAsync(client, "/JobApplications/Create");
+        var create = await client.PostAsync("/JobApplications/Create", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["CompanyName"] = company,
+            ["RoleTitle"]   = role,
+            ["Status"]      = "Applied",
+            ["WorkMode"]    = "Remote",
+            ["__RequestVerificationToken"] = token,
+        }));
+        Assert.Equal(HttpStatusCode.Redirect, create.StatusCode);
+        return client;
+    }
+
+    [Theory]
+    // The bug: typing the company in lower case found nothing.
+    [InlineData("shopify")]
+    [InlineData("SHOPIFY")]
+    [InlineData("Shopify")]
+    [InlineData("shopIFY")]
+    public async Task Search_matches_a_company_whatever_case_you_type(string typed)
+    {
+        var client = await WithApplication("Shopify", "Backend Intern");
+
+        var html = await (await client.GetAsync($"/JobApplications?search={Uri.EscapeDataString(typed)}")).Content.ReadAsStringAsync();
+
+        Assert.Contains("Shopify", html);
+    }
+
+    [Theory]
+    [InlineData("backend")]
+    [InlineData("BACKEND")]
+    public async Task Search_matches_a_role_whatever_case_you_type(string typed)
+    {
+        var client = await WithApplication("Shopify", "Backend Intern");
+
+        var html = await (await client.GetAsync($"/JobApplications?search={Uri.EscapeDataString(typed)}")).Content.ReadAsStringAsync();
+
+        Assert.Contains("Backend Intern", html);
+    }
+
+    [Fact]
+    public async Task Search_still_excludes_what_does_not_match()
+    {
+        // The case-insensitive fix must not become "matches everything".
+        var client = await WithApplication("Shopify", "Backend Intern");
+
+        var html = await (await client.GetAsync("/JobApplications?search=stripe")).Content.ReadAsStringAsync();
+
+        Assert.DoesNotContain(">Shopify<", html);
+    }
+
     [Fact]
     public async Task Applications_page_requires_sign_in()
     {

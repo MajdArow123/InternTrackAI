@@ -4600,6 +4600,76 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 
 .practice-list { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
 
+/* ── Progress card ───────────────────────────────────────────────────────────
+   Reuses .mini-stat for the numbers and the dashboard .funnel for the coverage
+   bars, so there is no second stat or bar implementation to keep in step. */
+
+.practice-progress-stats { display: flex; flex-wrap: wrap; gap: 1.75rem; margin-bottom: .9rem; }
+.practice-progress-of { font-size: .8667rem; font-weight: 500; color: var(--muted); }
+.practice-progress-score--low  { color: var(--danger-text); }
+.practice-progress-score--mid  { color: var(--warning-text); }
+.practice-progress-score--high { color: var(--success-text); }
+
+.practice-trend { margin-left: .3rem; font-size: .8rem; font-weight: 600; }
+.practice-trend--up   { color: var(--success-text); }
+.practice-trend--down { color: var(--danger-text); }
+
+.practice-progress-weakest { margin: 0 0 .9rem; font-size: .8667rem; color: var(--text-2); }
+.practice-progress-weakest strong { color: var(--text); }
+
+.practice-progress-coverage .funnel-row { grid-template-columns: 64px 1fr 44px; }
+.practice-coverage-easy   .funnel-bar { background: var(--success); }
+.practice-coverage-medium .funnel-bar { background: var(--accent); }
+.practice-coverage-hard   .funnel-bar { background: var(--warning); }
+
+/* ── Question groups ─────────────────────────────────────────────────────── */
+
+.practice-group { display: flex; flex-direction: column; gap: .75rem; }
+.practice-group-list { display: flex; flex-direction: column; gap: .75rem; }
+
+.practice-group-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .6rem;
+  padding: .1rem .15rem;
+}
+.practice-group-titles { display: flex; flex-direction: column; min-width: 0; }
+.practice-group-role { font-weight: 600; font-size: .9333rem; color: var(--text); }
+.practice-group-company { font-size: .8rem; color: var(--text-2); }
+.practice-group-actions { display: flex; align-items: center; gap: .75rem; margin-left: auto; }
+.practice-group-link { font-size: .8667rem; color: var(--accent-text); text-decoration: none; }
+.practice-group-link:hover { text-decoration: underline; }
+
+.practice-group-general {
+  margin: 0 0 -.15rem;
+  padding: .1rem .15rem;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* ── Saved star ──────────────────────────────────────────────────────────── */
+
+.practice-star {
+  margin-left: auto;
+  padding: 0 .2rem;
+  border: 0;
+  background: none;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--muted-2);
+  cursor: pointer;
+  transition: color var(--duration) var(--ease), transform var(--duration) var(--ease);
+}
+.practice-star:hover { color: var(--warning); transform: scale(1.12); }
+.practice-star.is-saved { color: var(--warning); }
+.practice-star:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
+
+/* The score chip already claims the right edge on an answered card, so the star follows it rather
+   than fighting it for the same margin-left:auto. */
+.practice-score + .practice-star { margin-left: .1rem; }
+
 .practice-card {
   padding: 1rem 1.15rem;
   background: var(--card);

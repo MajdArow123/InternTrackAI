@@ -197,6 +197,7 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
     // The answer clears PracticeAnswerService.MinAnswerChars on purpose: the length rule is checked
     // first, so a short answer would be rejected before ownership was ever tested.
     [Fact] public async Task Practice_SubmitAnswer_POST()       => await Assert404(await _f.Alice.PostAsync("/Practice/SubmitAnswer", _f.Form(("questionId", _f.BobPrepId.ToString()), ("answer", LongEnoughAnswer))));
+    [Fact] public async Task Practice_ToggleSaved_POST()        => await Assert404(await _f.Alice.PostAsync("/Practice/ToggleSaved", _f.Form(("questionId", _f.BobPrepId.ToString()))));
 
     private const string LongEnoughAnswer = "An answer long enough to be worth sending to the grader at all.";
 

@@ -3,8 +3,8 @@
 @{
     ViewData["Title"] = "Practice";
 
-    string FilterUrl(PracticeDifficulty? d, QuestionCategory? c) =>
-        Url.Action("Index", new { difficulty = d?.ToString(), category = c?.ToString() })!;
+    string FilterUrl(PracticeDifficulty? d, QuestionCategory? c, bool saved) =>
+        Url.Action("Index", new { difficulty = d?.ToString(), category = c?.ToString(), saved = saved ? "true" : null })!;
 }
 
 <div class="container py-4 container-narrow">
@@ -23,6 +23,11 @@
         </div>
     </div>
 
+@if (!Model.Progress.IsEmpty)
+{
+    <partial name="_PracticeProgress" model="Model.Progress" />
+}
+
     <div class="form-card mb-3">
         <p class="form-section-title">Difficulty and category</p>
         <p class="form-hint mb-3">
@@ -31,19 +36,29 @@
 
         <div class="practice-filters">
             <div class="practice-filter-group" role="group" aria-label="Difficulty">
-                <a class="practice-filter @(Model.Difficulty is null ? "is-active" : "")" href="@FilterUrl(null, Model.Category)">Any</a>
+                <a class="practice-filter @(Model.Difficulty is null ? "is-active" : "")" href="@FilterUrl(null, Model.Category, Model.SavedOnly)">Any</a>
                 @foreach (var d in Enum.GetValues<PracticeDifficulty>())
                 {
-                    <a class="practice-filter @(Model.Difficulty == d ? "is-active" : "")" href="@FilterUrl(d, Model.Category)">@d</a>
+                    <a class="practice-filter @(Model.Difficulty == d ? "is-active" : "")" href="@FilterUrl(d, Model.Category, Model.SavedOnly)">@d</a>
                 }
             </div>
 
             <div class="practice-filter-group" role="group" aria-label="Category">
-                <a class="practice-filter @(Model.Category is null ? "is-active" : "")" href="@FilterUrl(Model.Difficulty, null)">Any</a>
+                <a class="practice-filter @(Model.Category is null ? "is-active" : "")" href="@FilterUrl(Model.Difficulty, null, Model.SavedOnly)">Any</a>
                 @foreach (var c in QuestionCategories.InOrder)
                 {
-                    <a class="practice-filter @(Model.Category == c ? "is-active" : "")" href="@FilterUrl(Model.Difficulty, c)">@QuestionCategories.Display(c)</a>
+                    <a class="practice-filter @(Model.Category == c ? "is-active" : "")" href="@FilterUrl(Model.Difficulty, c, Model.SavedOnly)">@QuestionCategories.Display(c)</a>
                 }
+            </div>
+
+            @*
+                A plain filter, unlike the two above — it narrows the list and has no say in what the
+                next batch generates. It composes with them: saved + Hard is your saved Hard questions.
+            *@
+            <div class="practice-filter-group" role="group" aria-label="Saved">
+                <a class="practice-filter @(Model.SavedOnly ? "is-active" : "")"
+                   href="@FilterUrl(Model.Difficulty, Model.Category, !Model.SavedOnly)"
+                   aria-pressed="@(Model.SavedOnly ? "true" : "false")">★ Saved</a>
             </div>
         </div>
 
@@ -66,20 +81,26 @@
     </div>
 
     <div id="practiceList" class="practice-list">
-        <partial name="_PracticeQuestions" model="Model.Questions" />
+        @foreach (var group in Model.Groups)
+        {
+            <partial name="_PracticeGroup" model="group" />
+        }
     </div>
 
 @*
     Only rendered when the list is empty — practice.js hides it after the first append. Emitting it
     hidden would put "No questions yet" in the markup of a page that is full of questions.
 *@
-@if (!Model.Questions.Any())
+@if (Model.ShownCount == 0)
 {
     <div id="practiceEmpty" class="form-card">
         @if (Model.FilteredToNothing)
         {
             <p class="form-section-title form-section-title--sm mb-1">Nothing at this level yet</p>
-            <p class="form-hint mb-0">You have @Model.TotalCount question@(Model.TotalCount == 1 ? "" : "s") in other difficulties or categories. Get more to fill this one in.</p>
+            <p class="form-hint mb-0">
+                You have @Model.TotalCount question@(Model.TotalCount == 1 ? "" : "s") in other difficulties, categories or unsaved.
+                <a href="@FilterUrl(null, null, false)">Clear the filters</a> or get more to fill this one in.
+            </p>
         }
         else
         {

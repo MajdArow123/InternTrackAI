@@ -39,6 +39,20 @@
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
+        generate(null);
+    });
+
+    // "Get more for this role" on a group header: the same request with that posting's id, so the
+    // questions are derived from its description and come back into the same group.
+    if (list) {
+        list.addEventListener('click', function (e) {
+            const btn = e.target.closest('[data-practice-generate-for]');
+            if (!btn) return;
+            generate(btn.dataset.practiceGenerateFor);
+        });
+    }
+
+    function generate(applicationId) {
         if (inFlight) return;
 
         setBusy(true);
@@ -46,6 +60,7 @@
         show(error, null);
 
         const body = new URLSearchParams(new FormData(form));
+        if (applicationId) body.set('applicationId', applicationId);
 
         fetch('/Practice/GenerateMore', {
             method: 'POST',
@@ -70,6 +85,15 @@
 
                 if (!data.html || !data.added) return;
 
+                // The new questions belong to a group — the posting they were generated for, or
+                // general practice. If that group is not on the page yet there is nowhere correct to
+                // put them, and building a group header here would be a second copy of markup the
+                // server already owns, so reload instead. Rare: the group button always has its group.
+                const target = list.querySelector(
+                    '.practice-group[data-group-id="' + (applicationId || '') + '"] .practice-group-list');
+
+                if (!target) { window.location.reload(); return; }
+
                 // Newest first, matching the page's own ordering.
                 const holder = document.createElement('div');
                 holder.innerHTML = data.html;
@@ -77,7 +101,7 @@
 
                 added.reverse().forEach(function (card) {
                     card.classList.add('practice-card--new');
-                    list.prepend(card);
+                    target.prepend(card);
                 });
 
                 if (empty) empty.hidden = true;
@@ -90,7 +114,7 @@
                 show(error, err.message || 'Request failed. Check your connection and try again.');
             })
             .finally(function () { setBusy(false); });
-    });
+    }
     // ── Answering ────────────────────────────────────────────────────────────
     // One set of listeners on the list, not one per card: cards arrive from "Get more" and are replaced
     // wholesale after a submission, and delegation means neither case needs rebinding.
@@ -119,6 +143,46 @@
             const cardForm = e.target.closest('[data-practice-answer-form]');
             if (cardForm) refresh(cardForm);
         });
+
+        // Star toggle. The server returns the state it landed in rather than the state asked for, so a
+        // fast double-click cannot leave the button and the row disagreeing.
+        list.addEventListener('click', function (e) {
+            const star = e.target.closest('[data-practice-star]');
+            if (!star || star.dataset.inFlight === '1') return;
+
+            const card = star.closest('.practice-card');
+            if (!card) return;
+
+            star.dataset.inFlight = '1';
+
+            const body = new URLSearchParams();
+            body.set('questionId', card.dataset.questionId);
+
+            const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+            if (token) headers['RequestVerificationToken'] = token.value;
+
+            fetch('/Practice/ToggleSaved', { method: 'POST', body: body, headers: headers })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (!data.success) throw new Error(data.error || 'Could not save that question.');
+                    paintStar(star, data.saved);
+                })
+                .catch(function () {
+                    // Nothing destructive happened, and an error banner on a star is heavier than the
+                    // action deserves. The button simply stays as it was.
+                    showAppToast('error', 'Could not save that question. Try again.');
+                })
+                .finally(function () { star.dataset.inFlight = '0'; });
+        });
+
+        function paintStar(star, saved) {
+            const label = saved ? 'Saved — click to unsave' : 'Save this question';
+            star.classList.toggle('is-saved', saved);
+            star.setAttribute('aria-pressed', saved ? 'true' : 'false');
+            star.setAttribute('aria-label', label);
+            star.setAttribute('title', label);
+            star.textContent = saved ? '★' : '☆';
+        }
 
         // "Retry this question" is purely local: reveal the form again. The attempt on screen only moves
         // into the history list when the next one is submitted, so there is nothing to ask the server.

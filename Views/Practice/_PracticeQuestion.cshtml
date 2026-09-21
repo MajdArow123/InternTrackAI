@@ -31,6 +31,17 @@
         {
             <span class="practice-score practice-score--@scoreTone" title="Your score on this answer">@score<span class="practice-score-max">/@AnswerFeedback.MaxScore</span></span>
         }
+
+        @*
+            aria-pressed rather than colour alone, so the state is announced rather than implied. The
+            label changes with the state for the same reason.
+        *@
+        <button type="button"
+                class="practice-star @(Model.IsSaved ? "is-saved" : "")"
+                data-practice-star
+                aria-pressed="@(Model.IsSaved ? "true" : "false")"
+                title="@(Model.IsSaved ? "Saved — click to unsave" : "Save this question")"
+                aria-label="@(Model.IsSaved ? "Saved — click to unsave" : "Save this question")">@(Model.IsSaved ? "★" : "☆")</button>
     </div>
 
     <p class="practice-prompt">@Model.Prompt</p>

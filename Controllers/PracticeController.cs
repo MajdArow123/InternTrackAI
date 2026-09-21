@@ -48,7 +48,7 @@ public class PracticeController : Controller
     // ── GET /Practice ────────────────────────────────────
 
     [HttpGet]
-    public async Task<IActionResult> Index(string? difficulty, string? category)
+    public async Task<IActionResult> Index(string? difficulty, string? category, bool saved = false)
     {
         var userId = UserId();
         var selectedDifficulty = ParseDifficulty(difficulty);
@@ -57,14 +57,88 @@ public class PracticeController : Controller
         var query = _db.PracticeQuestions.AsNoTracking().Where(q => q.UserId == userId);
         if (selectedDifficulty is { } d) query = query.Where(q => q.Difficulty == d);
         if (selectedCategory is { } c)   query = query.Where(q => q.Category == c);
+        if (saved)                       query = query.Where(q => q.IsSaved);
+
+        var questions = await query.OrderByDescending(q => q.Id).ToListAsync(HttpContext.RequestAborted);
 
         return View(new PracticeViewModel
         {
-            Questions  = await query.OrderByDescending(q => q.Id).ToListAsync(),
+            Groups     = await GroupAsync(userId, questions, HttpContext.RequestAborted),
+            Progress   = await ProgressAsync(userId, HttpContext.RequestAborted),
             Difficulty = selectedDifficulty,
             Category   = selectedCategory,
-            TotalCount = await _db.PracticeQuestions.CountAsync(q => q.UserId == userId)
+            SavedOnly  = saved,
+            TotalCount = await _db.PracticeQuestions.CountAsync(q => q.UserId == userId, HttpContext.RequestAborted)
         });
+    }
+
+    /// <summary>
+    /// Splits the questions into one group per application, newest group first, with general practice
+    /// last.
+    /// </summary>
+    /// <remarks>
+    /// <b>Grouped and ordered by <c>ApplicationId</c>, an int, never by company name.</b> A text
+    /// <c>GROUP BY</c> or <c>ORDER BY</c> takes the database's collation, which is <c>C</c> locally and
+    /// <c>en_US.utf8</c> in production (CLAUDE.md §8) — the divergence that already shipped one wrong
+    /// sort. The company and role are fetched as two strings for the header and play no part in the
+    /// ordering. General practice sits last because it is the fallback bucket, not a posting.
+    /// </remarks>
+    private async Task<List<PracticeGroup>> GroupAsync(string userId, List<PracticeQuestion> questions, CancellationToken ct)
+    {
+        if (questions.Count == 0) return new();
+
+        var appIds = questions.Where(q => q.ApplicationId is not null)
+                              .Select(q => q.ApplicationId!.Value)
+                              .Distinct()
+                              .ToList();
+
+        // Owner-scoped, so a question whose application was somehow not the user's contributes no label.
+        var applications = appIds.Count == 0
+            ? new Dictionary<int, (string Company, string Role)>()
+            : (await _db.JobApplications.AsNoTracking()
+                    .Where(a => a.UserId == userId && appIds.Contains(a.Id))
+                    .Select(a => new { a.Id, a.CompanyName, a.RoleTitle })
+                    .ToListAsync(ct))
+                .ToDictionary(a => a.Id, a => (Company: a.CompanyName, Role: a.RoleTitle));
+
+        var groups = questions
+            .GroupBy(q => q.ApplicationId)
+            .Select(g => new
+            {
+                ApplicationId = g.Key,
+                Newest        = g.Max(q => q.Id),
+                Questions     = g.ToList()
+            })
+            .OrderByDescending(g => g.ApplicationId is null ? 0 : 1)   // general practice last
+            .ThenByDescending(g => g.Newest)
+            .Select(g =>
+            {
+                applications.TryGetValue(g.ApplicationId ?? 0, out var app);
+                return new PracticeGroup(g.ApplicationId, app.Company, app.Role, g.Questions);
+            })
+            .ToList();
+
+        return groups.Count == 1
+            ? new List<PracticeGroup> { groups[0] with { IsOnlyGroup = true } }
+            : groups;
+    }
+
+    /// <summary>
+    /// The progress card. One query, five narrow columns, aggregated in C# — see
+    /// <see cref="PracticeProgress"/> for why it is not SQL aggregates.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately unfiltered: this is the user's progress, not a summary of whatever they are
+    /// currently looking at, and a card whose numbers moved when a filter changed would read as a bug.
+    /// </remarks>
+    private async Task<PracticeProgress> ProgressAsync(string userId, CancellationToken ct)
+    {
+        var rows = await _db.PracticeQuestions.AsNoTracking()
+            .Where(q => q.UserId == userId)
+            .Select(q => new PracticeProgressRow(q.Id, q.Difficulty, q.Score, q.Topic, q.AnsweredAt))
+            .ToListAsync(ct);
+
+        return PracticeProgress.Build(rows);
     }
 
     // ── POST /Practice/GenerateMore ──────────────────────
@@ -146,6 +220,31 @@ public class PracticeController : Controller
             score   = result.Feedback!.Score,
             html    = await this.RenderPartialAsync("_PracticeQuestion", question)
         });
+    }
+
+    // ── POST /Practice/ToggleSaved ───────────────────────
+
+    /// <summary>Stars or unstars one question. Returns the state it landed in, not the one asked for.</summary>
+    /// <remarks>
+    /// <b>No rate limit</b>, because it makes no model call — the same reason
+    /// <c>JobApplicationsController.KeywordCoverage</c> stays off the <c>"ai"</c> policy. The response
+    /// carries the resulting state rather than echoing the request so a double-click cannot leave the
+    /// star and the row disagreeing.
+    /// </remarks>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ToggleSaved(int questionId)
+    {
+        var userId = UserId();
+
+        var question = await _db.PracticeQuestions
+            .FirstOrDefaultAsync(q => q.Id == questionId && q.UserId == userId, HttpContext.RequestAborted);
+        if (question is null)
+            return NotFound(new { success = false, error = "Question not found." });
+
+        question.IsSaved = !question.IsSaved;
+        await _db.SaveChangesAsync(HttpContext.RequestAborted);
+
+        return Json(new { success = true, saved = question.IsSaved });
     }
 
     /// <summary>Blank or unrecognised means "no filter", never a throw — the values come from a query string.</summary>

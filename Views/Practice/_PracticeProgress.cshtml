@@ -1,0 +1,82 @@
+@model InternTrackAI.Services.PracticeProgress
+@using InternTrackAI.Models.Enums
+@*
+    The progress card. Pure arithmetic off one query (see Services/PracticeProgress.cs) — no model call,
+    because this renders on every page load.
+*@
+@{
+    string Score(double v) => v.ToString("0.#");
+
+    // Same three tones as the answered card's score chip, so a 2.1 average and a 2/5 answer read alike.
+    string Tone(double v) => v >= 4 ? "high" : v >= 3 ? "mid" : "low";
+}
+
+<div class="form-card practice-progress mb-3">
+    <p class="form-section-title">Your progress</p>
+
+    <div class="practice-progress-stats">
+        <div class="mini-stat">
+            <span class="mini-stat-num">@Model.Answered<span class="practice-progress-of">/@Model.Total</span></span>
+            <span class="mini-stat-label">Answered</span>
+        </div>
+
+        @if (Model.AverageScore is { } average)
+        {
+            <div class="mini-stat">
+                <span class="mini-stat-num practice-progress-score practice-progress-score--@Tone(average)">@Score(average)<span class="practice-progress-of">/5</span></span>
+                <span class="mini-stat-label">Average score</span>
+            </div>
+        }
+
+        @*
+            Only once there are more answers than the window holds. Below that the "last 10" average
+            *is* the overall average, and showing the same number twice under two labels reads as a
+            bug — and "Last 1 answers" reads as a worse one.
+        *@
+        @if (Model.Answered > InternTrackAI.Services.PracticeProgress.RecentWindow && Model.RecentAverage is { } recent)
+        {
+            <div class="mini-stat">
+                <span class="mini-stat-num practice-progress-score practice-progress-score--@Tone(recent)">
+                    @Score(recent)<span class="practice-progress-of">/5</span>
+                    @*
+                        A trend only once there are two full windows behind it — below that the arrow
+                        would be noise presented as a finding. PracticeProgress decides; the view just
+                        renders whatever it was given.
+                    *@
+                    @if (Model.TrendDelta is { } delta && Math.Abs(delta) >= 0.05)
+                    {
+                        <span class="practice-trend practice-trend--@(delta > 0 ? "up" : "down")"
+                              title="Compared with the 10 answers before that">
+                            @(delta > 0 ? "▲" : "▼") @Score(Math.Abs(delta))
+                        </span>
+                    }
+                </span>
+                <span class="mini-stat-label">Last @InternTrackAI.Services.PracticeProgress.RecentWindow answers</span>
+            </div>
+        }
+    </div>
+
+    @if (Model.WeakestTopic is { } weakest && Model.WeakestTopicAverage is { } weakestAverage)
+    {
+        <p class="practice-progress-weakest">
+            Weakest topic so far: <strong>@weakest</strong>
+            <span class="practice-progress-of">averaging @Score(weakestAverage)/5</span>
+        </p>
+    }
+
+    @*
+        Coverage bars reuse the dashboard funnel's classes rather than a second bar implementation.
+    *@
+    <div class="funnel practice-progress-coverage">
+        @foreach (var c in Model.Coverage)
+        {
+            <div class="funnel-row practice-coverage-@c.Difficulty.ToString().ToLowerInvariant()">
+                <span class="funnel-label">@c.Difficulty</span>
+                <div class="funnel-bar-wrap">
+                    <div class="funnel-bar" style="width:@(c.Total == 0 ? 0 : Math.Max(c.Percent, c.Answered > 0 ? 4 : 0))%"></div>
+                </div>
+                <span class="funnel-count">@c.Answered/@c.Total</span>
+            </div>
+        }
+    </div>
+</div>

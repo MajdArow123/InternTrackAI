@@ -93,25 +93,28 @@ public class PracticeAnswerTests
         public void Dispose() { Factory.Dispose(); Parent.Dispose(); }
     }
 
-    private static async Task<HttpResponseMessage> Submit(HttpClient client, int questionId, string answer)
+    private static async Task<HttpResponseMessage> Submit(HttpClient client, int questionId, string answer, int? elapsedSeconds = null)
     {
         var token = await Http.GetAntiforgeryTokenAsync(client, "/Practice");
+        var fields = new Dictionary<string, string>
+        {
+            ["questionId"] = questionId.ToString(),
+            ["answer"] = answer,
+            ["__RequestVerificationToken"] = token
+        };
+        if (elapsedSeconds is { } e) fields["elapsedSeconds"] = e.ToString();
+
         var req = new HttpRequestMessage(HttpMethod.Post, "/Practice/SubmitAnswer")
         {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["questionId"] = questionId.ToString(),
-                ["answer"] = answer,
-                ["__RequestVerificationToken"] = token
-            })
+            Content = new FormUrlEncodedContent(fields)
         };
         req.Headers.Add("X-Requested-With", "XMLHttpRequest");
         return await client.SendAsync(req);
     }
 
-    private static async Task<System.Text.Json.JsonElement> SubmitOk(HttpClient client, int questionId, string answer)
+    private static async Task<System.Text.Json.JsonElement> SubmitOk(HttpClient client, int questionId, string answer, int? elapsedSeconds = null)
     {
-        var res = await Submit(client, questionId, answer);
+        var res = await Submit(client, questionId, answer, elapsedSeconds);
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         return System.Text.Json.JsonDocument.Parse(await res.Content.ReadAsStringAsync()).RootElement;
     }
@@ -227,6 +230,49 @@ public class PracticeAnswerTests
 
         Assert.Contains("<strong_answer_covers>", h.Model.Prompts[0]);
         Assert.Contains("Name the protocol", h.Model.Prompts[0]);
+    }
+
+    // ── Answer timing (§6) ───────────────────────────────────────────────────
+
+    [Fact]
+    public async Task A_reported_answer_time_is_stored_and_shown()
+    {
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 4)));
+        var client = h.Client();
+        var question = await h.Seed(await h.UserIdOf(await Http.RegisterAsync(client)));
+
+        var body = await SubmitOk(client, question.Id, GoodAnswer, elapsedSeconds: 134);
+
+        Assert.Equal(134, (await h.Reload(question.Id)).AnsweredInSeconds);
+        Assert.Contains("2m 14s", WebUtility.HtmlDecode(body.GetProperty("html").GetString()));
+    }
+
+    [Theory]
+    [InlineData(null, null)]      // not reported
+    [InlineData(0, null)]         // nonsense
+    [InlineData(-5, null)]        // hostile
+    [InlineData(99999, 3600)]     // a tab left open, clamped
+    [InlineData(45, 45)]
+    public async Task A_client_reported_time_is_bounded_rather_than_trusted(int? reported, int? expected)
+    {
+        // The browser measures this, so it is advisory. Nothing depends on it being truthful.
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 3)));
+        var client = h.Client();
+        var question = await h.Seed(await h.UserIdOf(await Http.RegisterAsync(client)));
+
+        await SubmitOk(client, question.Id, GoodAnswer, reported);
+
+        Assert.Equal(expected, (await h.Reload(question.Id)).AnsweredInSeconds);
+    }
+
+    [Fact]
+    public void The_clamp_is_pure_and_pinned()
+    {
+        Assert.Null(PracticeAnswerService.ElapsedSeconds(null));
+        Assert.Null(PracticeAnswerService.ElapsedSeconds(0));
+        Assert.Null(PracticeAnswerService.ElapsedSeconds(int.MinValue));
+        Assert.Equal(1, PracticeAnswerService.ElapsedSeconds(1));
+        Assert.Equal(PracticeAnswerService.MaxAnsweredSeconds, PracticeAnswerService.ElapsedSeconds(int.MaxValue));
     }
 
     // ── Collapse defaults (§5b) ──────────────────────────────────────────────

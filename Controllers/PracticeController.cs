@@ -200,7 +200,7 @@ public class PracticeController : Controller
     /// </remarks>
     [HttpPost, ValidateAntiForgeryToken]
     [EnableRateLimiting(AiRateLimiting.PracticePolicyName)]
-    public async Task<IActionResult> SubmitAnswer(int questionId, string? answer)
+    public async Task<IActionResult> SubmitAnswer(int questionId, string? answer, int? elapsedSeconds = null)
     {
         var userId = UserId();
 
@@ -214,7 +214,7 @@ public class PracticeController : Controller
         if (question is null)
             return NotFound(new { success = false, error = "Question not found." });
 
-        var result = await _answers.SubmitAsync(userId, question, answer!, HttpContext.RequestAborted);
+        var result = await _answers.SubmitAsync(userId, question, answer!, elapsedSeconds, HttpContext.RequestAborted);
 
         if (!result.Success)
             return Json(new { success = false, error = result.Error });

@@ -37,6 +37,16 @@
         @if (answered)
         {
             <span class="practice-score practice-score--@scoreTone" title="Your score on this answer">@score<span class="practice-score-max">/@AnswerFeedback.MaxScore</span></span>
+
+            @*
+                Muted and small on purpose: real interviews are timed, so how long an answer took is
+                useful on its own — but it is not a score, and it must not read like one.
+            *@
+            @if (Model.AnsweredInSeconds is { } seconds)
+            {
+                var shown = seconds < 60 ? $"{seconds}s" : $"{seconds / 60}m {seconds % 60:00}s";
+                <span class="practice-elapsed" title="First keystroke to submit">@shown</span>
+            }
         }
 
         @*

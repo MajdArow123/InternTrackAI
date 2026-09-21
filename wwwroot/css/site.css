@@ -4758,6 +4758,7 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
 .practice-score--mid  { background: var(--warning-soft); color: var(--warning-text); }
 .practice-score--high { background: var(--success-soft); color: var(--success-text); }
 .practice-score-max { font-weight: 500; opacity: .75; }
+.practice-elapsed { font-size: .8rem; color: var(--muted-2); font-variant-numeric: tabular-nums; }
 
 .practice-answered { margin-top: .75rem; }
 

@@ -36,6 +36,16 @@ public class PracticeAnswerService
     /// <summary>Cap on what reaches the prompt, matching what the critique endpoint has always trimmed to.</summary>
     public const int MaxAnswerChars = 4000;
 
+    /// <summary>
+    /// Ceiling on a reported answer time. An hour on one interview question is not a measurement, it is
+    /// a tab left open, and the value is client-supplied so it is bounded rather than trusted.
+    /// </summary>
+    public const int MaxAnsweredSeconds = 3600;
+
+    /// <summary>Reads a client-reported duration into something storable: null unless it is plausible.</summary>
+    public static int? ElapsedSeconds(int? reported) =>
+        reported is { } s && s > 0 ? Math.Min(s, MaxAnsweredSeconds) : null;
+
     private readonly ApplicationDbContext _db;
     private readonly AnswerFeedbackService _feedback;
     private readonly IUserContextBuilder _userContext;
@@ -78,7 +88,7 @@ public class PracticeAnswerService
     /// should not also lose the answer they had.
     /// </remarks>
     public async Task<AnswerSubmissionResult> SubmitAsync(
-        string userId, PracticeQuestion row, string answer, CancellationToken ct = default)
+        string userId, PracticeQuestion row, string answer, int? elapsedSeconds = null, CancellationToken ct = default)
     {
         if (Validate(answer) is { } invalid) return AnswerSubmissionResult.Failed(invalid);
 
@@ -102,10 +112,11 @@ public class PracticeAnswerService
                 new PriorAttempt(row.UserAnswer, row.Score ?? AnswerFeedback.MinScore, previouslyAnsweredAt));
         }
 
-        row.UserAnswer = normalized;
-        row.AiFeedback = rawJson;
-        row.Score      = feedback.Score;
-        row.AnsweredAt = DateTime.UtcNow;
+        row.UserAnswer        = normalized;
+        row.AiFeedback        = rawJson;
+        row.Score             = feedback.Score;
+        row.AnsweredAt        = DateTime.UtcNow;
+        row.AnsweredInSeconds = ElapsedSeconds(elapsedSeconds);
 
         await _db.SaveChangesAsync(ct);
 

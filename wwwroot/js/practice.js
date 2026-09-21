@@ -4,6 +4,46 @@
 (function () {
     'use strict';
 
+    // ── Drafts and timing ────────────────────────────────────────────────────
+    // Losing a long answer to an accidental reload is a bad moment, and localStorage costs nothing.
+    // Every access is wrapped: a private window throws on read and write, and a lost draft must never
+    // be the reason the page stops working.
+    // Declared here, above the wireAnswering() call below, and not merely above its definition: these
+    // are const, so reaching them from a call that runs earlier hits the temporal dead zone. The
+    // try/catch that makes them safe in a private window would then swallow the ReferenceError and the
+    // drafts would silently never restore, which is exactly what happened the first time.
+    const DRAFT_PREFIX = 'itai.practice.answer.';
+
+    function draftKey(id) { return DRAFT_PREFIX + id; }
+
+    function readDraft(id) {
+        try { return localStorage.getItem(draftKey(id)); } catch (_) { return null; }
+    }
+
+    function saveDraft(id, text) {
+        try {
+            if (text && text.trim().length > 0) localStorage.setItem(draftKey(id), text);
+            else localStorage.removeItem(draftKey(id));
+        } catch (_) { /* full, blocked, or private mode — the draft is a convenience, not a feature */ }
+    }
+
+    function clearDraft(id) {
+        try { localStorage.removeItem(draftKey(id)); } catch (_) { }
+    }
+
+    // First keystroke per card, so the reported duration is time spent answering rather than time the
+    // tab was open. Kept in memory only: a reload restores the draft but honestly forgets the clock.
+    const startedAt = {};
+
+    function noteTyping(id) {
+        if (!startedAt[id]) startedAt[id] = Date.now();
+    }
+
+    function elapsedFor(id) {
+        if (!startedAt[id]) return null;
+        return Math.max(1, Math.round((Date.now() - startedAt[id]) / 1000));
+    }
+
     // Mirrors PracticeAnswerService.MinAnswerChars. The server is the one that enforces it.
     const MIN_ANSWER_CHARS = 40;
 
@@ -150,6 +190,12 @@
             if (!cardForm) return;
             refresh(cardForm);
             refreshBar();
+
+            const card = cardForm.closest('.practice-card');
+            if (card) {
+                noteTyping(card.dataset.questionId);
+                saveDraft(card.dataset.questionId, e.target.value);
+            }
         });
 
         // ── Collapse / expand ────────────────────────────────────────────────
@@ -264,6 +310,8 @@
             const body = new URLSearchParams();
             body.set('questionId', card.dataset.questionId);
             body.set('answer', answer);
+            const elapsed = elapsedFor(card.dataset.questionId);
+            if (elapsed) body.set('elapsedSeconds', elapsed);
 
             const headers = { 'X-Requested-With': 'XMLHttpRequest' };
             if (token) headers['RequestVerificationToken'] = token.value;
@@ -286,6 +334,7 @@
 
                     // Deliberately ignoring data.progress here: the card is swapped once per answer,
                     // the progress card once at the end.
+                    clearDraft(card.dataset.questionId);
                     card.replaceWith(replacement);
                     return true;
                 })
@@ -303,7 +352,23 @@
 
         // Appended and replaced cards change what is pending, and a restored draft can make the bar
         // relevant before the user types anything.
-        window.practiceRefreshBatchBar = function () { refreshBar(); refreshBulk(); };
+        /// Puts saved drafts back into empty boxes. Runs on load and after cards are appended.
+        function restoreDrafts() {
+            list.querySelectorAll('.practice-card').forEach(function (card) {
+                const cardForm = card.querySelector('[data-practice-answer-form]');
+                const input = card.querySelector('textarea[name="answer"]');
+                if (!cardForm || !input || input.value.trim().length > 0) return;
+
+                const draft = readDraft(card.dataset.questionId);
+                if (!draft) return;
+
+                input.value = draft;
+                refresh(cardForm);
+            });
+        }
+
+        window.practiceRefreshBatchBar = function () { restoreDrafts(); refreshBar(); refreshBulk(); };
+        restoreDrafts();
         refreshBar();
         refreshBulk();
 
@@ -417,6 +482,8 @@
             const body = new URLSearchParams();
             body.set('questionId', card.dataset.questionId);
             body.set('answer', answer);
+            const elapsed = elapsedFor(card.dataset.questionId);
+            if (elapsed) body.set('elapsedSeconds', elapsed);
 
             const headers = { 'X-Requested-With': 'XMLHttpRequest' };
             if (token) headers['RequestVerificationToken'] = token.value;
@@ -441,6 +508,7 @@
                     const replacement = holder.firstElementChild;
                     if (!replacement) throw new Error('Could not score that answer. Try again.');
 
+                    clearDraft(card.dataset.questionId);
                     card.replaceWith(replacement);
 
                     // Answering changes every number on the progress card, so the server re-renders it

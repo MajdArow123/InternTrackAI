@@ -1,0 +1,258 @@
+@model InternTrackAI.Models.ViewModels.ResumeReviewViewModel
+@using InternTrackAI.Models.Enums
+@using InternTrackAI.Services
+
+@{
+    ViewData["Title"] = "Review resume analysis";
+    var clock = await Clocks.GetAsync();
+    var parsed = Model.Parsed;
+
+    // Rendered names for the scalar rows: the parsed value where there is one, the stored value
+    // otherwise. Where the two disagree the row says so underneath rather than overwriting silently.
+    var fieldValue    = parsed.Field    ?? Model.Current.Field;
+    var locationValue = parsed.Location ?? Model.Current.Location;
+    var yearsValue    = parsed.YearsExperience ?? Model.Current.YearsExperience;
+    var categoryValue = parsed.Category  ?? Model.Current.FieldCategory;
+    var seniorityValue = parsed.Seniority ?? Model.Current.Seniority;
+    var nameValue     = parsed.FullName ?? Model.Current.FullName;
+}
+
+<div class="container py-4 container-narrow">
+
+    <nav class="breadcrumb-nav" aria-label="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li><a asp-action="Index">Profile</a></li>
+            <li>Review resume analysis</li>
+        </ol>
+    </nav>
+
+    <div class="page-header">
+        <div>
+            <h1>Review what we found</h1>
+            <p class="sub">
+                Nothing below has been saved yet.
+                @if (Model.Source is not null)
+                {
+                    <text>Read from <strong>@Model.Source.DisplayName</strong> &middot; </text>
+                }
+                @clock.LocalDateTime(Model.CreatedAt)
+            </p>
+        </div>
+    </div>
+
+    @if (Model.IsDemoAccount)
+    {
+        <div class="form-card mb-3">
+            <p class="form-hint mb-0">
+                This is a sample analysis of a nursing resume, shown without calling the AI.
+                It's here so you can see how the review step works &mdash; the demo profile is reset each night.
+            </p>
+        </div>
+    }
+
+    <form asp-action="ApplyResumeReview" method="post" id="resumeReviewForm">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="DraftId" value="@Model.DraftId" />
+
+        <!-- ── Detected field ── -->
+        <div class="form-card mb-3">
+            <p class="form-section-title">Detected field</p>
+            <p class="form-hint mb-3">This is what steers every AI feature. Correct it here if the resume misled us.</p>
+
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <label class="form-label" for="reviewField">Field</label>
+                    <input class="form-control" id="reviewField" name="Field" value="@fieldValue"
+                           maxlength="@ProfileFields.MaxTextLength" placeholder="e.g. Registered Nursing" />
+                    @if (Model.Replaces(parsed.Field, Model.Current.Field) is { } replacedField)
+                    {
+                        <p class="form-hint mb-0">Replaces: @replacedField</p>
+                    }
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label" for="reviewCategory">Field category</label>
+                    <select class="form-select" id="reviewCategory" name="FieldCategory">
+                        <option value="">Not set</option>
+                        @foreach (var category in Enum.GetValues<FieldCategory>())
+                        {
+                            <option value="@category" selected="@(categoryValue == category)">@ProfileFields.Display(category)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label" for="reviewSeniority">Career level</label>
+                    <select class="form-select" id="reviewSeniority" name="Seniority">
+                        <option value="">Not set</option>
+                        @foreach (var level in Enum.GetValues<SeniorityLevel>())
+                        {
+                            <option value="@level" selected="@(seniorityValue == level)">@ProfileFields.Display(level)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label" for="reviewYears">Years of experience</label>
+                    <input class="form-control" id="reviewYears" name="YearsExperience" type="number"
+                           min="@ProfileFields.MinYearsExperience" max="@ProfileFields.MaxYearsExperience" step="1"
+                           value="@(yearsValue?.ToString())" placeholder="e.g. 1" />
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label" for="reviewLocation">City / region</label>
+                    <input class="form-control" id="reviewLocation" name="Location" value="@locationValue"
+                           maxlength="@ProfileFields.MaxTextLength" placeholder="e.g. Toronto, ON" />
+                    @if (Model.Replaces(parsed.Location, Model.Current.Location) is { } replacedLocation)
+                    {
+                        <p class="form-hint mb-0">Replaces: @replacedLocation</p>
+                    }
+                </div>
+                <div class="col-12">
+                    <label class="form-label" for="reviewFullName">Full name</label>
+                    <input class="form-control" id="reviewFullName" name="FullName" value="@nameValue" placeholder="e.g. Alex Johnson" />
+                    @if (Model.Replaces(parsed.FullName, Model.Current.FullName) is { } replacedName)
+                    {
+                        <p class="form-hint mb-0">Replaces: @replacedName</p>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Skills ── -->
+        <div class="form-card mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-1 flex-wrap gap-2">
+                <p class="form-section-title mb-0">Skills</p>
+                <span class="form-hint mt-0">@Model.Skills.Count found</span>
+            </div>
+            <p class="form-hint mb-3">
+                Each one shows the line from your resume it came from. Uncheck anything that isn't right &mdash;
+                unchecked skills are never saved.
+            </p>
+
+            @if (Model.Skills.Count == 0)
+            {
+                <p class="form-hint mb-0">We couldn't find any skills we could point to a line for. Nothing will be added.</p>
+            }
+            else
+            {
+                <ul class="review-list">
+                    @for (var i = 0; i < Model.Skills.Count; i++)
+                    {
+                        var skill = Model.Skills[i];
+                        var isNew = Model.IsNewSkill(skill.Name);
+                        <li class="review-row">
+                            <input type="hidden" name="Skills[@i].Name" value="@skill.Name" />
+                            <input class="form-check-input review-check" type="checkbox" id="skill_@i"
+                                   name="Skills[@i].Selected" value="true" checked="@skill.Checked" />
+                            <div class="review-row-body">
+                                <label class="review-row-title" for="skill_@i">
+                                    @skill.Name
+                                    @if (skill.IsLowConfidence)
+                                    {
+                                        <span class="review-tag">low confidence</span>
+                                    }
+                                    @if (!isNew)
+                                    {
+                                        <span class="review-tag review-tag--muted">already on your profile</span>
+                                    }
+                                </label>
+                                <p class="review-evidence">&ldquo;@skill.Evidence&rdquo;</p>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        <!-- ── Target roles ── -->
+        <div class="form-card mb-3">
+            <p class="form-section-title">Target roles</p>
+            <p class="form-hint mb-3">Suggestions based on your field and level &mdash; these are proposals, not things we read off the page.</p>
+
+            @if (Model.TargetRoles.Count == 0)
+            {
+                <p class="form-hint mb-0">No role suggestions from this resume.</p>
+            }
+            else
+            {
+                <ul class="review-list">
+                    @for (var i = 0; i < Model.TargetRoles.Count; i++)
+                    {
+                        var role = Model.TargetRoles[i];
+                        <li class="review-row">
+                            <input type="hidden" name="Roles[@i].Name" value="@role" />
+                            <input class="form-check-input review-check" type="checkbox" id="role_@i"
+                                   name="Roles[@i].Selected" value="true" checked />
+                            <div class="review-row-body">
+                                <label class="review-row-title" for="role_@i">
+                                    @role
+                                    @if (!Model.IsNewRole(role))
+                                    {
+                                        <span class="review-tag review-tag--muted">already on your profile</span>
+                                    }
+                                </label>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        @if (parsed.Education.Count > 0 || !string.IsNullOrWhiteSpace(parsed.Summary))
+        {
+            <!-- ── What we read (read-only) ──
+                 Shown so the user can tell at a glance whether we read the right document. Nothing
+                 here is saved: the profile has no education column, and inventing one that nothing
+                 reads would be worse than being honest about it. -->
+            <div class="form-card mb-3">
+                <p class="form-section-title">What we read</p>
+                <p class="form-hint mb-3">For your reference only &mdash; none of this is saved to your profile.</p>
+
+                @if (!string.IsNullOrWhiteSpace(parsed.Summary))
+                {
+                    <p class="review-summary">@parsed.Summary</p>
+                }
+
+                @if (parsed.Education.Count > 0)
+                {
+                    <ul class="review-list">
+                        @foreach (var education in parsed.Education)
+                        {
+                            <li class="review-row review-row--plain">
+                                <div class="review-row-body">
+                                    <span class="review-row-title">@education.Institution</span>
+                                    <p class="review-evidence">
+                                        @education.Credential
+                                        @if (!string.IsNullOrWhiteSpace(education.EndDate))
+                                        {
+                                            <text>&middot; @education.EndDate</text>
+                                        }
+                                    </p>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        }
+
+        <!-- ── Confirm ── -->
+        <div class="form-card">
+            <p class="form-hint mb-3">
+                <strong>These will be added to your profile. Nothing you've already saved will be removed.</strong>
+            </p>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="submit" class="btn btn-primary px-4" id="applyReviewBtn">Apply to my profile</button>
+                <button type="submit" class="btn btn-outline-secondary" form="discardReviewForm">Discard</button>
+            </div>
+        </div>
+    </form>
+
+    <form asp-action="DiscardResumeReview" method="post" id="discardReviewForm" hidden
+          data-confirm-title="Discard this analysis?" data-confirm="Your profile stays exactly as it is." data-confirm-ok="Discard">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="draftId" value="@Model.DraftId" />
+    </form>
+</div>
+
+@section Scripts {
+    <script src="~/js/resume-review.js" asp-append-version="true"></script>
+}

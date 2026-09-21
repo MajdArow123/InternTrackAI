@@ -15,12 +15,15 @@ namespace InternTrackAI.Controllers;
 public class AccountController : Controller
 {
     private readonly SignInManager<IdentityUser> _signInManager;
+    private readonly DemoProfileReset _demoProfile;
     private readonly IConfiguration _config;
     private readonly ILogger<AccountController> _logger;
 
-    public AccountController(SignInManager<IdentityUser> signInManager, IConfiguration config, ILogger<AccountController> logger)
+    public AccountController(SignInManager<IdentityUser> signInManager, DemoProfileReset demoProfile,
+                             IConfiguration config, ILogger<AccountController> logger)
     {
         _signInManager = signInManager;
+        _demoProfile = demoProfile;
         _config = config;
         _logger = logger;
     }
@@ -50,7 +53,15 @@ public class AccountController : Controller
             ? Microsoft.AspNetCore.Identity.SignInResult.Failed
             : await _signInManager.PasswordSignInAsync(user, password, isPersistent: false, lockoutOnFailure: false);
         if (result.Succeeded)
+        {
+            // Every demo session starts from the same profile, whatever the last visitor applied on
+            // the resume review screen. Narrow — profile fields and parse drafts only, never a full
+            // reseed: a visitor already browsing the board must not have it rebuilt underneath them.
+            await _demoProfile.RestoreAsync(user!.Id, HttpContext.RequestAborted);
+            DemoProfileReset.Forget(Response);
+
             return RedirectToAction("Dashboard", "Home");
+        }
 
         _logger.LogWarning("Demo login failed for configured demo account (userFound={Found}, {Result}).", user is not null, result);
         TempData["Toast"] = "error|The demo account is unavailable right now. Please sign in or create an account.";

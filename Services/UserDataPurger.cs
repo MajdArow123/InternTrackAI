@@ -31,9 +31,12 @@ public class UserDataPurger
     public async Task PurgeAsync(string userId, bool keepProfile = false, bool keepActiveDocuments = false)
     {
         // Child rows first so no FK constraint trips on providers that enforce them (Postgres).
+        // Drafts hold a model's reading of the user's resume, so they go with everything else —
+        // an account deletion that leaves these behind leaves a copy of the resume's contents behind.
+        await _db.ParsedResumes.Where(p => p.UserId == userId).ExecuteDeleteAsync();
         await _db.StatusSuggestions.Where(s => s.UserId == userId).ExecuteDeleteAsync();
         await _db.ApplicationNotes.Where(n => n.UserId == userId).ExecuteDeleteAsync();
-        await _db.InterviewPrepSessions.Where(s => s.UserId == userId).ExecuteDeleteAsync();
+        await _db.PracticeQuestions.Where(q => q.UserId == userId).ExecuteDeleteAsync();
         await _db.GeneratedCoverLetters.Where(c => c.UserId == userId).ExecuteDeleteAsync();
         await _db.JobApplications.Where(a => a.UserId == userId).ExecuteDeleteAsync();
 

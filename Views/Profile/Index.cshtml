@@ -45,8 +45,27 @@
     }
     @if (TempData["AutoFillAdded"] is string autoFillAdded)
     {
-        @* Skills/roles the upload just auto-filled; profile.js flashes their chips once on load. *@
+        @* Skills/roles the review just added; profile.js flashes their chips once on load. *@
         <input type="hidden" id="autoFillAdded" value="@autoFillAdded" />
+    }
+
+    @if (Model.PendingParse is { } pendingParse)
+    {
+        @* A parse the user walked away from instead of confirming. Without this the draft is stranded:
+           the profile looks untouched (correctly — nothing was written) with no way back to the review. *@
+        <div class="form-card mb-3" id="pendingParseCard">
+            <p class="form-section-title form-section-title--sm mb-1">Resume analysis waiting for you</p>
+            <p class="form-hint mb-3">We read your resume but haven't saved anything yet. Review what we found to add it to your profile.</p>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <a asp-action="ReviewResume" asp-route-id="@pendingParse.Id" class="btn btn-primary">Review what we found</a>
+                <form asp-action="DiscardResumeReview" method="post" class="d-inline"
+                      data-confirm-title="Discard this analysis?" data-confirm="Your profile stays exactly as it is." data-confirm-ok="Discard">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="draftId" value="@pendingParse.Id" />
+                    <button type="submit" class="btn btn-outline-secondary">Discard</button>
+                </form>
+            </div>
+        </div>
     }
 
     <partial name="_IdentityCard" model="Model" />

@@ -1,11 +1,20 @@
 @model InternTrackAI.Models.ViewModels.ProfileViewModel
+@{
+    // Both sections empty is the state where "type them in one at a time" is the worst possible
+    // advice — the resume already has them. Shown once per section, and only then.
+    var suggestAutofill = Model.HasNoTags;
+}
     <!-- ── Skills ── -->
     <div class="form-card mb-3">
         <div class="d-flex align-items-center mb-1">
             <p class="form-section-title mb-0">Skills</p>
             <span class="save-indicator" id="skillsSaveIndicator">Saved &#10003;</span>
         </div>
-        <p class="form-hint mb-3">Add your technical and professional skills. These are used as context during AI resume matching. Changes save automatically.</p>
+        <p class="form-hint mb-3">Add your skills in your field's own words. These are used as context during AI resume matching. Changes save automatically.</p>
+        @if (suggestAutofill)
+        {
+            <p class="form-hint mb-3"><a asp-action="Index" asp-fragment="resumeHeroCard">Upload your resume</a> and we'll fill this in.</p>
+        }
         <div class="field-skeleton-wrap" id="skillsWrap">
             <input type="hidden" id="skillsJsonInput" value="@System.Text.Json.JsonSerializer.Serialize(Model.Skills)" />
             <div class="tag-manager">
@@ -24,7 +33,14 @@
             <p class="form-section-title mb-0">Target roles</p>
             <span class="save-indicator" id="rolesSaveIndicator">Saved &#10003;</span>
         </div>
-        <p class="form-hint mb-3">Search common internship roles or type your own. These help the AI give more relevant scoring and advice. Changes save automatically.</p>
+        <p class="form-hint mb-3">Search roles for your field or type your own. These help the AI give more relevant scoring and advice. Changes save automatically.</p>
+        @if (suggestAutofill)
+        {
+            <p class="form-hint mb-3"><a asp-action="Index" asp-fragment="resumeHeroCard">Upload your resume</a> and we'll fill this in.</p>
+        }
+        @* Suggestions for every field category, not just the current one, so the combobox follows the
+           "Field category" dropdown above without a page reload. profile.js picks the right list. *@
+        <script type="application/json" id="roleSuggestionsData">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.RoleSuggestions))</script>
         <div class="field-skeleton-wrap" id="rolesWrap">
             <input type="hidden" id="rolesJsonInput" value="@System.Text.Json.JsonSerializer.Serialize(Model.TargetRoles)" />
             <div class="tag-manager">

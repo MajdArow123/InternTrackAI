@@ -8,6 +8,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace InternTrackAI.Tests.Integration;
 
@@ -257,5 +259,92 @@ public class PracticeGenerationTests
         await h.Generate(userId, count: 1);
 
         Assert.Single(await h.QuestionsOf(userId));
+    }
+
+}
+
+/// <summary>
+/// The generation summary log line, tested by constructing the service directly.
+/// </summary>
+/// <remarks>
+/// Not through <c>TestAppFactory</c>: <c>Program.cs</c> calls <c>UseSerilog</c>, which replaces the
+/// logging pipeline, so an <c>ILoggerProvider</c> added to the host builder never sees these. Building
+/// the service with a capturing logger tests the thing that matters — what the line says — without
+/// fighting that.
+/// </remarks>
+public class PracticeGenerationLoggingTests
+{
+    private sealed class Capturing : ILogger<PracticeQuestionService>
+    {
+        public List<string> Lines { get; } = new();
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? ex, Func<TState, Exception?, string> formatter)
+            => Lines.Add(formatter(state, ex));
+    }
+
+    private static string Batch(string prefix, int n) =>
+        ScriptedOpenAi.Questions(Enumerable.Range(0, n)
+            .Select(i => ($"{prefix} question number {i}?", $"{prefix.ToLowerInvariant()} topic {i}")).ToArray());
+
+    private static async Task<(List<string> Lines, int Stored)> GenerateTwiceAsync(params string[] replies)
+    {
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection("Data Source=:memory:");
+        await connection.OpenAsync();
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>().UseSqlite(connection).Options;
+        await using (var setup = new ApplicationDbContext(options)) await setup.Database.MigrateAsync();
+
+        var config = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["OpenAI:ApiKey"] = "sk-test-not-a-real-key" })
+            .Build();
+
+        var logger = new Capturing();
+        var http = new HttpClient(new ScriptedOpenAi(replies));
+
+        var stored = 0;
+        foreach (var _ in replies)
+        {
+            await using var db = new ApplicationDbContext(options);
+            var service = new PracticeQuestionService(db, http, config, logger);
+            var result = await service.GenerateAsync("log-test-user", PracticeDifficulty.Medium, QuestionCategory.Technical, 5);
+            stored = result.Questions.Count;
+        }
+
+        return (logger.Lines, stored);
+    }
+
+    [Fact]
+    public async Task A_generation_that_stores_nothing_says_which_layer_ate_it()
+    {
+        // The recurring question this answers: "the count did not move and I saw no message — did
+        // nothing happen, or did I miss it?" From the page an exhausted combination, a rate limit and
+        // a model error all look identical.
+        // Exactly 5, not 7: the generator over-requests by OverRequest, so a 7-question reply leaves 2
+        // surplus that were never stored — and those are legitimately new on the second round.
+        var (lines, stored) = await GenerateTwiceAsync(Batch("Alpha", 5), Batch("Alpha", 5));
+
+        Assert.Equal(0, stored);
+
+        var summary = lines.Last(l => l.StartsWith("Practice generation for", StringComparison.Ordinal));
+        Assert.Contains("Medium/Technical", summary);
+        Assert.Contains("asked 5", summary);
+        Assert.Contains("stored 0", summary);
+
+        // Naming the layer is the whole point; "stored 0" alone diagnoses nothing.
+        Assert.Contains("same-topic", summary);
+        Assert.Contains("same-question", summary);
+    }
+
+    [Fact]
+    public async Task A_successful_generation_logs_the_stored_count_and_the_call_count()
+    {
+        var (lines, stored) = await GenerateTwiceAsync(Batch("Alpha", 7));
+
+        Assert.Equal(5, stored);
+
+        var summary = Assert.Single(lines.Where(l => l.StartsWith("Practice generation for", StringComparison.Ordinal)));
+        Assert.Contains("stored 5", summary);
+        Assert.Contains("1 model call(s)", summary);
+        Assert.Contains("model returned 7", summary);   // over-requested by OverRequest
     }
 }

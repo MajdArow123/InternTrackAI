@@ -180,6 +180,70 @@ public class LiveScoringProbe
         _out.WriteLine($"MODEL CALLS: {handler.Calls} of {MaxCalls} budget");
     }
 
+    /// <summary>
+    /// An answer in the shape the maintainer reported scoring 3/5 in production: specific, technical,
+    /// names real tools and a real constraint. <b>Written here, not theirs</b> — their exact text was
+    /// described rather than pasted, and answer wording is precisely what is being scored, so this is a
+    /// data point about the <em>class</em> of answer and not a reproduction of their result.
+    /// </summary>
+    private const string SpecificTechnicalAnswer =
+        "I'd migrate incrementally rather than all at once. On our checkout service we turned on " +
+        "allowJs and converted leaf modules first, leaning on compiler-assisted refactoring so the " +
+        "rename of the cart total field propagated instead of being hand-chased. The thing that slowed " +
+        "us down was third-party type lag — two of our SDKs shipped no types for months, so we wrote " +
+        "local declaration files and deleted them as upstream caught up. I'd accept that cost again " +
+        "because the alternative is a big-bang rewrite nobody can review.";
+
+    /// <summary>
+    /// Scores today's deployed prompt against the two fixtures whose scores are already recorded, to
+    /// answer one question: <b>did ConcreteAnchorRule tighten the bottom of the scale, or all of it?</b>
+    /// </summary>
+    /// <remarks>
+    /// The recorded baseline (2026-09-21, same fixtures): junk 3/5 before the rule and 2/5 after;
+    /// specific 4/5 both times. If the specific answer still scores 4 here, the scale did not move and
+    /// a 3 on some other specific answer is a judgement about that answer. If it now scores 3, the rule
+    /// pulled the whole scale down, which is the "harsher not stricter" failure the before/after was
+    /// built to detect. 3 calls.
+    /// </remarks>
+    [Fact]
+    public async Task Score_todays_prompt_against_the_recorded_baseline()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvVar)))
+        {
+            _out.WriteLine($"Skipped: {EnvVar} is not set.");
+            return;
+        }
+
+        var config = new ConfigurationBuilder()
+            .AddUserSecrets("aspnet-InternTrackAI-a9273f32-3acf-454b-ae9a-5c9465b893ec")
+            .AddEnvironmentVariables()
+            .Build();
+
+        var handler = new BudgetedHandler();
+        var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
+
+        var cases = new[]
+        {
+            ("JUNK (recorded: 3 before rule, 2 after)", JunkAnswer),
+            ("SPECIFIC (recorded: 4 before and after)", GoodAnswer),
+            ("SPECIFIC-TECHNICAL (new, reconstruction)", SpecificTechnicalAnswer),
+        };
+
+        foreach (var (label, answer) in cases)
+        {
+            var scored = await CallAsync(http, config, Build(answer));
+
+            _out.WriteLine(new string('=', 78));
+            _out.WriteLine($"{label}  ->  {scored.Score}/5");
+            _out.WriteLine(new string('=', 78));
+            foreach (var s in scored.RawStrengths) _out.WriteLine($"   strength: {s}");
+            foreach (var m in scored.Missing)      _out.WriteLine($"   missing:  {m}");
+            _out.WriteLine("");
+        }
+
+        _out.WriteLine($"MODEL CALLS: {handler.Calls} of {MaxCalls} budget");
+    }
+
     private static string Build(string answer) =>
         AnswerFeedbackPrompt.Build(
             new AnswerContext(Question, answer, QuestionCategory.Technical, PracticeDifficulty.Medium),

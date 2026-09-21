@@ -15,7 +15,7 @@ public class AiRateLimitOptions
 {
     public const string SectionName = "RateLimiting:AI";
 
-    /// <summary>Requests allowed per user per window across all AI endpoints combined.</summary>
+    /// <summary>Requests allowed per user per window across every AI endpoint except practice.</summary>
     public int PermitLimit { get; set; } = 20;
 
     /// <summary>Length of the fixed window in minutes.</summary>
@@ -23,7 +23,67 @@ public class AiRateLimitOptions
 
     /// <summary>Tighter allowance for the shared demo account (matched on <c>Demo:Email</c>).</summary>
     public int DemoPermitLimit { get; set; } = 10;
+
+    /// <summary>The practice bucket. Both buckets live here so there is one place to read when debugging a 429.</summary>
+    public PracticeRateLimitOptions Practice { get; set; } = new();
+
+    /// <summary>The limit and window that apply to one caller, given which bucket they are spending from.</summary>
+    public AiBucketLimits For(AiBucket bucket, bool isDemo) => bucket switch
+    {
+        AiBucket.Practice => isDemo
+            ? new AiBucketLimits(Practice.DemoPermitLimit, Practice.DemoWindowMinutes)
+            : new AiBucketLimits(Practice.PermitLimit, Practice.WindowMinutes),
+        // The default bucket has no separate demo window: demo and signed-in share WindowMinutes.
+        _ => new AiBucketLimits(isDemo ? DemoPermitLimit : PermitLimit, WindowMinutes)
+    };
 }
+
+/// <summary>
+/// The practice bucket: question generation and answer scoring, kept apart from every other AI path.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Why it is separate.</b> The two workloads have opposite shapes. Practice is inherently
+/// many-small-calls — one round is 1 generate plus 5 scores — while resume parsing is rare and
+/// expensive. Sharing one bucket meant a demo visitor could not finish a single round before
+/// exhausting the allowance for the whole app, and the 429 read as "the site is locked" when cover
+/// letters and resume tools were still fine.
+/// </para>
+/// <para>
+/// <b>"Day" here means 24 hours from this user's first practice call</b> — see the remarks on
+/// <see cref="AiUsageLimiter"/>. It is not calendar-aligned, and it is not durable across a deploy.
+/// </para>
+/// </remarks>
+public class PracticeRateLimitOptions
+{
+    /// <summary>Signed-in allowance. Generous because the batch button makes many-small-calls normal.</summary>
+    public int PermitLimit { get; set; } = 100;
+
+    /// <summary>A rolling 24 hours, anchored at first use. Not midnight.</summary>
+    public int WindowMinutes { get; set; } = 1440;
+
+    /// <summary>Enough for roughly three full rounds, which is what actually demonstrates the feature.</summary>
+    public int DemoPermitLimit { get; set; } = 25;
+
+    /// <summary>
+    /// The demo stays hourly while signed-in users are daily, which is the only reason this field
+    /// exists: within one bucket the <em>window</em> differs by account type, not just the count.
+    /// </summary>
+    public int DemoWindowMinutes { get; set; } = 60;
+}
+
+/// <summary>Which allowance a call spends from.</summary>
+public enum AiBucket
+{
+    /// <summary>Everything except practice: analysis, matching, cover letters, resume parsing, Gmail.</summary>
+    Default = 0,
+
+    /// <summary>Practice question generation and answer scoring.</summary>
+    Practice = 1
+}
+
+/// <summary>One bucket's resolved numbers for one caller.</summary>
+public readonly record struct AiBucketLimits(int PermitLimit, int WindowMinutes);
 
 /// <summary>
 /// Marks an "ai"-limited action whose demo-account branch answers with a canned or refused response and never calls
@@ -35,46 +95,91 @@ public class AiRateLimitOptions
 public sealed class NoAiCallForDemoAttribute : Attribute { }
 
 /// <summary>
-/// The per-user AI bucket itself, shared by the HTTP policy below and by code that calls OpenAI
-/// outside a request (the Gmail sync). One fixed-window limiter per user id; a demo user gets the
-/// tighter <see cref="AiRateLimitOptions.DemoPermitLimit"/>. Registered as a singleton.
+/// The per-user AI buckets, shared by the HTTP policies below and by code that calls OpenAI outside a
+/// request (the Gmail sync, resume-upload auto-parse). Registered as a singleton.
 /// </summary>
+/// <remarks>
+/// <para>
+/// <b>Two buckets, keyed apart.</b> <see cref="AiBucket.Practice"/> and
+/// <see cref="AiBucket.Default"/> are separate allowances so practice — which is many small calls —
+/// cannot exhaust resume parsing, which is rare and expensive. The partition is keyed on the string
+/// from <c>KeyFor</c> <em>alone</em>, so the two must never produce the same key; a shared key would
+/// silently reuse whichever limiter was created first, limit and all.
+/// </para>
+/// <para>
+/// <b>"Per day" means 24 hours from first use, not midnight.</b> The signed-in practice allowance is
+/// a 1440-minute fixed window, and .NET's fixed-window limiter counts from the moment a partition is
+/// created — the caller's first practice call. So one user's day starts at 09:00 and another's at
+/// 21:00, and neither aligns to a calendar date or to an OpenAI billing day.
+/// <c>FixedWindowRateLimiterOptions</c> has no anchor, and since these buckets are in-memory and
+/// already reset on every deploy, a calendar-aligned window would look exact while being no more
+/// durable. Honest rolling was chosen over false precision.
+/// </para>
+/// <para>
+/// <b>Limits and windows are captured when a partition is first created and never re-read.</b> The
+/// factory runs once per key, so changing <c>RateLimiting:AI:*</c> at runtime affects only partitions
+/// that do not exist yet. In practice: a config change needs a restart.
+/// </para>
+/// </remarks>
 public sealed class AiUsageLimiter : IDisposable
 {
-    private readonly PartitionedRateLimiter<(string Key, int Limit)> _limiter;
+    private readonly PartitionedRateLimiter<Resource> _limiter;
     private readonly IOptionsMonitor<AiRateLimitOptions> _options;
+
+    /// <summary>
+    /// One bucket for one caller. <see cref="Key"/> alone decides the partition; the other two are
+    /// read once, when that partition is first created.
+    /// </summary>
+    private readonly record struct Resource(string Key, int Limit, int WindowMinutes);
 
     public AiUsageLimiter(IOptionsMonitor<AiRateLimitOptions> options)
     {
         _options = options;
-        _limiter = PartitionedRateLimiter.Create<(string Key, int Limit), string>(resource =>
+        _limiter = PartitionedRateLimiter.Create<Resource, string>(resource =>
             RateLimitPartition.GetFixedWindowLimiter(resource.Key, _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit       = Math.Max(1, resource.Limit),
-                Window            = TimeSpan.FromMinutes(Math.Max(1, _options.CurrentValue.WindowMinutes)),
+                Window            = TimeSpan.FromMinutes(Math.Max(1, resource.WindowMinutes)),
                 QueueLimit        = 0,
                 AutoReplenishment = true
             }));
     }
 
-    public int LimitFor(bool isDemo) => isDemo ? _options.CurrentValue.DemoPermitLimit : _options.CurrentValue.PermitLimit;
+    /// <summary>
+    /// The partition key. <b>The two buckets must never share one</b>: the partition is keyed on this
+    /// string alone, so the same key with a different limit silently reuses the first limiter.
+    /// </summary>
+    private static string KeyFor(AiBucket bucket, string userKey) =>
+        bucket == AiBucket.Practice ? "practice:" + userKey : userKey;
+
+    public AiBucketLimits LimitsFor(AiBucket bucket, bool isDemo) => _options.CurrentValue.For(bucket, isDemo);
+
+    public int LimitFor(bool isDemo) => LimitsFor(AiBucket.Default, isDemo).PermitLimit;
 
     public int WindowMinutes => _options.CurrentValue.WindowMinutes;
 
-    /// <summary>Takes one permit from the user's bucket; check <see cref="RateLimitLease.IsAcquired"/>.</summary>
-    public RateLimitLease TryAcquire(string userKey, bool isDemo) => _limiter.AttemptAcquire((userKey, LimitFor(isDemo)), 1);
+    /// <summary>Takes one permit from the caller's bucket; check <see cref="RateLimitLease.IsAcquired"/>.</summary>
+    public RateLimitLease TryAcquire(string userKey, bool isDemo, AiBucket bucket = AiBucket.Default)
+    {
+        var limits = LimitsFor(bucket, isDemo);
+        return _limiter.AttemptAcquire(new Resource(KeyFor(bucket, userKey), limits.PermitLimit, limits.WindowMinutes), 1);
+    }
 
-    /// <summary>A <see cref="RateLimiter"/> view over one user's bucket for the ASP.NET policy (disposal there never disposes the bucket).</summary>
-    public RateLimiter ForUser(string userKey, bool isDemo) => new PartitionView(_limiter, (userKey, LimitFor(isDemo)));
+    /// <summary>A <see cref="RateLimiter"/> view over one bucket for the ASP.NET policy (disposal there never disposes the bucket).</summary>
+    public RateLimiter ForUser(string userKey, bool isDemo, AiBucket bucket = AiBucket.Default)
+    {
+        var limits = LimitsFor(bucket, isDemo);
+        return new PartitionView(_limiter, new Resource(KeyFor(bucket, userKey), limits.PermitLimit, limits.WindowMinutes));
+    }
 
     public void Dispose() => _limiter.Dispose();
 
     private sealed class PartitionView : RateLimiter
     {
-        private readonly PartitionedRateLimiter<(string Key, int Limit)> _owner;
-        private readonly (string Key, int Limit) _resource;
+        private readonly PartitionedRateLimiter<Resource> _owner;
+        private readonly Resource _resource;
 
-        public PartitionView(PartitionedRateLimiter<(string Key, int Limit)> owner, (string Key, int Limit) resource)
+        public PartitionView(PartitionedRateLimiter<Resource> owner, Resource resource)
         {
             _owner = owner;
             _resource = resource;
@@ -131,6 +236,13 @@ public static class AiRateLimiting
 {
     public const string PolicyName = "ai";
 
+    /// <summary>
+    /// The practice allowance: question generation and answer scoring. Separate from
+    /// <see cref="PolicyName"/> so a visitor can finish a round without spending the resume tools'
+    /// budget — see <see cref="PracticeRateLimitOptions"/>.
+    /// </summary>
+    public const string PracticePolicyName = "ai-practice";
+
     /// <summary>Partition for demo requests to <see cref="NoAiCallForDemoAttribute"/> actions; distinct from every user-id key so it never shares a cached limiter.</summary>
     private const string DemoCannedPartition = "demo-canned";
 
@@ -143,31 +255,23 @@ public static class AiRateLimiting
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
 
-            options.AddPolicy(PolicyName, httpContext =>
-            {
-                var limiter = httpContext.RequestServices.GetRequiredService<AiUsageLimiter>();
-                var userId  = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
-                var key     = userId ?? ("ip:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"));
-                var isDemo  = IsDemoUser(httpContext, config);
-
-                // Endpoint routing has already run (UseRouting precedes UseRateLimiter), so the action's metadata is here.
-                if (isDemo && httpContext.GetEndpoint()?.Metadata.GetMetadata<NoAiCallForDemoAttribute>() is not null)
-                    return RateLimitPartition.GetNoLimiter(DemoCannedPartition);
-
-                return RateLimitPartition.Get(key, _ => limiter.ForUser(key, isDemo));
-            });
+            // Same body, different bucket. Both partition on the caller; AiUsageLimiter.KeyFor keeps
+            // the two key spaces apart.
+            options.AddPolicy(PolicyName, http => Partition(http, config, AiBucket.Default));
+            options.AddPolicy(PracticePolicyName, http => Partition(http, config, AiBucket.Practice));
 
             options.OnRejected = async (context, cancellationToken) =>
             {
                 var http = context.HttpContext;
                 var opts = http.RequestServices.GetRequiredService<IOptions<AiRateLimitOptions>>().Value;
-                var limit = IsDemoUser(http, config) ? opts.DemoPermitLimit : opts.PermitLimit;
+                var bucket = BucketOf(http);
+                var limits = opts.For(bucket, IsDemoUser(http, config));
 
                 TimeSpan? retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var ra) ? ra : null;
                 if (retryAfter.HasValue)
                     http.Response.Headers.RetryAfter = ((int)Math.Ceiling(retryAfter.Value.TotalSeconds)).ToString();
 
-                var message = BuildMessage(limit, opts.WindowMinutes, retryAfter);
+                var message = BuildMessage(limits.PermitLimit, limits.WindowMinutes, retryAfter, bucket);
                 http.Response.StatusCode = StatusCodes.Status429TooManyRequests;
 
                 if (WantsJson(http.Request))
@@ -200,17 +304,59 @@ public static class AiRateLimiting
     }
 
     /// <summary>Human-readable rejection text, e.g. "You've reached the limit of 20 AI requests per hour. Try again in about 12 minutes."</summary>
-    public static string BuildMessage(int limit, int windowMinutes, TimeSpan? retryAfter)
+    /// <summary>The partition for one request, in one bucket.</summary>
+    private static RateLimitPartition<string> Partition(HttpContext httpContext, IConfiguration config, AiBucket bucket)
+    {
+        var limiter = httpContext.RequestServices.GetRequiredService<AiUsageLimiter>();
+        var userId  = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var caller  = userId ?? ("ip:" + (httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"));
+        var isDemo  = IsDemoUser(httpContext, config);
+
+        // Endpoint routing has already run (UseRouting precedes UseRateLimiter), so the action's metadata is here.
+        if (isDemo && httpContext.GetEndpoint()?.Metadata.GetMetadata<NoAiCallForDemoAttribute>() is not null)
+            return RateLimitPartition.GetNoLimiter(DemoCannedPartition);
+
+        // The partition key must match the one AiUsageLimiter uses internally, or the HTTP policy and a
+        // manual TryAcquire would spend from two different buckets for the same user.
+        var key = bucket == AiBucket.Practice ? "practice:" + caller : caller;
+        return RateLimitPartition.Get(key, _ => limiter.ForUser(caller, isDemo, bucket));
+    }
+
+    /// <summary>Which bucket the rejected endpoint was spending from, read back off its own attribute.</summary>
+    private static AiBucket BucketOf(HttpContext http) =>
+        http.GetEndpoint()?.Metadata.GetMetadata<EnableRateLimitingAttribute>()?.PolicyName == PracticePolicyName
+            ? AiBucket.Practice
+            : AiBucket.Default;
+
+    /// <summary>
+    /// The user-facing 429 text. <paramref name="bucket"/> is what stops it reading as "the whole app
+    /// is locked" when only one allowance is gone: a practice rejection says so, and says what still
+    /// works.
+    /// </summary>
+    public static string BuildMessage(int limit, int windowMinutes, TimeSpan? retryAfter, AiBucket bucket = AiBucket.Default)
     {
         var window = windowMinutes == 60 ? "hour"
+                   : windowMinutes == 1440 ? "day"
                    : windowMinutes % 60 == 0 ? $"{windowMinutes / 60} hours"
                    : $"{windowMinutes} minutes";
-        var msg = $"You've reached the limit of {limit} AI requests per {window}.";
+
+        var msg = bucket == AiBucket.Practice
+            ? $"You've reached the practice limit of {limit} AI requests per {window}."
+            : $"You've reached the limit of {limit} AI requests per {window}.";
+
         if (retryAfter.HasValue)
         {
             var mins = Math.Max(1, (int)Math.Ceiling(retryAfter.Value.TotalMinutes));
-            msg += mins == 1 ? " Try again in about a minute." : $" Try again in about {mins} minutes.";
+            var hours = mins / 60;
+            msg += mins == 1 ? " Try again in about a minute."
+                 : hours >= 2 ? $" Try again in about {hours} hours."
+                 : $" Try again in about {mins} minutes.";
         }
+
+        // Named explicitly, because the complaint was that a practice 429 read as the site being down.
+        if (bucket == AiBucket.Practice)
+            msg += " Resume tools, cover letters and job analysis are unaffected.";
+
         return msg;
     }
 

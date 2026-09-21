@@ -4625,6 +4625,14 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 /* ── Question groups ─────────────────────────────────────────────────────── */
 
 .practice-group { display: flex; flex-direction: column; gap: .75rem; }
+
+.practice-list-footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem;
+  margin: .25rem 0 1rem;
+}
 .practice-group-list { display: flex; flex-direction: column; gap: .75rem; }
 
 .practice-group-header {

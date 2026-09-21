@@ -48,7 +48,7 @@ public class PracticeController : Controller
     // ── GET /Practice ────────────────────────────────────
 
     [HttpGet]
-    public async Task<IActionResult> Index(string? difficulty, string? category, bool saved = false)
+    public async Task<IActionResult> Index(string? difficulty, string? category, bool saved = false, bool hideAnswered = false)
     {
         var userId = UserId();
         var selectedDifficulty = ParseDifficulty(difficulty);
@@ -58,6 +58,7 @@ public class PracticeController : Controller
         if (selectedDifficulty is { } d) query = query.Where(q => q.Difficulty == d);
         if (selectedCategory is { } c)   query = query.Where(q => q.Category == c);
         if (saved)                       query = query.Where(q => q.IsSaved);
+        if (hideAnswered)                query = query.Where(q => q.AnsweredAt == null);
 
         var questions = await query.OrderByDescending(q => q.Id).ToListAsync(HttpContext.RequestAborted);
 
@@ -67,7 +68,8 @@ public class PracticeController : Controller
             Progress   = await ProgressAsync(userId, HttpContext.RequestAborted),
             Difficulty = selectedDifficulty,
             Category   = selectedCategory,
-            SavedOnly  = saved,
+            SavedOnly    = saved,
+            HideAnswered = hideAnswered,
             TotalCount = await _db.PracticeQuestions.CountAsync(q => q.UserId == userId, HttpContext.RequestAborted)
         });
     }
@@ -109,8 +111,11 @@ public class PracticeController : Controller
                 Newest        = g.Max(q => q.Id),
                 Questions     = g.ToList()
             })
-            .OrderByDescending(g => g.ApplicationId is null ? 0 : 1)   // general practice last
-            .ThenByDescending(g => g.Newest)
+            // Newest first, and general practice is not special. It used to sort last, which meant
+            // questions generated from the page button — the common case, since they carry no
+            // ApplicationId — always rendered below every application group, i.e. underneath
+            // everything already answered.
+            .OrderByDescending(g => g.Newest)
             .Select(g =>
             {
                 applications.TryGetValue(g.ApplicationId ?? 0, out var app);
@@ -152,7 +157,7 @@ public class PracticeController : Controller
     /// becomes Medium/Technical rather than "any" — the generator needs one of each to write against.
     /// </remarks>
     [HttpPost, ValidateAntiForgeryToken]
-    [EnableRateLimiting(AiRateLimiting.PolicyName)]
+    [EnableRateLimiting(AiRateLimiting.PracticePolicyName)]
     public async Task<IActionResult> GenerateMore(string? difficulty, string? category, int? applicationId)
     {
         var userId = UserId();
@@ -194,7 +199,7 @@ public class PracticeController : Controller
     /// and a fresh submission cannot drift apart. The client swaps the card it submitted from.
     /// </remarks>
     [HttpPost, ValidateAntiForgeryToken]
-    [EnableRateLimiting(AiRateLimiting.PolicyName)]
+    [EnableRateLimiting(AiRateLimiting.PracticePolicyName)]
     public async Task<IActionResult> SubmitAnswer(int questionId, string? answer)
     {
         var userId = UserId();

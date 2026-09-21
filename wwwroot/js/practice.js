@@ -42,6 +42,11 @@
         generate(null);
     });
 
+    // The twin at the foot of the list. Same action, so it goes through the same guard and spinner.
+    document.addEventListener('click', function (e) {
+        if (e.target.closest('[data-practice-generate-more]')) generate(null);
+    });
+
     // "Get more for this role" on a group header: the same request with that posting's id, so the
     // questions are derived from its description and come back into the same group.
     if (list) {

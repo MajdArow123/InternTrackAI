@@ -17,7 +17,14 @@ namespace InternTrackAI.Helpers;
 /// </remarks>
 public static class PartialRenderer
 {
-    public static async Task<string> RenderPartialAsync<TModel>(this Controller controller, string partialName, TModel model)
+    /// <param name="viewData">
+    /// Extra entries for the partial's <c>ViewData</c>. Used for render-time presentation flags that are
+    /// not part of the model — the practice card's expanded/collapsed state, for instance, which depends
+    /// on whether the card was just scored rather than on anything stored about the question.
+    /// </param>
+    public static async Task<string> RenderPartialAsync<TModel>(
+        this Controller controller, string partialName, TModel model,
+        IDictionary<string, object?>? viewData = null)
     {
         var engine = controller.HttpContext.RequestServices.GetRequiredService<ICompositeViewEngine>();
         var result = engine.FindView(controller.ControllerContext, partialName, isMainPage: false);
@@ -27,10 +34,14 @@ public static class PartialRenderer
 
         await using var writer = new StringWriter();
 
+        var data = new ViewDataDictionary<TModel>(new EmptyModelMetadataProvider(), new ModelStateDictionary()) { Model = model };
+        if (viewData is not null)
+            foreach (var (key, value) in viewData) data[key] = value;
+
         var viewContext = new ViewContext(
             controller.ControllerContext,
             result.View,
-            new ViewDataDictionary<TModel>(new EmptyModelMetadataProvider(), new ModelStateDictionary()) { Model = model },
+            data,
             controller.TempData,
             writer,
             new HtmlHelperOptions());

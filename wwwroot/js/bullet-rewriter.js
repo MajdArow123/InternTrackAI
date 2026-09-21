@@ -204,7 +204,8 @@
     async function copy(text) {
         try {
             await navigator.clipboard.writeText(text);
-        } catch (_) {
+        } catch (err) {
+            rethrowIfBug(err);
             const ta = document.createElement('textarea');
             ta.value = text;
             ta.setAttribute('readonly', '');

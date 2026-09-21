@@ -106,6 +106,109 @@ public class RateLimitTests
     }
 
     /// <summary>
+    /// A practice call that reaches the limiter without reaching OpenAI: the length rule rejects it
+    /// first, but the policy has already taken its permit by then.
+    /// </summary>
+    private static async Task<HttpResponseMessage> CheapPracticeCall(HttpClient c)
+    {
+        var token = await Http.GetAntiforgeryTokenAsync(c, "/Practice");
+        var req = new HttpRequestMessage(HttpMethod.Post, "/Practice/SubmitAnswer")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["questionId"] = "0", ["answer"] = "too short", ["__RequestVerificationToken"] = token
+            })
+        };
+        req.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        return await c.SendAsync(req);
+    }
+
+    /// <summary>
+    /// <b>The reason the split exists.</b> Practice is many small calls and resume parsing is rare and
+    /// expensive; sharing one bucket meant a demo visitor could not finish a single round of five
+    /// questions without locking the rest of the app.
+    /// </summary>
+    [Fact]
+    public async Task Exhausting_the_practice_bucket_leaves_every_other_ai_path_working()
+    {
+        var (parent, factory) = Boot(
+            ("RateLimiting:AI:Practice:PermitLimit", "2"),
+            ("RateLimiting:AI:Practice:WindowMinutes", "60"),
+            ("RateLimiting:AI:PermitLimit", "5"),
+            ("RateLimiting:AI:WindowMinutes", "60"));
+        using var _ = parent; using var __ = factory;
+
+        var client = Client(factory);
+        await Http.RegisterAsync(client);
+
+        // Spend the practice allowance.
+        await CheapPracticeCall(client);
+        await CheapPracticeCall(client);
+        var practiceRejected = await CheapPracticeCall(client);
+        Assert.Equal(HttpStatusCode.TooManyRequests, practiceRejected.StatusCode);
+
+        // The other bucket is untouched — this is the whole point.
+        Assert.Equal(HttpStatusCode.BadRequest, (await CheapAiCall(client)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Exhausting_the_default_bucket_leaves_practice_working()
+    {
+        var (parent, factory) = Boot(
+            ("RateLimiting:AI:PermitLimit", "1"),
+            ("RateLimiting:AI:WindowMinutes", "60"),
+            ("RateLimiting:AI:Practice:PermitLimit", "5"),
+            ("RateLimiting:AI:Practice:WindowMinutes", "60"));
+        using var _ = parent; using var __ = factory;
+
+        var client = Client(factory);
+        await Http.RegisterAsync(client);
+
+        Assert.Equal(HttpStatusCode.BadRequest, (await CheapAiCall(client)).StatusCode);
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await CheapAiCall(client)).StatusCode);
+
+        // Practice still has its own allowance. 404 = it got past the limiter to the ownership check.
+        var practice = await CheapPracticeCall(client);
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, practice.StatusCode);
+    }
+
+    [Fact]
+    public async Task A_practice_rejection_says_which_limit_was_hit_and_what_still_works()
+    {
+        // The complaint: "You've reached the limit of 10 AI requests per hour" read as the whole app
+        // being locked, when resume parsing and cover letters were fine.
+        var (parent, factory) = Boot(
+            ("RateLimiting:AI:Practice:PermitLimit", "1"),
+            ("RateLimiting:AI:Practice:WindowMinutes", "60"));
+        using var _ = parent; using var __ = factory;
+
+        var client = Client(factory);
+        await Http.RegisterAsync(client);
+
+        await CheapPracticeCall(client);
+        var rejected = await CheapPracticeCall(client);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+        var body = await rejected.Content.ReadAsStringAsync();
+
+        Assert.Contains("practice limit", body);
+        Assert.Contains("unaffected", body);
+        Assert.True(JsonDocument.Parse(body).RootElement.GetProperty("rateLimited").GetBoolean());
+    }
+
+    [Fact]
+    public void The_daily_practice_window_reads_as_a_day_not_as_hours()
+    {
+        // 1440 minutes formatted by the generic branch would say "24 hours", which invites the reader
+        // to think it resets at midnight. It does not — see AiUsageLimiter's remarks.
+        var message = InternTrackAI.Services.AiRateLimiting.BuildMessage(
+            100, 1440, null, InternTrackAI.Services.AiBucket.Practice);
+
+        Assert.Equal("You've reached the practice limit of 100 AI requests per day. "
+                     + "Resume tools, cover letters and job analysis are unaffected.", message);
+    }
+
+    /// <summary>
     /// The set of actions behind the AI bucket, pinned. Every one of them spends the maintainer's OpenAI
     /// key, so an attribute quietly disappearing in a refactor is the failure worth catching — nothing
     /// else in the suite would notice, because the endpoint keeps working perfectly.
@@ -144,14 +247,37 @@ public class RateLimitTests
             "FollowUpController.Improve",
             "InterviewPrepController.CritiqueAnswer",
             "InterviewPrepController.Generate",
-            "PracticeController.GenerateMore",
-            "PracticeController.SubmitAnswer",
             "ProfileController.AutoMatch",
             "ProfileController.ReparseResume",
             "ProfileController.RewriteBullet",
             "ProfileController.ScoreResume",
             "SalaryInsightController.Estimate",
         }, limited);
+    }
+
+    /// <summary>
+    /// The practice bucket's actions, pinned separately. These two spend a different allowance from
+    /// everything above, which is the entire point of the split — an action drifting between the two
+    /// policies would silently change which budget it eats.
+    /// </summary>
+    [Fact]
+    public void The_practice_policy_covers_exactly_generation_and_scoring()
+    {
+        var practice = typeof(Program).Assembly.GetTypes()
+            .Where(t => typeof(Microsoft.AspNetCore.Mvc.ControllerBase).IsAssignableFrom(t))
+            .SelectMany(t => t.GetMethods())
+            .Where(m => m.GetCustomAttributes(typeof(Microsoft.AspNetCore.RateLimiting.EnableRateLimitingAttribute), false)
+                         .Cast<Microsoft.AspNetCore.RateLimiting.EnableRateLimitingAttribute>()
+                         .Any(a => a.PolicyName == InternTrackAI.Services.AiRateLimiting.PracticePolicyName))
+            .Select(m => $"{m.DeclaringType!.Name}.{m.Name}")
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Equal(new[]
+        {
+            "PracticeController.GenerateMore",
+            "PracticeController.SubmitAnswer",
+        }, practice);
     }
 
     /// <summary>

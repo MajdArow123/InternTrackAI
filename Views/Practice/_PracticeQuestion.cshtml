@@ -17,9 +17,16 @@
 
     var score = Model.Score ?? 0;
     var scoreTone = score >= 4 ? "high" : score == 3 ? "mid" : "low";
+
+    // Set only by SubmitAnswer, for the card just scored. Everything Index renders comes back
+    // collapsed — five answered cards expanded is a very long page, and the one you want open is the
+    // one you just finished.
+    var expanded = ViewData["Expanded"] as bool? ?? false;
 }
 
-<div class="practice-card" data-question-id="@Model.Id">
+<div class="practice-card @(answered ? $"practice-card--scored-{scoreTone}" : "")"
+     data-question-id="@Model.Id"
+     data-answered="@(answered ? "true" : "false")">
     <div class="practice-card-meta">
         <span class="practice-badge practice-badge--@Model.Difficulty.ToString().ToLowerInvariant()">@Model.Difficulty</span>
         <span class="practice-badge practice-badge--category">@QuestionCategories.Display(Model.Category)</span>
@@ -30,6 +37,16 @@
         @if (answered)
         {
             <span class="practice-score practice-score--@scoreTone" title="Your score on this answer">@score<span class="practice-score-max">/@AnswerFeedback.MaxScore</span></span>
+
+            @*
+                Muted and small on purpose: real interviews are timed, so how long an answer took is
+                useful on its own — but it is not a score, and it must not read like one.
+            *@
+            @if (Model.AnsweredInSeconds is { } seconds)
+            {
+                var shown = seconds < 60 ? $"{seconds}s" : $"{seconds / 60}m {seconds % 60:00}s";
+                <span class="practice-elapsed" title="First keystroke to submit">@shown</span>
+            }
         }
 
         @*
@@ -48,11 +65,70 @@
 
     @if (answered && feedback is not null)
     {
-        <div class="practice-answered">
-            <div class="practice-answer-given">
-                <p class="practice-answer-label">Your answer</p>
-                <p class="practice-answer-text">@Model.UserAnswer</p>
-            </div>
+        <details class="practice-answered" data-practice-feedback open="@(expanded ? "open" : null)">
+            <summary class="practice-answered-summary">
+                <span class="practice-answered-summary-open">Hide feedback</span>
+                <span class="practice-answered-summary-closed">Show feedback</span>
+            </summary>
+
+            @if (!attempts.Any())
+            {
+                <div class="practice-answer-given">
+                    <p class="practice-answer-label">Your answer</p>
+                    <p class="practice-answer-text">@Model.UserAnswer</p>
+                </div>
+            }
+            else
+            {
+                @*
+                    Attempts side by side, oldest first, with the current one last and marked — reading
+                    left to right is reading the progression. This is the one thing the cards could not
+                    show before: the attempts were stacked in a disclosure, so comparing what changed
+                    between a 2 and a 4 meant scrolling between them.
+
+                    A horizontal scroll on a narrow screen rather than stacking, deliberately: stacking
+                    is what this replaces, so collapsing back to it on a phone would give the same
+                    non-comparison under a new name. Capped at AttemptHistory.Keep + 1 columns.
+                *@
+                <div class="practice-compare">
+                    <p class="practice-answer-label">Your attempts</p>
+                    <div class="practice-compare-track">
+                        @{
+                            // attempts is newest-first; reversed so the columns read oldest to newest.
+                            var ordered = attempts.AsEnumerable().Reverse().ToList();
+                            var attemptNumber = 0;
+                        }
+                        @foreach (var a in ordered)
+                        {
+                            attemptNumber++;
+                            var tone = a.Score >= 4 ? "high" : a.Score == 3 ? "mid" : "low";
+                            <div class="practice-compare-col">
+                                <p class="practice-compare-head">
+                                    <span class="practice-compare-n">Attempt @attemptNumber</span>
+                                    <span class="practice-score practice-score--@tone">@a.Score<span class="practice-score-max">/@AnswerFeedback.MaxScore</span></span>
+                                </p>
+                                <p class="practice-attempt-when">@a.AnsweredAt.ToString("d MMM yyyy")</p>
+                                <p class="practice-answer-text">@a.Answer</p>
+                            </div>
+                        }
+
+                        <div class="practice-compare-col practice-compare-col--current">
+                            <p class="practice-compare-head">
+                                <span class="practice-compare-n">Attempt @(attemptNumber + 1) &middot; latest</span>
+                                <span class="practice-score practice-score--@scoreTone">@score<span class="practice-score-max">/@AnswerFeedback.MaxScore</span></span>
+                            </p>
+                            <p class="practice-attempt-when">
+                                @(Model.AnsweredAt?.ToString("d MMM yyyy"))
+                                @if (Model.AnsweredInSeconds is { } secs)
+                                {
+                                    <text>&middot; @(secs < 60 ? $"{secs}s" : $"{secs / 60}m {secs % 60:00}s")</text>
+                                }
+                            </p>
+                            <p class="practice-answer-text">@Model.UserAnswer</p>
+                        </div>
+                    </div>
+                </div>
+            }
 
             @if (feedback.Strengths.Any())
             {
@@ -92,29 +168,8 @@
                 </div>
             }
 
-            @if (attempts.Any())
-            {
-                @*
-                    Collapsed: the point of keeping these is "what did I say last time", which you look
-                    up deliberately. Capped at AttemptHistory.Keep, so this never grows a scrollbar.
-                *@
-                <details class="practice-attempts">
-                    <summary>Earlier attempt@(attempts.Count == 1 ? "" : "s") (@attempts.Count)</summary>
-                    @foreach (var a in attempts)
-                    {
-                        <div class="practice-attempt">
-                            <p class="practice-attempt-meta">
-                                <span class="practice-score practice-score--@(a.Score >= 4 ? "high" : a.Score == 3 ? "mid" : "low")">@a.Score<span class="practice-score-max">/@AnswerFeedback.MaxScore</span></span>
-                                <span class="practice-attempt-when">@a.AnsweredAt.ToString("d MMM yyyy")</span>
-                            </p>
-                            <p class="practice-answer-text">@a.Answer</p>
-                        </div>
-                    }
-                </details>
-            }
-
             <button type="button" class="btn btn-outline-primary btn-sm mt-2" data-practice-retry>Retry this question</button>
-        </div>
+        </details>
     }
 
     @*
@@ -161,7 +216,11 @@
 
     @if (!string.IsNullOrWhiteSpace(Model.ModelHint))
     {
-        <details class="practice-hint" open="@(answered ? "open" : null)">
+        @*
+            Opens with the feedback, not merely because the question was answered. Once the answered
+            body folds away, a hint hanging open underneath a collapsed card contradicts it.
+        *@
+        <details class="practice-hint" open="@(expanded ? "open" : null)">
             <summary>What a strong answer covers</summary>
             <p class="practice-hint-body">@Model.ModelHint</p>
         </details>

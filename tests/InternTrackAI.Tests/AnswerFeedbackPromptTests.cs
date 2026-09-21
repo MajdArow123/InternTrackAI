@@ -71,6 +71,21 @@ public class AnswerFeedbackPromptTests
     }
 
     [Fact]
+    public void The_concrete_anchor_rule_is_present_and_last()
+    {
+        // The one prompt change here that measured as working (LiveScoringProbe, 2026-09-21: it took a
+        // no-specifics answer from 3/5 to 2/5 while a specific one stayed at 4/5). Position is part of
+        // what was measured, so it is pinned too — tidying it into the middle of the prompt is a change
+        // that needs re-measuring, not a refactor.
+        var prompt = AnswerFeedbackPrompt.Build(Ctx("An answer."));
+
+        Assert.Contains(AnswerFeedbackPrompt.ConcreteAnchorRule, prompt);
+        Assert.Contains("CONCRETE ANCHOR", prompt);
+        Assert.Contains("AT MOST 2", prompt);
+        Assert.EndsWith(AnswerFeedbackPrompt.ConcreteAnchorRule, prompt.TrimEnd());
+    }
+
+    [Fact]
     public void The_reply_contract_asks_for_exactly_two_improvements()
     {
         var prompt = AnswerFeedbackPrompt.Build(Ctx("An answer."));

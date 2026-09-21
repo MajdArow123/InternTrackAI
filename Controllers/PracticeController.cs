@@ -214,11 +214,16 @@ public class PracticeController : Controller
         if (!result.Success)
             return Json(new { success = false, error = result.Error });
 
+        // The progress card is re-rendered and returned with the card. Answering changes every number
+        // on it, and leaving it stale until a reload is worse than leaving it obviously broken: it
+        // keeps showing 0/5 in a card that reads as authoritative.
         return Json(new
         {
-            success = true,
-            score   = result.Feedback!.Score,
-            html    = await this.RenderPartialAsync("_PracticeQuestion", question)
+            success  = true,
+            score    = result.Feedback!.Score,
+            html     = await this.RenderPartialAsync("_PracticeQuestion", question),
+            progress = await this.RenderPartialAsync("_PracticeProgress",
+                           await ProgressAsync(userId, HttpContext.RequestAborted))
         });
     }
 

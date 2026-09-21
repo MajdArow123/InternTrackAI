@@ -66,7 +66,9 @@ public sealed record AnswerFeedback(
 
             return new AnswerFeedback(
                 ReadScore(r),
-                Bullets(r, "strengths", MaxStrengths),
+                // Filtered, not just read: the prompt asks for no invented praise and this is what
+                // makes it true. See EmptyPraise for the observed failure it was built from.
+                EmptyPraise.Filter(Bullets(r, "strengths", MaxStrengths)),
                 Exactly(Bullets(r, "improvements", ImprovementCount)),
                 Bullets(r, "missingPoints", MaxMissingPoints),
                 Truncate(PromptData.OneLine(Str(r, "revisedOpening")), MaxOpeningLength));

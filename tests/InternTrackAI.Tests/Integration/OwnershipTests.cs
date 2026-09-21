@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using InternTrackAI.Data;
 using InternTrackAI.Models;
+using InternTrackAI.Services;
 using InternTrackAI.Models.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -46,7 +47,7 @@ public class OwnershipFixture : TestAppFactory, IAsyncLifetime
         var note   = new ApplicationNote { UserId = BobId, JobApplicationId = app.Id, Text = "Bob's private note" };
         var letter = new GeneratedCoverLetter { UserId = BobId, JobApplicationId = app.Id, Content = "Bob's letter", CompanyName = "Bob Corp", RoleTitle = "Bob Role", IsActive = true, VersionNumber = 1 };
         var resume = new ResumeVersion { UserId = BobId, VersionNumber = 1, OriginalFileName = "bob.pdf", StoredPath = $"resumes/{BobId}/bob.pdf", IsActive = true };
-        var prep   = new InterviewPrepSession { UserId = BobId, JobApplicationId = app.Id, QuestionsJson = "[]" };
+        var prep   = new PracticeQuestion { UserId = BobId, ApplicationId = app.Id, Prompt = "Bob's question?", PromptHash = QuestionHash.Of("Bob's question?"), CreatedAt = DateTime.UtcNow };
         db.AddRange(note, letter, resume, prep);
         await db.SaveChangesAsync();
         BobNoteId = note.Id; BobLetterId = letter.Id; BobResumeId = resume.Id; BobPrepId = prep.Id;
@@ -219,7 +220,7 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
         Assert.Equal("Bob Corp", app.CompanyName);
         Assert.Equal(ApplicationStatus.Applied, app.Status);
         Assert.Equal(1, await db.GeneratedCoverLetters.CountAsync(c => c.JobApplicationId == _f.BobAppId));
-        Assert.Equal(1, await db.InterviewPrepSessions.CountAsync(s => s.JobApplicationId == _f.BobAppId));
+        Assert.Equal(1, await db.PracticeQuestions.CountAsync(q => q.ApplicationId == _f.BobAppId));
     }
 
     private async Task AssertBobDocsUntouched()

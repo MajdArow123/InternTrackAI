@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using InternTrackAI.Data;
 using InternTrackAI.Models;
+using InternTrackAI.Models.Enums;
 using InternTrackAI.Models.ViewModels;
 using InternTrackAI.Services;
 using Microsoft.AspNetCore.Authorization;
@@ -22,12 +23,17 @@ public class InterviewPrepController : Controller
     private readonly ApplicationDbContext _db;
     private readonly InterviewPrepService _service;
     private readonly ResumeTextService _resumeText;
+    private readonly IUserContextBuilder _userContext;
+    private readonly ILogger<InterviewPrepController> _logger;
 
-    public InterviewPrepController(ApplicationDbContext db, InterviewPrepService service, ResumeTextService resumeText)
+    public InterviewPrepController(ApplicationDbContext db, InterviewPrepService service, ResumeTextService resumeText,
+                                   IUserContextBuilder userContext, ILogger<InterviewPrepController> logger)
     {
         _db      = db;
         _service = service;
         _resumeText = resumeText;
+        _userContext = userContext;
+        _logger = logger;
     }
 
     /// <summary>Resolves the current signed-in user's id from the auth claims.</summary>
@@ -54,24 +60,14 @@ public class InterviewPrepController : Controller
             .FirstOrDefaultAsync(a => a.Id == appId && a.UserId == uid);
         if (app is null) return NotFound();
 
-        var session = await _db.InterviewPrepSessions
-            .FirstOrDefaultAsync(s => s.JobApplicationId == appId && s.UserId == uid);
+        // One row per question now, filtered to this application, rather than a JSON blob per session.
+        // Oldest first so regenerating appends below what is already there instead of reshuffling it.
+        var questions = await _db.PracticeQuestions.AsNoTracking()
+            .Where(q => q.ApplicationId == appId && q.UserId == uid)
+            .OrderBy(q => q.Id)
+            .ToListAsync();
 
-        List<InterviewQuestion> questions = new();
-        if (session is not null)
-        {
-            try { questions = JsonSerializer.Deserialize<List<InterviewQuestion>>(session.QuestionsJson, _readOptions) ?? new(); }
-            catch { /* malformed JSON — show empty */ }
-        }
-
-        var vm = new InterviewPrepViewModel
-        {
-            Application = app,
-            Session     = session,
-            Questions   = questions
-        };
-
-        return View(vm);
+        return View(new InterviewPrepViewModel { Application = app, Questions = questions });
     }
 
     /// <summary>
@@ -114,35 +110,102 @@ public class InterviewPrepController : Controller
         var (success, questions, error) = await _service.GenerateAsync(
             app.CompanyName, app.RoleTitle,
             app.JobDescription ?? "",
-            resumeText, skills);
+            resumeText, skills,
+            await _userContext.BuildAsync(uid, HttpContext.RequestAborted));
 
         if (!success)
             return Json(new { success = false, error });
 
-        var questionsJson = JsonSerializer.Serialize(questions);
+        var stored = await SaveNewAsync(uid, req.AppId, questions);
 
-        var existing = await _db.InterviewPrepSessions
-            .FirstOrDefaultAsync(s => s.JobApplicationId == req.AppId && s.UserId == uid);
-
-        if (existing is not null)
+        // The wire shape is unchanged — category as its display string, question, tip — because the
+        // Prep page's script renders straight from it. Storing rows changed nothing the client sees.
+        return Json(new
         {
-            existing.QuestionsJson = questionsJson;
-            existing.GeneratedAt   = DateTime.UtcNow;
-        }
-        else
-        {
-            _db.InterviewPrepSessions.Add(new InterviewPrepSession
+            success   = true,
+            questions = stored.Select(q => new
             {
-                UserId           = uid,
-                JobApplicationId = req.AppId,
-                QuestionsJson    = questionsJson,
-                GeneratedAt      = DateTime.UtcNow
+                category = QuestionCategories.Display(q.Category),
+                question = q.Prompt,
+                tip      = q.ModelHint
+            })
+        });
+    }
+
+    /// <summary>
+    /// Turns freshly generated questions into <see cref="PracticeQuestion"/> rows, dropping any the
+    /// user already has. Returns what was actually stored, newest generation only.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two filters, because they catch different things: the batch is deduped against itself (a model
+    /// asked for ten questions will sometimes give the same one twice) and against the hashes already
+    /// stored for this user (regenerating on the same application used to produce the same set again).
+    /// </para>
+    /// <para>
+    /// The unique index is the real guarantee and it can still fire on a race between two generations.
+    /// Rather than let that 500 a request whose questions are perfectly good, a failed batch is retried
+    /// row by row and the losers are dropped — the user gets fewer questions, never an error.
+    /// </para>
+    /// </remarks>
+    private async Task<List<PracticeQuestion>> SaveNewAsync(string uid, int appId, List<GeneratedQuestion> generated)
+    {
+        var existing = await _db.PracticeQuestions
+            .Where(q => q.UserId == uid)
+            .Select(q => q.PromptHash)
+            .ToListAsync();
+
+        var seen = new HashSet<string>(existing, StringComparer.Ordinal);
+        var rows = new List<PracticeQuestion>();
+
+        foreach (var g in generated)
+        {
+            var hash = QuestionHash.Of(g.Question);
+            if (hash.Length == 0 || !seen.Add(hash)) continue;
+
+            rows.Add(new PracticeQuestion
+            {
+                UserId        = uid,
+                ApplicationId = appId,
+                Prompt        = g.Question,
+                Category      = g.Category,
+                ModelHint     = g.Tip,
+                PromptHash    = hash,
+                CreatedAt     = DateTime.UtcNow
+                // Difficulty and Topic keep their defaults until the Step 2 generator supplies them.
             });
         }
 
-        await _db.SaveChangesAsync();
+        if (rows.Count == 0) return rows;
 
-        return Json(new { success = true, questions });
+        _db.PracticeQuestions.AddRange(rows);
+        try
+        {
+            await _db.SaveChangesAsync();
+            return rows;
+        }
+        catch (DbUpdateException)
+        {
+            _db.ChangeTracker.Clear();
+            _logger.LogInformation("Practice question batch hit the unique index; retrying row by row.");
+        }
+
+        var saved = new List<PracticeQuestion>();
+        foreach (var row in rows)
+        {
+            _db.PracticeQuestions.Add(row);
+            try
+            {
+                await _db.SaveChangesAsync();
+                saved.Add(row);
+            }
+            catch (DbUpdateException)
+            {
+                _db.ChangeTracker.Clear();   // somebody else stored this question first
+            }
+        }
+
+        return saved;
     }
 
     /// <summary>
@@ -167,7 +230,8 @@ public class InterviewPrepController : Controller
             return NotFound(new { success = false, error = "Application not found." });
 
         var (success, feedback, error) = await _service.CritiqueAnswerAsync(
-            req.Question, req.Answer, app.RoleTitle, app.CompanyName);
+            req.Question, req.Answer, app.RoleTitle, app.CompanyName,
+            await _userContext.BuildAsync(uid, HttpContext.RequestAborted));
 
         if (!success)
             return Json(new { success = false, error });

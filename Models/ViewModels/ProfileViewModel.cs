@@ -21,6 +21,12 @@ public class ProfileViewModel
     public List<string> Skills { get; set; } = new();
     public List<string> TargetRoles { get; set; } = new();
 
+    // Target-role suggestions for every FieldCategory (Services/TargetRoleSeeds.cs), rendered as a
+    // JSON island in _SkillsRoles.cshtml. The whole map ships rather than just the user's own
+    // category so the combobox can follow the "Field category" dropdown without a page reload.
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> RoleSuggestions { get; set; } =
+        new Dictionary<string, IReadOnlyList<string>>();
+
     public int TotalApplications { get; set; }
     public Dictionary<ApplicationStatus, int> StatusCounts { get; set; } = new();
     public double SuccessRate { get; set; }
@@ -52,6 +58,14 @@ public class ProfileViewModel
 
     // "Rewrite a bullet": the user's applications that have a stored job description, newest first.
     public List<RewriteApplicationOption> RewriteApplications { get; set; } = new();
+
+    // A resume parse waiting to be reviewed, if any. Set when the user uploaded or re-parsed and then
+    // navigated away instead of confirming — without this the draft is stranded with no way back to it.
+    public ParsedResume? PendingParse { get; set; }
+
+    // True when the user has neither skills nor target roles: the two tag sections then point at the
+    // resume upload instead of showing two empty boxes with no suggestion of what to do.
+    public bool HasNoTags => Skills.Count == 0 && TargetRoles.Count == 0;
 }
 
 /// <summary>One entry in the bullet rewriter's application selector.</summary>

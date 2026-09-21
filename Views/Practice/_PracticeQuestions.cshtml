@@ -1,0 +1,10 @@
+@model List<InternTrackAI.Models.PracticeQuestion>
+@*
+    The list. One card each, rendered through _PracticeQuestion so that the card's markup — including
+    its answered state — exists exactly once: this loop, /Practice/GenerateMore and
+    /Practice/SubmitAnswer all render the same partial.
+*@
+@foreach (var q in Model)
+{
+    <partial name="_PracticeQuestion" model="q" />
+}

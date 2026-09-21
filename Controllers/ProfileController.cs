@@ -18,9 +18,16 @@ namespace InternTrackAI.Controllers;
 
 /// <summary>
 /// Manages the user's career portfolio: personal info, profile photo, skills/target-role tags,
-/// resume version history (upload, activate, delete, download), the resume → profile auto-fill
-/// (automatic after an upload, manual via "Analyze with AI"), AI resume scoring, and the AI
-/// resume-match endpoint used by the Job Application create page, and the "Rewrite a bullet" tool.
+/// resume version history (upload, activate, delete, download), the resume → profile parse and its
+/// review screen, AI resume scoring, the AI resume-match endpoint used by the Job Application create
+/// page, and the "Rewrite a bullet" tool.
+///
+/// <para>
+/// <b>No action here writes AI output to the profile except <see cref="ApplyResumeReview"/></b>, and
+/// that one runs only on a draft the user has confirmed on <see cref="ReviewResume"/>. Upload and
+/// re-parse both end at that screen. Adding a second path that merges directly re-creates the silent
+/// overwrite this flow was built to remove.
+/// </para>
 /// </summary>
 [Authorize]
 public class ProfileController : Controller
@@ -32,7 +39,11 @@ public class ProfileController : Controller
     private readonly ResumeMatcherService _matcher;
     private readonly ResumeRewriteService _rewriter;
     private readonly ProfileAutoFillService _autoFill;
+    private readonly ResumeParseService _parser;
+    private readonly DemoProfileReset _demoProfile;
     private readonly ResumeTextService _resumeText;
+    private readonly IUserContextBuilder _userContext;
+    private readonly TargetRoleSeeds _roleSeeds;
     private readonly AiUsageLimiter _aiLimiter;
     private readonly GitHubService _github;
     private readonly UserClockProvider _clocks;
@@ -47,7 +58,11 @@ public class ProfileController : Controller
         ResumeMatcherService matcher,
         ResumeRewriteService rewriter,
         ProfileAutoFillService autoFill,
+        ResumeParseService parser,
+        DemoProfileReset demoProfile,
         ResumeTextService resumeText,
+        IUserContextBuilder userContext,
+        TargetRoleSeeds roleSeeds,
         AiUsageLimiter aiLimiter,
         GitHubService github,
         UserClockProvider clocks,
@@ -63,7 +78,11 @@ public class ProfileController : Controller
         _matcher = matcher;
         _rewriter = rewriter;
         _autoFill = autoFill;
+        _parser = parser;
+        _demoProfile = demoProfile;
         _resumeText = resumeText;
+        _userContext = userContext;
+        _roleSeeds = roleSeeds;
         _aiLimiter = aiLimiter;
         _github = github;
         _logger = logger;
@@ -72,10 +91,21 @@ public class ProfileController : Controller
     // ── GET /Profile ────────────────────────────────────
 
     /// <summary>Renders the full profile page: personal info, documents, skills, and application stats.</summary>
+    /// <remarks>
+    /// Writes on a GET in two cases, both idempotent and both long-standing patterns here: issuing the
+    /// calendar token on first view, and — on the shared demo account only — undoing a resume review
+    /// some other visitor applied (see <see cref="DemoProfileReset"/>). Neither changes what the page
+    /// shows a second time.
+    /// </remarks>
     [HttpGet]
     public async Task<IActionResult> Index()
     {
-        await EnsureCalendarTokenAsync(UserId());
+        var userId = UserId();
+
+        if (AiRateLimiting.IsDemoUser(User, _config))
+            await _demoProfile.HealAsync(userId, DemoProfileReset.ReadStamp(Request), HttpContext.RequestAborted);
+
+        await EnsureCalendarTokenAsync(userId);
         var vm = await BuildViewModelAsync();
         return View(vm);
     }
@@ -103,8 +133,16 @@ public class ProfileController : Controller
     /// current scroll position and can show a toast instead of a full reload.
     /// </summary>
     /// <returns>JSON <c>{ success, error }</c> — <c>error</c> is set if <paramref name="fullName"/> is blank or <paramref name="timeZoneId"/> is not a zone this host knows.</returns>
+    /// <remarks>
+    /// The field-awareness values (<paramref name="field"/>, <paramref name="fieldCategory"/>,
+    /// <paramref name="seniority"/>, <paramref name="yearsExperience"/>, <paramref name="location"/>)
+    /// are all optional and all go through <see cref="ProfileFields"/>, which turns anything
+    /// unrecognised into null or <c>Other</c> rather than failing the save — a stale client that omits
+    /// them entirely posts nulls and simply clears them, same as clearing any other optional field.
+    /// </remarks>
     [HttpPost, ValidateAntiForgeryToken]
-    public async Task<IActionResult> SaveInfo(string? fullName, string? displayName, string? country, string? phoneNumber, string? githubUsername, string? timeZoneId)
+    public async Task<IActionResult> SaveInfo(string? fullName, string? displayName, string? country, string? phoneNumber, string? githubUsername, string? timeZoneId,
+        string? field = null, string? fieldCategory = null, string? seniority = null, int? yearsExperience = null, string? location = null)
     {
         if (string.IsNullOrWhiteSpace(fullName))
             return Json(new { success = false, error = "Full name is required." });
@@ -131,9 +169,23 @@ public class ProfileController : Controller
         profile.GitHubUsername = string.IsNullOrWhiteSpace(githubUsername) ? null : githubUsername.Trim().TrimStart('@');
         if (timeZoneId is not null) profile.TimeZoneId = timeZoneId;   // older clients without the dropdown leave it unchanged
 
+        profile.Field           = ProfileFields.Text(field);
+        profile.FieldCategory   = ProfileFields.ParseCategory(fieldCategory);
+        profile.Seniority       = ProfileFields.ParseSeniority(seniority);
+        profile.YearsExperience = ProfileFields.Years(yearsExperience);
+        profile.Location        = ProfileFields.Text(location);
+
         await _db.SaveChangesAsync();
         var clock = UserClock.For(profile.TimeZoneId);   // fresh, not the request-cached clock: the zone may have just changed
-        return Json(new { success = true, timeZoneId = profile.TimeZoneId, nowLocal = clock.LocalTime(clock.NowUtc) });
+        // fieldCategory comes back so the role-suggestion combobox can re-point at the saved value
+        // (ProfileFields may have coerced an unrecognised one to Other).
+        return Json(new
+        {
+            success = true,
+            timeZoneId = profile.TimeZoneId,
+            nowLocal = clock.LocalTime(clock.NowUtc),
+            fieldCategory = profile.FieldCategory?.ToString()
+        });
     }
 
     // ── POST /Profile/RegenerateCalendarToken ────────────
@@ -312,55 +364,154 @@ public class ProfileController : Controller
         return Json(new { success = true, targetRoles });
     }
 
-    // ── POST /Profile/AnalyzeResume (AJAX) ───────────────
+    // ── POST /Profile/ReparseResume ──────────────────────
 
     /// <summary>
-    /// Manual re-run of the resume → profile auto-fill against the active resume (the same
-    /// <see cref="ProfileAutoFillService"/> that runs automatically after an upload): an empty name
-    /// is filled in, extracted skills and target roles are added when not already present, nothing
-    /// is ever removed. The merge is persisted here; the response carries the profile's values after
-    /// the merge so the page can re-render the chips without a reload.
+    /// Re-runs the parse against the active resume and sends the user to the review screen — the
+    /// "Analyze with AI" button on the Resume card. Replaces the old <c>AnalyzeResume</c>, which
+    /// merged straight into the profile; there is deliberately no endpoint left that does that.
     /// </summary>
-    /// <returns>
-    /// JSON <c>{ success, hasResume, fullName, skills, targetRoles, nameFilled, skillsAdded, rolesAdded,
-    /// addedSkills, addedRoles, summary, error }</c>. <c>hasResume</c> is false if no active resume exists yet (nothing to analyze).
-    /// </returns>
+    /// <remarks>
+    /// Costs nothing extra to run: the resume's text was extracted once at upload and cached on the
+    /// version (<see cref="ResumeTextService"/>), so re-parsing needs no re-upload and no re-read of
+    /// the file. It does spend one AI permit, hence the <c>"ai"</c> policy.
+    /// </remarks>
     [HttpPost, ValidateAntiForgeryToken]
     [EnableRateLimiting(AiRateLimiting.PolicyName)]
-    public async Task<IActionResult> AnalyzeResume()
+    public async Task<IActionResult> ReparseResume()
     {
         var userId = UserId();
-        var text = await _resumeText.GetActiveAsync(userId);
-        if (text.Status == ResumeTextStatus.NoResume)
-            return Json(new { success = false, hasResume = false });
-        if (!text.Ok)
-            return Json(new { success = false, hasResume = true, error = ResumeTextError(text.Status) });
 
-        var result = await _autoFill.FillFromTextAsync(userId, text.Text!);
-        if (!result.Success)
-            return Json(new { success = false, hasResume = true, error = result.Error });
+        var version = await _db.ResumeVersions.AsNoTracking()
+            .FirstOrDefaultAsync(r => r.UserId == userId && r.IsActive);
 
-        return Json(new
+        if (version is null)
         {
-            success     = true,
-            hasResume   = true,
-            fullName    = result.FullName,
-            skills      = result.Skills,
-            targetRoles = result.TargetRoles,
-            nameFilled  = result.NameFilled,
-            skillsAdded = result.SkillsAdded,
-            rolesAdded  = result.RolesAdded,
-            addedSkills = result.AddedSkills,
-            addedRoles  = result.AddedRoles,
-            summary     = result.Summary
-        });
+            TempData["Toast"] = "error|No active resume found. Upload a resume and set it as active first.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var text = await _resumeText.GetAsync(version);
+        if (!text.Ok)
+        {
+            TempData["Toast"] = $"error|{ResumeTextError(text.Status)}";
+            return RedirectToAction(nameof(Index));
+        }
+
+        var parse = await ParseAsync(userId, text, version.Id);
+        if (!parse.Success)
+        {
+            TempData["Toast"] = $"error|Couldn't analyze your resume: {parse.Error?.TrimEnd('.')}.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        return RedirectToAction(nameof(ReviewResume), new { id = parse.DraftId });
+    }
+
+    // ── GET /Profile/ReviewResume ────────────────────────
+
+    /// <summary>
+    /// The screen every AI-derived profile write goes through. Shows what the parse proposed — each
+    /// skill with the resume snippet behind it — and writes nothing until the user posts it back.
+    /// </summary>
+    /// <param name="id">A specific draft (owner-scoped 404); omitted, the newest one awaiting review.</param>
+    [HttpGet]
+    public async Task<IActionResult> ReviewResume(int? id)
+    {
+        var userId = UserId();
+
+        var draft = id is null
+            ? await _parser.PendingAsync(userId)
+            : await _parser.ByIdAsync(userId, id.Value);
+
+        // A foreign or missing id is a 404, not a 403 — same rule as every other id-taking endpoint
+        // (CLAUDE.md §8), so draft ids can't be probed.
+        if (draft is null)
+        {
+            if (id is not null) return NotFound();
+            TempData["Toast"] = "info|Nothing to review — upload a resume or use Analyze with AI first.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        if (draft.Applied)
+        {
+            TempData["Toast"] = "info|That resume analysis has already been applied to your profile.";
+            return RedirectToAction(nameof(Index));
+        }
+
+        return View(await BuildReviewViewModelAsync(userId, draft));
+    }
+
+    // ── POST /Profile/ApplyResumeReview ──────────────────
+
+    /// <summary>
+    /// Merges what the user confirmed into the profile: tags are added, never removed, and an
+    /// unchecked skill is never written. No model call, so no rate limit.
+    /// </summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ApplyResumeReview(ResumeReviewInput input)
+    {
+        var userId = UserId();
+        var draft = await _parser.ByIdAsync(userId, input.DraftId);
+        if (draft is null) return NotFound();
+
+        var result = await _autoFill.ApplyAsync(userId, draft, input.ToReviewed());
+        if (!result.Success)
+        {
+            TempData["Toast"] = $"error|{result.Error}";
+            return RedirectToAction(nameof(Index));
+        }
+
+        // On the shared demo account, mark this browser as the one that applied so the redirect back to
+        // /Profile shows the merge instead of undoing it. The stamp is read back from the database rather
+        // than taken from memory, so it matches exactly what the next request will compare against.
+        if (AiRateLimiting.IsDemoUser(User, _config))
+        {
+            var enrichedAt = await _db.UserProfiles.AsNoTracking()
+                .Where(p => p.UserId == userId)
+                .Select(p => p.ProfileLastEnrichedAt)
+                .FirstOrDefaultAsync();
+
+            if (enrichedAt is { } stamp) DemoProfileReset.Remember(Response, stamp);
+        }
+
+        // The page reloads after the redirect; this tells it which chips are new so it can flash them.
+        if (result.SkillsAdded > 0 || result.RolesAdded > 0)
+            TempData["AutoFillAdded"] = JsonSerializer.Serialize(new { skills = result.AddedSkills, roles = result.AddedRoles });
+
+        TempData["Toast"] = result.AddedAnything
+            ? $"success|Profile updated — {result.Summary}."
+            : "info|Nothing new to add — your profile already had everything you kept.";
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    // ── POST /Profile/DiscardResumeReview ────────────────
+
+    /// <summary>
+    /// Throws the draft away without touching the profile. The guarantee this endpoint carries is
+    /// that the profile is byte-identical afterwards — pinned by <c>ResumeReviewTests</c>.
+    /// </summary>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DiscardResumeReview(int draftId)
+    {
+        var userId = UserId();
+        var draft = await _db.ParsedResumes.FirstOrDefaultAsync(p => p.Id == draftId && p.UserId == userId);
+        if (draft is null) return NotFound();
+
+        _db.ParsedResumes.Remove(draft);
+        await _db.SaveChangesAsync();
+
+        TempData["Toast"] = "info|Discarded — your profile is unchanged.";
+        return RedirectToAction(nameof(Index));
     }
 
     // ── POST /Profile/UploadResume ───────────────────────
 
     /// <summary>
     /// Uploads a new resume PDF as the next version (see <see cref="UploadResumeAsync"/> for validation
-    /// rules), then auto-fills the profile from it (see <see cref="AutoFillToastAsync"/>).
+    /// rules), then parses it into a review draft and sends the user to <see cref="ReviewResume"/>.
+    /// The profile is not touched here — see <see cref="ParseAfterUploadAsync"/>.
     /// </summary>
     [HttpPost, ValidateAntiForgeryToken]
     public async Task<IActionResult> UploadResume(IFormFile? resume)
@@ -463,7 +614,8 @@ public class ProfileController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        vm.ScoreResult = await _scorer.ScoreAsync(text.Text!, vm.TargetRoles);
+        vm.ScoreResult = await _scorer.ScoreAsync(text.Text!, vm.TargetRoles,
+            await _userContext.BuildAsync(UserId(), HttpContext.RequestAborted));
 
         // Re-load full vm and attach result
         var fullVm = await BuildViewModelAsync();
@@ -506,7 +658,8 @@ public class ProfileController : Controller
         if (!text.Ok)
             return Json(new { hasResume = true, success = false, error = "No readable text in the active resume." });
 
-        var result = await _matcher.MatchAsync(text.Text!, request.JobDescription);
+        var result = await _matcher.MatchAsync(text.Text!, request.JobDescription,
+            await _userContext.BuildAsync(UserId(), HttpContext.RequestAborted));
         return Json(new
         {
             hasResume      = true,
@@ -670,6 +823,8 @@ public class ProfileController : Controller
             Resumes       = resumes,
             Skills        = ProfileTags.FromJson(profile.SkillsJson),
             TargetRoles   = ProfileTags.FromJson(profile.TargetRolesJson),
+            RoleSuggestions = _roleSeeds.All(),
+            PendingParse  = await _parser.PendingAsync(userId),
             TotalApplications = apps.Count,
             StatusCounts  = statusCounts,
             SuccessRate   = successRate,
@@ -682,8 +837,37 @@ public class ProfileController : Controller
     }
 
     /// <summary>
-    /// Resume upload pipeline: validates extension, size, and PDF magic bytes (rejects files
-    /// merely renamed to .pdf), stores the file under a per-user directory with a random filename
+    /// Assembles the review screen: the parse's proposal, the profile as it stands so each row can say
+    /// what it would replace, and which tags are already present so nothing is offered twice.
+    /// </summary>
+    private async Task<ResumeReviewViewModel> BuildReviewViewModelAsync(string userId, ParsedResume draft)
+    {
+        var parsed  = ParsedProfile.FromJsonOrEmpty(draft.RawJson);
+        var profile = await _db.UserProfiles.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == userId)
+                      ?? new UserProfile { UserId = userId };
+
+        var source = draft.ResumeVersionId is { } versionId
+            ? await _db.ResumeVersions.AsNoTracking().FirstOrDefaultAsync(r => r.Id == versionId && r.UserId == userId)
+            : null;
+
+        return new ResumeReviewViewModel
+        {
+            DraftId        = draft.Id,
+            CreatedAt      = draft.CreatedAt,
+            Parsed         = parsed,
+            Skills         = parsed.Skills.Select(s => new ReviewSkillRow(s.Name, s.Evidence, s.Confidence)).ToList(),
+            TargetRoles    = parsed.TargetRoles,
+            Current        = profile,
+            ExistingSkills = new HashSet<string>(ProfileTags.FromJson(profile.SkillsJson), StringComparer.OrdinalIgnoreCase),
+            ExistingRoles  = new HashSet<string>(ProfileTags.FromJson(profile.TargetRolesJson), StringComparer.OrdinalIgnoreCase),
+            Source         = source,
+            IsDemoAccount  = AiRateLimiting.IsDemoUser(User, _config)
+        };
+    }
+
+    /// <summary>
+    /// Resume upload pipeline: validates size and identifies the file by its bytes (rejects files
+    /// merely renamed to .pdf or .docx), stores it under a per-user directory with a random filename
     /// (avoids collisions and leaking the original name on disk), and records it as the next
     /// version number. The first version uploaded is auto-activated.
     /// </summary>
@@ -697,35 +881,31 @@ public class ProfileController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        if (file.Length > 5 * 1024 * 1024)
+        if (file.Length > ResumeFileType.MaxBytes)
         {
             TempData["Error"] = $"{label} must be under 5 MB.";
             return RedirectToAction(nameof(Index));
         }
 
-        if (!Path.GetExtension(file.FileName).Equals(".pdf", StringComparison.OrdinalIgnoreCase))
-        {
-            TempData["Error"] = $"{label} must be a PDF file.";
-            return RedirectToAction(nameof(Index));
-        }
-
-        // Validate PDF magic bytes (%PDF = 0x25 0x50 0x44 0x46)
-        var magic = new byte[4];
+        // Identified by its contents, never by its name: the extension, the accept attribute and the
+        // client-sent content type are all a rename away, so an .exe called resume.pdf has to die here.
+        ResumeFormat format;
         await using (var checkStream = file.OpenReadStream())
         {
-            var read = await checkStream.ReadAsync(magic.AsMemory(0, 4));
-            if (read < 4 || magic[0] != 0x25 || magic[1] != 0x50 || magic[2] != 0x44 || magic[3] != 0x46)
-            {
-                TempData["Error"] = $"{label} is not a valid PDF file.";
-                return RedirectToAction(nameof(Index));
-            }
+            format = await ResumeFileType.DetectAsync(checkStream);
+        }
+
+        if (format == ResumeFormat.Unknown)
+        {
+            TempData["Error"] = $"{label} must be a {ResumeFileType.AcceptDescription} file.";
+            return RedirectToAction(nameof(Index));
         }
 
         var userId = UserId();
         const string subDir = "resumes";
         var dir = _uploads.GetUserDirectory(subDir, userId);
 
-        var stored = $"{Guid.NewGuid():N}.pdf";
+        var stored = $"{Guid.NewGuid():N}{ResumeFileType.ExtensionFor(format)}";
         var fullPath = Path.Combine(dir, stored);
         // Scoped so the stream is flushed and closed before the auto-fill below reads the file back.
         await using (var fs = System.IO.File.Create(fullPath))
@@ -752,61 +932,86 @@ public class ProfileController : Controller
 
         await _db.SaveChangesAsync();
 
-        // Extract once, here, so no later read of this version has to parse the PDF. An unreadable PDF leaves
-        // the column null and is reported by the auto-fill toast below; the upload itself still succeeded.
+        // Extract once, here, so no later read of this version has to parse the file. An unreadable file
+        // leaves the column null and is reported below; the upload itself still succeeded.
         var text = await _resumeText.StoreAsync(version);
 
-        // The file is saved at this point no matter what the auto-fill does.
-        TempData["Toast"] = await AutoFillToastAsync(userId, text);
+        // The file is saved at this point no matter what the parse does — that has always been the rule,
+        // and it is why this action is not behind the "ai" policy (a spent bucket must not lose the upload).
+        var parse = await ParseAfterUploadAsync(userId, text, version.Id);
+        if (parse.Success)
+            return RedirectToAction(nameof(ReviewResume), new { id = parse.DraftId });
+
+        TempData["Toast"] = $"info|{parse.Error}";
         return RedirectToAction(nameof(Index));
     }
 
     /// <summary>
-    /// Runs the resume → profile auto-fill for a just-uploaded file and turns the outcome into the
-    /// upload toast ("type|message"). The upload has already succeeded, so every branch here still
-    /// reports that: the demo account skips the AI call, a rate-limited or failed extraction says the
-    /// profile wasn't auto-filled and points at "Analyze with AI" for a retry. One permit is taken
-    /// from the user's shared "ai" bucket — the same one the AI endpoints draw from.
+    /// Parses a just-uploaded resume into a review draft, turning every failure into a sentence the
+    /// upload toast can say. <b>The upload has already succeeded by the time this runs</b>, so no
+    /// branch here may undo it: a demo account, an empty AI bucket, a scanned PDF and a model error
+    /// all keep the file and send the user back to the profile with a reason.
     /// </summary>
-    private async Task<string> AutoFillToastAsync(string userId, ResumeTextResult text)
+    private async Task<ResumeParseResult> ParseAfterUploadAsync(string userId, ResumeTextResult text, int versionId)
     {
         const string uploaded = "Resume uploaded";
 
-        // Nothing to send the model: say so before spending a permit on it. Same wording the auto-fill
-        // itself used to produce for these cases, so the toast copy is unchanged.
         if (!text.Ok)
-            return $"info|{uploaded}, but your profile wasn't auto-filled ({ResumeTextError(text.Status).TrimEnd('.')}). Use Analyze with AI to retry.";
+            return ResumeParseResult.Failed($"{uploaded}, but we couldn't read it ({ResumeTextError(text.Status).TrimEnd('.')}). Use Analyze with AI to retry.");
 
+        if (ResumeTextService.LooksScanned(text))
+            return ResumeParseResult.Failed($"{uploaded}, but we couldn't read much text from it — it may be a scanned image. Try exporting your resume as a text-based PDF or a Word document.");
+
+        // The demo account sees the real review screen from a canned parse: no model call, no permit.
         if (AiRateLimiting.IsDemoUser(User, _config))
-            return $"info|{uploaded}. Auto-fill is skipped on the demo account — use Analyze with AI to fill in your profile.";
+            return await _parser.StoreDemoParseAsync(userId, versionId, text.Text!.Length, HttpContext.RequestAborted);
 
+        // One permit from the shared "ai" bucket, taken by hand because this action is not policied —
+        // an empty bucket must cost the parse, never the upload.
         using var lease = _aiLimiter.TryAcquire(userId, isDemo: false);
         if (!lease.IsAcquired)
         {
             TimeSpan? retryAfter = lease.TryGetMetadata(MetadataName.RetryAfter, out var ra) ? ra : null;
             var limitMsg = AiRateLimiting.BuildMessage(_aiLimiter.LimitFor(false), _aiLimiter.WindowMinutes, retryAfter);
-            return $"info|{uploaded}, but your profile wasn't auto-filled: {limitMsg} Use Analyze with AI to retry later.";
+            return ResumeParseResult.Failed($"{uploaded}, but we couldn't analyze it: {limitMsg} Use Analyze with AI to retry later.");
         }
 
-        ProfileAutoFillResult result;
+        var parse = await SafeParseAsync(userId, text.Text!, versionId);
+        return parse.Success
+            ? parse
+            : ResumeParseResult.Failed($"{uploaded}, but we couldn't analyze it ({parse.Error?.TrimEnd('.')}). Use Analyze with AI to retry.");
+    }
+
+    /// <summary>
+    /// The re-parse path's call. The demo branch is the same canned draft; unlike the upload path
+    /// this action is behind the <c>"ai"</c> policy, so the permit has already been taken for it.
+    /// </summary>
+    private async Task<ResumeParseResult> ParseAsync(string userId, ResumeTextResult text, int versionId)
+    {
+        if (ResumeTextService.LooksScanned(text))
+            return ResumeParseResult.Failed("we couldn't read much text from that file — it may be a scanned image");
+
+        if (AiRateLimiting.IsDemoUser(User, _config))
+            return await _parser.StoreDemoParseAsync(userId, versionId, text.Text!.Length, HttpContext.RequestAborted);
+
+        return await SafeParseAsync(userId, text.Text!, versionId);
+    }
+
+    /// <summary>
+    /// Runs the parse and turns an unexpected throw into a failed result. A parse that blows up must
+    /// not become a 500 on a page whose upload already succeeded.
+    /// </summary>
+    private async Task<ResumeParseResult> SafeParseAsync(string userId, string text, int versionId)
+    {
         try
         {
-            result = await _autoFill.FillFromTextAsync(userId, text.Text!);
+            return await _parser.ParseAsync(userId, text, versionId, HttpContext.RequestAborted);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Resume auto-fill threw for user {UserId}; the upload itself succeeded.", userId);
-            result = ProfileAutoFillResult.Failed("something went wrong while reading it");
+            _logger.LogError(ex, "Resume parse threw for user {UserId}.", userId);
+            return ResumeParseResult.Failed("something went wrong while reading it");
         }
-
-        if (!result.Success)
-            return $"info|{uploaded}, but your profile wasn't auto-filled ({result.Error?.TrimEnd('.')}). Use Analyze with AI to retry.";
-
-        // The page reloads after the redirect; this tells it which chips are new so it can flash them.
-        if (result.SkillsAdded > 0 || result.RolesAdded > 0)
-            TempData["AutoFillAdded"] = JsonSerializer.Serialize(new { skills = result.AddedSkills, roles = result.AddedRoles });
-
-        return $"success|{uploaded} — {result.Summary}";
     }
 
     /// <summary>Why the active resume produced no usable text, as a full sentence for a JSON error field.</summary>
@@ -826,15 +1031,20 @@ public class ProfileController : Controller
     }
 
     /// <summary>
-    /// Serves a stored PDF as a physical file response. Documents live under the uploads
+    /// Serves a stored resume as a physical file response. Documents live under the uploads
     /// root (see <see cref="UploadStorage"/>) and are never mapped as static files — this
     /// method is the only path that exposes them, and it's only called after an ownership check.
     /// </summary>
+    /// <remarks>
+    /// The media type comes from the <b>stored</b> path's extension, which <see cref="ResumeFileType"/>
+    /// wrote after inspecting the bytes — never from the name the file was uploaded under, which is
+    /// attacker-controlled.
+    /// </remarks>
     private IActionResult ServeFile(string storedPath, string originalName)
     {
         var fullPath = _uploads.Resolve(storedPath);
         if (!System.IO.File.Exists(fullPath)) return NotFound();
-        return PhysicalFile(fullPath, "application/pdf", originalName);
+        return PhysicalFile(fullPath, ResumeFileType.MediaTypeFor(storedPath), originalName);
     }
 
     /// <summary>Deletes a stored file from disk if it exists; no-ops otherwise.</summary>

@@ -130,8 +130,23 @@ public class JobApplicationsController : Controller
         var query = _context.JobApplications.Where(a => a.UserId == uid);
 
         if (!string.IsNullOrWhiteSpace(search))
+        {
+            // Lowercased on both sides so the match is case-insensitive **by construction**. Two reasons,
+            // and the second is the load-bearing one:
+            //   1. "shopify" not finding "Shopify" was a plain bug.
+            //   2. Bare Contains left the semantics to EF's translation choice, which is not the same on
+            //      both providers and has changed before: EF 9 emits instr() on SQLite (case-sensitive)
+            //      and LIKE on Npgsql (also case-sensitive), so they agree today — but EF used to emit
+            //      LIKE on SQLite, which *is* case-insensitive there. That alignment was luck, not a
+            //      guarantee, and an EF upgrade could silently split local from production again.
+            // lower() is translated server-side by both. It differs from C# ToLowerInvariant only outside
+            // ASCII (SQLite's lower() is ASCII-only, PostgreSQL's is locale-aware); for company and role
+            // names that is an accepted edge. It also defeats an index, which costs nothing here: the query
+            // is already filtered to one user's applications.
+            var term = search.ToLowerInvariant();
             query = query.Where(a =>
-                a.CompanyName.Contains(search) || a.RoleTitle.Contains(search));
+                a.CompanyName.ToLower().Contains(term) || a.RoleTitle.ToLower().Contains(term));
+        }
 
         if (Enum.TryParse<ApplicationStatus>(status, out var s))
             query = query.Where(a => a.Status == s);
@@ -144,7 +159,15 @@ public class JobApplicationsController : Controller
             "deadline"    => query.OrderBy(a => a.Deadline),
             "dateApplied" => query.OrderByDescending(a => a.DateApplied),
             "status"      => query.OrderBy(a => (int)a.Status),
-            "company"     => query.OrderBy(a => a.CompanyName),
+            // lower() rather than a bare OrderBy: text ordering is otherwise decided by the database's
+            // collation, and the two databases this app runs on disagree. Measured 2026-09-20 — SQLite
+            // and the local test Postgres (collation C) both give "Apple, Zebra, apple, banana, zebra";
+            // Railway production (en_US.utf8) gives "apple, Apple, banana, zebra, Zebra". So this list
+            // really was sorting differently in production, and no local test could have shown it.
+            // lower() takes collation out of the answer, and it is the better sort anyway: a bare
+            // OrderBy puts every all-caps company name first.
+            // ThenBy(Id) because names equal after lowering would otherwise come back in engine order.
+            "company"     => query.OrderBy(a => a.CompanyName.ToLower()).ThenBy(a => a.Id),
             _             => query.OrderByDescending(a => a.Id)
         };
     }
@@ -350,9 +373,9 @@ public class JobApplicationsController : Controller
             .Where(c => c.JobApplicationId == id && c.UserId == uid).ToListAsync();
         _context.GeneratedCoverLetters.RemoveRange(linkedLetters);
 
-        var linkedPreps = await _context.InterviewPrepSessions
-            .Where(s => s.JobApplicationId == id && s.UserId == uid).ToListAsync();
-        _context.InterviewPrepSessions.RemoveRange(linkedPreps);
+        var linkedPreps = await _context.PracticeQuestions
+            .Where(s => s.ApplicationId == id && s.UserId == uid).ToListAsync();
+        _context.PracticeQuestions.RemoveRange(linkedPreps);
 
         await _context.SaveChangesAsync();
 
@@ -448,10 +471,10 @@ public class JobApplicationsController : Controller
                 .ToListAsync();
             _context.GeneratedCoverLetters.RemoveRange(linkedLetters);
 
-            var linkedPreps = await _context.InterviewPrepSessions
-                .Where(s => s.UserId == uid && appIds.Contains(s.JobApplicationId))
+            var linkedPreps = await _context.PracticeQuestions
+                .Where(s => s.UserId == uid && s.ApplicationId != null && appIds.Contains(s.ApplicationId.Value))
                 .ToListAsync();
-            _context.InterviewPrepSessions.RemoveRange(linkedPreps);
+            _context.PracticeQuestions.RemoveRange(linkedPreps);
 
             await _context.SaveChangesAsync();
 

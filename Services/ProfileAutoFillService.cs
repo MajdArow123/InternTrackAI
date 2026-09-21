@@ -1,13 +1,29 @@
 using InternTrackAI.Data;
 using InternTrackAI.Models;
+using InternTrackAI.Models.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternTrackAI.Services;
 
 /// <summary>
-/// Outcome of one resume → profile auto-fill. <see cref="Skills"/> / <see cref="TargetRoles"/> /
-/// <see cref="FullName"/> are the profile's values <em>after</em> the merge, so a caller can re-render
-/// the form without another round-trip.
+/// Exactly what the user confirmed on the review screen. Only the rows they left checked are here —
+/// an unchecked skill never reaches this type, let alone the profile.
+/// </summary>
+public sealed record ReviewedProfile
+{
+    public string? FullName { get; init; }
+    public string? Field { get; init; }
+    public FieldCategory? Category { get; init; }
+    public SeniorityLevel? Seniority { get; init; }
+    public int? YearsExperience { get; init; }
+    public string? Location { get; init; }
+    public List<string> Skills { get; init; } = new();
+    public List<string> TargetRoles { get; init; } = new();
+}
+
+/// <summary>
+/// The profile's values after a merge, plus what the merge actually added, so the caller can render
+/// the result without a second round trip.
 /// </summary>
 public sealed record ProfileAutoFillResult(
     bool Success,
@@ -48,39 +64,51 @@ public sealed record ProfileAutoFillResult(
 }
 
 /// <summary>
-/// Takes already-extracted resume text (see <see cref="ResumeTextService"/>), asks
-/// <see cref="IProfileExtractor"/> for name / skills / target roles,
-/// and merges them into the user's profile with the add-never-remove rules: a non-empty name is never
-/// overwritten, and tags are added only when not already present (case-insensitive, see
-/// <see cref="ProfileTags"/>). Shared by the automatic run after an upload and the manual
-/// "Analyze with AI" button, so both behave identically. Rate limiting is the caller's job.
+/// The one place AI-derived data is written to a profile — and it is only ever reached from
+/// <c>ProfileController.ApplyResumeReview</c>, after the user has confirmed a
+/// <see cref="ParsedResume"/> draft on the review screen.
 /// </summary>
+/// <remarks>
+/// <para>
+/// This service used to take raw extractor output and merge it the moment an upload finished. It now
+/// takes a <see cref="ReviewedProfile"/> — what the user ticked — and there is no path from the
+/// extractor to here that skips the screen. That is the point: an invented skill has to be looked at
+/// and left checked before it can land.
+/// </para>
+/// <para>
+/// The merge rules are unchanged and non-negotiable: <b>tags are added, never removed.</b>
+/// <see cref="ProfileTags.Merge"/> is the single definition of "already have this one" (trim,
+/// collapse whitespace, case-insensitive, first casing wins), so re-applying the same resume twice
+/// adds nothing the second time and a hand-curated tag survives every parse.
+/// </para>
+/// </remarks>
 public class ProfileAutoFillService
 {
     private readonly ApplicationDbContext _db;
-    private readonly IProfileExtractor _extractor;
     private readonly ILogger<ProfileAutoFillService> _logger;
 
-    public ProfileAutoFillService(ApplicationDbContext db, IProfileExtractor extractor, ILogger<ProfileAutoFillService> logger)
+    public ProfileAutoFillService(ApplicationDbContext db, ILogger<ProfileAutoFillService> logger)
     {
         _db = db;
-        _extractor = extractor;
         _logger = logger;
     }
 
     /// <summary>
-    /// Merges what the extractor finds in <paramref name="resumeText"/> into the user's profile. Callers get
-    /// the text from <see cref="ResumeTextService"/>, which is also where "no resume / unreadable / no text"
-    /// is decided — by the time we are here there is text worth sending.
+    /// Merges a confirmed review into the profile and marks the draft applied, in one transaction's
+    /// worth of work: a draft must not be able to read as applied when the merge didn't happen, or
+    /// the user loses the review with nothing to show for it.
     /// </summary>
-    public async Task<ProfileAutoFillResult> FillFromTextAsync(string userId, string resumeText, CancellationToken ct = default)
+    /// <remarks>
+    /// Scalars (field, seniority, location, years, name) take the value the user confirmed — they
+    /// looked at the box and could have changed it, so an edit wins by construction and there is no
+    /// hidden "only if null" rule to explain. Tags are the additive union described on the type.
+    /// </remarks>
+    public async Task<ProfileAutoFillResult> ApplyAsync(string userId, ParsedResume draft, ReviewedProfile reviewed, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(resumeText))
-            return ProfileAutoFillResult.Failed("No readable text found in the PDF.");
-
-        var extracted = await _extractor.ExtractAsync(resumeText, ct);
-        if (!extracted.Success)
-            return ProfileAutoFillResult.Failed(extracted.Error ?? "Could not analyze the resume.");
+        if (draft.UserId != userId)
+            return ProfileAutoFillResult.Failed("That resume analysis isn't yours.");
+        if (draft.Applied)
+            return ProfileAutoFillResult.Failed("That resume analysis has already been applied.");
 
         var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct);
         if (profile is null)
@@ -90,20 +118,33 @@ public class ProfileAutoFillService
         }
 
         var nameFilled = false;
-        if (!string.IsNullOrWhiteSpace(extracted.FullName) && string.IsNullOrWhiteSpace(profile.FullName))
+        var name = ProfileFields.Text(reviewed.FullName);
+        if (name is not null && !string.Equals(name, profile.FullName, StringComparison.Ordinal))
         {
-            profile.FullName = extracted.FullName.Trim();
+            profile.FullName = name;
             nameFilled = true;
         }
 
-        var (skills, addedSkills) = ProfileTags.Merge(ProfileTags.FromJson(profile.SkillsJson), extracted.Skills);
-        var (roles,  addedRoles)  = ProfileTags.Merge(ProfileTags.FromJson(profile.TargetRolesJson), extracted.TargetRoles);
+        if (ProfileFields.Text(reviewed.Field) is { } field) profile.Field = field;
+        if (reviewed.Category is { } category)               profile.FieldCategory = category;
+        if (reviewed.Seniority is { } seniority)             profile.Seniority = seniority;
+        if (ProfileFields.Years(reviewed.YearsExperience) is { } years) profile.YearsExperience = years;
+        if (ProfileFields.Text(reviewed.Location) is { } location)      profile.Location = location;
+
+        var (skills, addedSkills) = ProfileTags.Merge(ProfileTags.FromJson(profile.SkillsJson), reviewed.Skills);
+        var (roles,  addedRoles)  = ProfileTags.Merge(ProfileTags.FromJson(profile.TargetRolesJson), reviewed.TargetRoles);
         profile.SkillsJson      = ProfileTags.ToJson(skills);
         profile.TargetRolesJson = ProfileTags.ToJson(roles);
+        profile.ProfileLastEnrichedAt = DateTime.UtcNow;
+
+        var row = await _db.ParsedResumes.FirstOrDefaultAsync(p => p.Id == draft.Id && p.UserId == userId, ct);
+        if (row is null) return ProfileAutoFillResult.Failed("That resume analysis is no longer available.");
+        row.Applied = true;
 
         await _db.SaveChangesAsync(ct);
-        _logger.LogInformation("Auto-filled profile for user {UserId}: name={NameFilled}, +{Skills} skills, +{Roles} roles.",
-            userId, nameFilled, addedSkills.Count, addedRoles.Count);
+
+        _logger.LogInformation("Applied resume review {DraftId} for user {UserId}: name={NameFilled}, +{Skills} skills, +{Roles} roles.",
+            draft.Id, userId, nameFilled, addedSkills.Count, addedRoles.Count);
 
         return new ProfileAutoFillResult(true, null, nameFilled, addedSkills, addedRoles, profile.FullName, skills, roles);
     }

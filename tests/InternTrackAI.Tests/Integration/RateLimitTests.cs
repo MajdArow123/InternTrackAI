@@ -106,6 +106,55 @@ public class RateLimitTests
     }
 
     /// <summary>
+    /// The set of actions behind the AI bucket, pinned. Every one of them spends the maintainer's OpenAI
+    /// key, so an attribute quietly disappearing in a refactor is the failure worth catching — nothing
+    /// else in the suite would notice, because the endpoint keeps working perfectly.
+    /// </summary>
+    /// <remarks>
+    /// <b>This pins what is marked, not everything that spends a call</b> — reflection can see the
+    /// attribute, not which actions reach OpenAI. The gap is deliberate and covered elsewhere:
+    /// <c>ProfileController.UploadResume</c> is **not** policied, because the policy's non-XHR
+    /// rejection redirects the post away and that would cost the user their <em>upload</em>. It takes a
+    /// permit from the same <see cref="InternTrackAI.Services.AiUsageLimiter"/> bucket by hand instead,
+    /// so an empty bucket costs the parse and never the file
+    /// (<c>ResumeUploadTests.A_rate_limited_upload_still_saves_the_file_and_draws_on_the_shared_ai_bucket</c>).
+    /// Adding a row here therefore is not the same as "this endpoint is now limited" — check for a
+    /// manual <c>TryAcquire</c> before concluding an absent action is unlimited.
+    /// </remarks>
+    [Fact]
+    public void The_actions_behind_the_ai_policy_are_the_reviewed_set()
+    {
+        var limited = typeof(Program).Assembly.GetTypes()
+            .Where(t => typeof(Microsoft.AspNetCore.Mvc.ControllerBase).IsAssignableFrom(t))
+            .SelectMany(t => t.GetMethods())
+            .Where(m => m.GetCustomAttributes(typeof(Microsoft.AspNetCore.RateLimiting.EnableRateLimitingAttribute), false)
+                         .Cast<Microsoft.AspNetCore.RateLimiting.EnableRateLimitingAttribute>()
+                         .Any(a => a.PolicyName == InternTrackAI.Services.AiRateLimiting.PolicyName))
+            .Select(m => $"{m.DeclaringType!.Name}.{m.Name}")
+            .OrderBy(n => n, StringComparer.Ordinal)
+            .ToList();
+
+        Assert.Equal(new[]
+        {
+            "AnalyzerController.Analyze",
+            "CaptureController.Index",
+            "CoverLetterController.GenerateAjax",
+            "CoverLetterController.ImproveAjax",
+            "FollowUpController.Generate",
+            "FollowUpController.Improve",
+            "InterviewPrepController.CritiqueAnswer",
+            "InterviewPrepController.Generate",
+            "PracticeController.GenerateMore",
+            "PracticeController.SubmitAnswer",
+            "ProfileController.AutoMatch",
+            "ProfileController.ReparseResume",
+            "ProfileController.RewriteBullet",
+            "ProfileController.ScoreResume",
+            "SalaryInsightController.Estimate",
+        }, limited);
+    }
+
+    /// <summary>
     /// [NoAiCallForDemo] lets the demo account skip the AI bucket, so it may only sit on rate-limited actions whose demo
     /// branch never reaches OpenAI. The list is pinned: adding the attribute elsewhere must be a deliberate change here.
     /// </summary>

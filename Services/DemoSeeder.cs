@@ -116,6 +116,22 @@ public class DemoSeeder
     /// <summary>Matches the Toronto locations and default time zone the rest of the seed uses.</summary>
     public const string Country = "Canada";
 
+    // ── Field awareness ──
+    // The seeded applications and match scores are all software roles, so the demo's field has to say so
+    // or the AI context block would contradict its own data. A visitor who wants to see the feature work
+    // for another field changes these on the page; the nightly reset puts them back, like every other
+    // field this seeder owns.
+
+    /// <summary>The demo user's field, restored on every reset.</summary>
+    public const string Field = "Software Engineering";
+
+    public const FieldCategory Category = FieldCategory.Technology;
+    public const SeniorityLevel Seniority = SeniorityLevel.Student;
+    public const int YearsExperience = 1;
+
+    /// <summary>City for the field context block; matches the Toronto locations the rest of the seed uses.</summary>
+    public const string Location = "Toronto, ON";
+
     /// <summary>
     /// Skills the demo profile is restored to. Every one of these appears in the <c>matching</c> list of at
     /// least one seeded application — they are exactly what the seeded match scores claim the demo resume
@@ -150,9 +166,11 @@ public class DemoSeeder
     /// <see cref="TargetRoles"/> and skills to exactly <see cref="Skills"/> — replaced rather than merged, so
     /// roles or skills a visitor added, or an earlier seed's, never accumulate across resets; the display name
     /// to <see cref="DisplayName"/>, a backstop in case a change ever gets past the demo account guard; and the
-    /// name and country the profile card would otherwise show as placeholder text.
+    /// name and country the profile card would otherwise show as placeholder text, and the field-awareness
+    /// fields (<see cref="Field"/> and friends) so the AI context block matches the seeded software data.
+    /// The field values themselves live in <see cref="DemoProfileReset.Apply"/>.
     /// </summary>
-    private async Task EnsureProfileAsync(string userId, CancellationToken ct)
+    internal async Task EnsureProfileAsync(string userId, CancellationToken ct)
     {
         var profile = await _db.UserProfiles.FirstOrDefaultAsync(p => p.UserId == userId, ct);
         if (profile is null)
@@ -161,11 +179,9 @@ public class DemoSeeder
             _db.UserProfiles.Add(profile);
         }
 
-        profile.TargetRolesJson = ProfileTags.ToJson(TargetRoles);
-        profile.SkillsJson      = ProfileTags.ToJson(Skills);
-        profile.DisplayName     = DisplayName;
-        profile.FullName        = FullName;
-        profile.Country         = Country;
+        // One definition, shared with the per-session reset (DemoProfileReset), so the nightly
+        // reseed and a demo sign-in can never leave the profile in two different "clean" states.
+        DemoProfileReset.Apply(profile);
         await _db.SaveChangesAsync(ct);
     }
 

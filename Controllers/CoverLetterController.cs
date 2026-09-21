@@ -22,13 +22,15 @@ public class CoverLetterController : Controller
     private readonly ApplicationDbContext _db;
     private readonly CoverLetterGeneratorService _generator;
     private readonly ResumeTextService _resumeText;
+    private readonly IUserContextBuilder _userContext;
     private readonly UserClockProvider _clocks;
 
-    public CoverLetterController(ApplicationDbContext db, CoverLetterGeneratorService generator, ResumeTextService resumeText, UserClockProvider clocks)
+    public CoverLetterController(ApplicationDbContext db, CoverLetterGeneratorService generator, ResumeTextService resumeText, IUserContextBuilder userContext, UserClockProvider clocks)
     {
         _db        = db;
         _generator = generator;
         _resumeText = resumeText;
+        _userContext = userContext;
         _clocks    = clocks;
     }
 
@@ -55,7 +57,10 @@ public class CoverLetterController : Controller
             Applications = await _db.JobApplications
                 .Where(a => a.UserId == uid)
                 .OrderByDescending(a => a.DateApplied ?? a.Deadline ?? DateTime.MinValue)
-                .ThenBy(a => a.CompanyName)
+                // lower(), not a bare ThenBy: text ordering otherwise takes the database's collation
+                // (CLAUDE.md §8). Only a tie-break inside this picker, but the rule has no exceptions
+                // worth carving out — a bare OrderBy on text is the thing that is easy to copy.
+                .ThenBy(a => a.CompanyName.ToLower()).ThenBy(a => a.Id)
                 .ToListAsync(),
 
             SavedLetters = await _db.GeneratedCoverLetters
@@ -131,7 +136,8 @@ public class CoverLetterController : Controller
             company, role, jobDescription,
             resumeText, fullName, skills, targetRoles,
             req.ExtraNotes ?? "",
-            localToday: (await _clocks.GetAsync()).Today);
+            localToday: (await _clocks.GetAsync()).Today,
+            profileContext: await _userContext.BuildAsync(UserId(), HttpContext.RequestAborted));
 
         if (!success)
             return Json(new { success = false, error });
@@ -171,7 +177,8 @@ public class CoverLetterController : Controller
         var role    = app?.RoleTitle   ?? req.Role    ?? "";
 
         var (success, content, error) = await _generator.ImproveAsync(
-            req.Content, company, role, req.Instructions ?? "");
+            req.Content, company, role, req.Instructions ?? "",
+            await _userContext.BuildAsync(UserId(), HttpContext.RequestAborted));
 
         if (!success)
             return Json(new { success = false, error });

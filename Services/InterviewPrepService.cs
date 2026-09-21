@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using InternTrackAI.Models;
+using InternTrackAI.Models.Enums;
 
 namespace InternTrackAI.Services;
 
@@ -21,7 +22,7 @@ public class InterviewPrepService
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 
-    // Tolerates casing differences when parsing the model's JSON response into InterviewQuestion objects.
+    // Tolerates casing differences when parsing the model's JSON response.
     private static readonly JsonSerializerOptions _read = new()
     {
         PropertyNameCaseInsensitive = true
@@ -46,8 +47,10 @@ public class InterviewPrepService
     /// list (empty on failure), and <c>Error</c> is a user-facing message for missing keys, rate
     /// limits, or network failures.
     /// </returns>
-    public async Task<(bool Success, List<InterviewQuestion> Questions, string? Error)> GenerateAsync(
-        string company, string role, string jobDescription, string resumeText, string skills)
+    /// <remarks>Virtual so integration tests can subclass it, the same reason <see cref="JobAnalyzerService.AnalyzeAsync"/> is.</remarks>
+    public virtual async Task<(bool Success, List<GeneratedQuestion> Questions, string? Error)> GenerateAsync(
+        string company, string role, string jobDescription, string resumeText, string skills,
+        string? profileContext = null)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
             return (false, new(), "OpenAI API key is not configured.");
@@ -64,6 +67,7 @@ public class InterviewPrepService
         var skillStr = string.IsNullOrWhiteSpace(skills)      ? "(none provided)" : skills;
 
         var userPrompt =
+            UserContextBuilder.Prefix(profileContext) +
             $"Generate 8–10 interview questions for a candidate applying for {role} at {company}.\n\n" +
             $"JOB DESCRIPTION:\n{jobDesc}\n\n" +
             $"CANDIDATE RESUME:\n{resume}\n\n" +
@@ -76,6 +80,9 @@ public class InterviewPrepService
             "]\n\n" +
             "Rules:\n" +
             $"- Category must be exactly \"Technical\", \"Behavioral\", or \"Company-Specific\"\n" +
+            "- \"Technical\" means role-specific knowledge in the candidate's own field, whatever that field is: " +
+            "clinical questions for a nurse, accounting standards for an accountant, code for a developer. " +
+            "Never default to software questions for a non-software role.\n" +
             "- Include 3–4 Technical, 3–4 Behavioral, 2 Company-Specific questions\n" +
             $"- Questions must be specific to {company} and this {role} role — not generic\n" +
             "- Tips: 1–2 sentences on how to approach the question";
@@ -129,8 +136,17 @@ public class InterviewPrepService
             if (content.EndsWith("```")) content = content[..^3];
             content = content.Trim();
 
-            var questions = JsonSerializer.Deserialize<List<InterviewQuestion>>(content, _read)
-                            ?? new List<InterviewQuestion>();
+            var parsed = JsonSerializer.Deserialize<List<QuestionReply>>(content, _read) ?? new();
+
+            // The model's category spelling is resolved here, once, so nothing downstream handles a
+            // raw string. A blank question is dropped rather than stored as an empty card.
+            var questions = parsed
+                .Where(q => !string.IsNullOrWhiteSpace(q.Question))
+                .Select(q => new GeneratedQuestion(
+                    QuestionCategories.Parse(q.Category),
+                    q.Question.Trim(),
+                    string.IsNullOrWhiteSpace(q.Tip) ? null : q.Tip.Trim()))
+                .ToList();
 
             return (true, questions, null);
         }
@@ -141,88 +157,14 @@ public class InterviewPrepService
         }
     }
 
-    /// <summary>
-    /// Critiques a candidate's typed-out answer to one interview question, acting as a coach:
-    /// what's strong, what's missing (e.g. no concrete example, no STAR structure for behavioral
-    /// questions), and one concrete way to improve it. Kept separate from <see cref="GenerateAsync"/>
-    /// since it reviews a single existing answer rather than generating new questions.
-    /// </summary>
-    /// <returns>
-    /// A tuple: <c>Success</c> indicates whether the critique succeeded, <c>Feedback</c> is the
-    /// coach's response (empty on failure), and <c>Error</c> is a user-facing message for missing
-    /// keys, rate limits, or network failures.
-    /// </returns>
-    public async Task<(bool Success, string Feedback, string? Error)> CritiqueAnswerAsync(
-        string question, string answer, string role, string company)
-    {
-        if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
-            return (false, "", "OpenAI API key is not configured.");
-
-        if (answer.Length > 4000) answer = answer[..4000];
-
-        const string systemPrompt =
-            "You are an expert interview coach giving direct, encouraging feedback on a candidate's " +
-            "practice answer. Be specific and concise. Return plain text only — no markdown, no headers.";
-
-        var userPrompt =
-            $"The candidate is interviewing for {role} at {company}.\n\n" +
-            $"QUESTION:\n{question}\n\n" +
-            $"CANDIDATE'S ANSWER:\n{answer}\n\n" +
-            "Give feedback in 3 short parts, each 1-2 sentences:\n" +
-            "1. What works well about this answer\n" +
-            "2. What's missing or could be stronger (e.g. lack of a concrete example, no measurable " +
-            "result, rambling structure, not using STAR format for behavioral questions)\n" +
-            "3. One specific, actionable suggestion to improve it\n" +
-            "Plain text only, no bullet point characters, no markdown — just 3 short paragraphs.";
-
-        var body = new
-        {
-            model = "gpt-4o-mini",
-            messages = new[]
-            {
-                new { role = "system", content = systemPrompt },
-                new { role = "user",   content = userPrompt   }
-            },
-            max_tokens  = 400,
-            temperature = 0.5
-        };
-
-        var json = JsonSerializer.Serialize(body, _camel);
-        using var request = new HttpRequestMessage(HttpMethod.Post,
-            "https://api.openai.com/v1/chat/completions");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
-        request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-        try
-        {
-            var response = await _http.SendAsync(request);
-            var raw      = await response.Content.ReadAsStringAsync();
-
-            if (!response.IsSuccessStatusCode)
-            {
-                _logger.LogError("OpenAI error {Status}: {Body}", (int)response.StatusCode, raw);
-                var msg = (int)response.StatusCode switch
-                {
-                    401 => "Invalid API key. Set it via dotnet user-secrets.",
-                    429 => "OpenAI quota exceeded. Add credits at platform.openai.com.",
-                    _   => $"OpenAI returned {(int)response.StatusCode}."
-                };
-                return (false, "", msg);
-            }
-
-            using var doc = JsonDocument.Parse(raw);
-            var content = doc.RootElement
-                .GetProperty("choices")[0]
-                .GetProperty("message")
-                .GetProperty("content")
-                .GetString() ?? "";
-
-            return (true, content.Trim(), null);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error critiquing interview answer");
-            return (false, "", "Request to OpenAI failed. Check your connection.");
-        }
-    }
 }
+
+/// <summary>One question straight off the model, with its category already resolved to the enum.</summary>
+/// <remarks>
+/// Not an entity: <see cref="Controllers.InterviewPrepController"/> turns these into
+/// <see cref="Models.PracticeQuestion"/> rows, which is where the hash and the ownership live.
+/// </remarks>
+public sealed record GeneratedQuestion(Models.Enums.QuestionCategory Category, string Question, string? Tip);
+
+/// <summary>The raw JSON shape the model replies in; <c>category</c> arrives as free text.</summary>
+internal sealed record QuestionReply(string? Category, string Question, string? Tip);

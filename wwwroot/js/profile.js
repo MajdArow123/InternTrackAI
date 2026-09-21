@@ -105,13 +105,21 @@ if (window.bootstrap?.Tooltip) {
 
     (function () {
 
-        const ROLE_PRESETS = [
-            "Software Engineering Intern", "Backend Developer Intern", "Frontend Developer Intern",
-            "Full-Stack Developer Intern", "Data Science Intern", "Machine Learning Intern",
-            "DevOps Intern", "Cloud Engineering Intern", "Mobile Developer Intern", "QA Engineer Intern",
-            "Cybersecurity Intern", "Product Manager Intern", "Data Engineer Intern",
-            "iOS Developer Intern", "Android Developer Intern"
-        ];
+        // Role suggestions per field category, from the #roleSuggestionsData island
+        // (Services/TargetRoleSeeds.cs / Data/Seeds/target-roles.json). This used to be a hardcoded
+        // software-engineering array, which was the wrong list for every non-technology user.
+        const ROLE_SUGGESTIONS = (function () {
+            try { return JSON.parse(document.getElementById('roleSuggestionsData')?.textContent || '{}') || {}; }
+            catch (_) { return {}; }
+        })();
+
+        // Empty until a field category is set; the combobox then explains how to get suggestions
+        // instead of showing an irrelevant list. Free text works in either state.
+        function rolePresets() {
+            const category = document.getElementById('fieldCategorySelect')?.value || '';
+            const list = category ? ROLE_SUGGESTIONS[category] : null;
+            return Array.isArray(list) ? list : [];
+        }
 
         // Initial chip values are rendered server-side into the hidden inputs' value attributes.
         function readJsonInput(id) {
@@ -186,12 +194,15 @@ if (window.bootstrap?.Tooltip) {
         function closeComboList() { comboList.classList.remove('open'); comboList.innerHTML = ''; }
 
         function renderComboList(filter) {
+            const presets = rolePresets();
             const taken = rolesApi.values();
-            const matches = ROLE_PRESETS.filter(r =>
+            const matches = presets.filter(r =>
                 TagInput.findDuplicate(taken, r) < 0 && r.toLowerCase().includes(filter.toLowerCase()));
 
             comboList.innerHTML = '';
-            if (matches.length === 0) {
+            if (presets.length === 0) {
+                comboList.innerHTML = '<li class="role-combobox-empty">Set your field or upload your resume to get role suggestions — or press Enter to add your own</li>';
+            } else if (matches.length === 0) {
                 comboList.innerHTML = '<li class="role-combobox-empty">No presets match — press Enter to add as a custom role</li>';
             } else {
                 matches.forEach(m => {
@@ -208,6 +219,12 @@ if (window.bootstrap?.Tooltip) {
         rolesText.addEventListener('input', () => renderComboList(rolesText.value));
         rolesText.addEventListener('focus', () => renderComboList(rolesText.value));
         rolesText.addEventListener('blur', () => setTimeout(closeComboList, 120));
+
+        // Changing the field category re-points the suggestions with no page reload. The list is only
+        // redrawn when it is already open, so this never pops a dropdown the user didn't ask for.
+        document.getElementById('fieldCategorySelect')?.addEventListener('change', () => {
+            if (comboList.classList.contains('open')) renderComboList(rolesText.value);
+        });
 
         // ── Personal Info: AJAX save with shake-on-required validation ──
         const infoForm     = document.getElementById('infoForm');
@@ -232,6 +249,8 @@ if (window.bootstrap?.Tooltip) {
                         flashSaveIndicator(document.getElementById('infoSaveIndicator'));
                         const nowEl = document.getElementById('timeZoneNow');
                         if (nowEl && res.nowLocal) nowEl.textContent = res.nowLocal;
+                        const categorySelect = document.getElementById('fieldCategorySelect');
+                        if (categorySelect) categorySelect.value = res.fieldCategory || '';
                         showAppToast('success', 'Profile info saved.');
                     } else if (res.field === 'displayName') {
                         shakeField(document.getElementById('displayNameInput'), res.error || 'Not available on the demo account.');
@@ -244,66 +263,22 @@ if (window.bootstrap?.Tooltip) {
                 .catch(() => { saveInfoBtn.disabled = false; showAppToast('error', 'Could not save — try again.'); });
         });
 
-        // ── Resume analyze with AI (Section 1a) ──
+        // ── Analyze with AI ──
+        // A real form post to /Profile/ReparseResume now, not a fetch: it navigates to the review
+        // screen, because nothing may reach the profile without going through it. All that is left
+        // here is the in-flight state.
         const analyzeBtn      = document.getElementById('analyzeBtn');
         const analyzeBtnLabel = document.getElementById('analyzeBtnLabel');
-        const analyzeError    = document.getElementById('analyzeError');
 
         if (analyzeBtn) {
-            analyzeBtn.addEventListener('click', () => {
+            analyzeBtn.closest('form').addEventListener('submit', () => {
                 analyzeBtn.disabled = true;
-                analyzeBtnLabel.innerHTML = '<span class="spinner-border spinner-border-sm analyze-spinner"></span> Analyzing...';
-                analyzeError.style.display = 'none';
-
-                ['fullNameWrap', 'skillsWrap', 'rolesWrap'].forEach(id => {
-                    const wrap = document.getElementById(id);
-                    const skel = document.createElement('div');
-                    skel.className = 'skeleton-line';
-                    wrap.appendChild(skel);
-                    wrap.classList.add('skeleton-active');
-                });
-
-                postForm('/Profile/AnalyzeResume', {})
-                    .then(res => {
-                        ['fullNameWrap', 'skillsWrap', 'rolesWrap'].forEach(id => {
-                            const wrap = document.getElementById(id);
-                            wrap.querySelector('.skeleton-line')?.remove();
-                            wrap.classList.remove('skeleton-active');
-                        });
-                        analyzeBtn.disabled = false;
-                        analyzeBtnLabel.textContent = 'Analyze with AI';
-
-                        if (!res.success) {
-                            analyzeError.textContent = res.error || 'Could not analyze resume.';
-                            analyzeError.style.display = 'block';
-                            return;
-                        }
-
-                        // The server has already merged and saved (add, never remove); mirror its state here.
-                        if (res.fullName && !fullNameInput.value.trim()) fullNameInput.value = res.fullName;
-                        if (Array.isArray(res.skills))      skillsApi.set(res.skills);
-                        if (Array.isArray(res.targetRoles)) rolesApi.set(res.targetRoles);
-                        skillsApi.highlight(res.addedSkills);
-                        rolesApi.highlight(res.addedRoles);
-
-                        const added = res.nameFilled || res.skillsAdded > 0 || res.rolesAdded > 0;
-                        showAppToast(added ? 'success' : 'info', 'Resume analyzed \u2014 ' + (res.summary || (added ? 'profile updated' : 'nothing new to add')) + '.');
-                    })
-                    .catch(() => {
-                        ['fullNameWrap', 'skillsWrap', 'rolesWrap'].forEach(id => {
-                            const wrap = document.getElementById(id);
-                            wrap.querySelector('.skeleton-line')?.remove();
-                            wrap.classList.remove('skeleton-active');
-                        });
-                        analyzeBtn.disabled = false;
-                        analyzeBtnLabel.textContent = 'Analyze with AI';
-                        analyzeError.textContent = 'Request failed. Check your connection and try again.';
-                        analyzeError.style.display = 'block';
-                    });
+                analyzeBtnLabel.innerHTML =
+                    '<span class="spinner-border spinner-border-sm analyze-spinner"></span> Analyzing...';
             });
         }
 
-        // After an upload the page reloads; flash the chips the auto-fill just added.
+        // After a review is applied the page reloads; flash the chips the merge just added.
         const autoFillAdded = document.getElementById('autoFillAdded');
         if (autoFillAdded) {
             try {

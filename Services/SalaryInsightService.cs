@@ -42,7 +42,7 @@ public class SalaryInsightService
     /// <c>Error</c> is a user-facing message for missing keys, rate limits, or network failures.
     /// </returns>
     public async Task<(bool Success, string Range, string Note, string? Error)> EstimateAsync(
-        string role, string company, string? location, string? workMode)
+        string role, string company, string? location, string? workMode, string? profileContext = null)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
             return (false, "", "", "OpenAI API key is not configured.");
@@ -50,13 +50,18 @@ public class SalaryInsightService
         var loc = string.IsNullOrWhiteSpace(location) ? "an unspecified location" : location;
         var mode = string.IsNullOrWhiteSpace(workMode) ? "" : $" ({workMode})";
 
+        // "internships/entry-level" used to be baked in here, along with the word "internship" in the
+        // user prompt. It is dropped because the profile now states a seniority: a user who set Senior
+        // was being quoted intern pay. The level comes from the context block instead.
         const string systemPrompt =
-            "You are a compensation research assistant. Estimate typical pay for internships/entry-level " +
-            "roles based on general market knowledge of company size, role, and location. Return ONLY a " +
-            "valid JSON object — no markdown, no explanation outside the JSON.";
+            "You are a compensation research assistant. Estimate typical pay for the role described, " +
+            "at the candidate's stated level, based on general market knowledge of company size, role, " +
+            "field, and location. If no level is stated, assume an internship or entry-level position. " +
+            "Return ONLY a valid JSON object — no markdown, no explanation outside the JSON.";
 
         var userPrompt =
-            $"Estimate typical compensation for a {role} internship at {company} in {loc}{mode}.\n\n" +
+            UserContextBuilder.Prefix(profileContext) +
+            $"Estimate typical compensation for a {role} position at {company} in {loc}{mode}.\n\n" +
             "Return this JSON structure with NO other text:\n" +
             "{\"range\": \"...\", \"note\": \"...\"}\n\n" +
             "Rules:\n" +

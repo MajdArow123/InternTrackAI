@@ -4508,3 +4508,318 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
   font-size: .8rem; margin: .5rem 0 0; color: var(--text-2);
   padding-top: .5rem; border-top: 1px solid var(--border);
 }
+
+/* ── Resume review (/Profile/ReviewResume) ───────────────
+   The screen between an AI parse and the profile. Built from the same surfaces and tokens as
+   .doc-row above; nothing here introduces a colour, radius or spacing step of its own. */
+.review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.review-row {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  padding: .75rem .9rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  transition: background var(--duration) var(--ease);
+}
+.review-row:hover { background: var(--surface-3); }
+
+/* A row with nothing to tick (the read-only "what we read" block) shouldn't invite a click. */
+.review-row--plain { background: transparent; padding-left: 0; padding-right: 0; }
+.review-row--plain:hover { background: transparent; }
+
+/* Nudged down to sit on the first line of the label rather than the top of the box. */
+.review-check { margin-top: .2rem; flex-shrink: 0; }
+
+.review-row-body { min-width: 0; flex: 1; }
+
+.review-row-title {
+  display: block;
+  font-size: .9333rem;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+}
+.review-row--plain .review-row-title { cursor: default; }
+
+/* The resume snippet a skill was claimed from. --text-2, not --muted-2: this is prose and has to
+   clear AA (see the --muted-2 note in section 8 of CLAUDE.md). */
+.review-evidence {
+  margin: .2rem 0 0;
+  font-size: .8667rem;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.review-summary {
+  margin: 0 0 .75rem;
+  font-size: .9333rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.review-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: .45rem;
+  padding: .15em .5em;
+  border-radius: var(--radius-pill);
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  font-size: .7333rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.review-tag--muted { background: var(--neutral-soft); color: var(--neutral-text); }
+
+/* ── Practice page (/Practice) ───────────────────────────
+   Same surfaces and tokens as the resume review list; nothing new introduced. */
+.practice-filters { display: flex; flex-direction: column; gap: .5rem; }
+.practice-filter-group { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+.practice-filter {
+  padding: .3rem .75rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: .8667rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+.practice-filter:hover { background: var(--surface-3); color: var(--text); }
+.practice-filter.is-active { background: var(--accent); color: #fff; }
+
+.practice-list { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
+
+/* ── Progress card ───────────────────────────────────────────────────────────
+   Reuses .mini-stat for the numbers and the dashboard .funnel for the coverage
+   bars, so there is no second stat or bar implementation to keep in step. */
+
+.practice-progress-stats { display: flex; flex-wrap: wrap; gap: 1.75rem; margin-bottom: .9rem; }
+.practice-progress-of { font-size: .8667rem; font-weight: 500; color: var(--muted); }
+.practice-progress-score--low  { color: var(--danger-text); }
+.practice-progress-score--mid  { color: var(--warning-text); }
+.practice-progress-score--high { color: var(--success-text); }
+
+.practice-trend { margin-left: .3rem; font-size: .8rem; font-weight: 600; }
+.practice-trend--up   { color: var(--success-text); }
+.practice-trend--down { color: var(--danger-text); }
+
+.practice-progress-weakest { margin: 0 0 .9rem; font-size: .8667rem; color: var(--text-2); }
+.practice-progress-weakest strong { color: var(--text); }
+
+.practice-progress-coverage .funnel-row { grid-template-columns: 64px 1fr 44px; }
+.practice-coverage-easy   .funnel-bar { background: var(--success); }
+.practice-coverage-medium .funnel-bar { background: var(--accent); }
+.practice-coverage-hard   .funnel-bar { background: var(--warning); }
+
+/* ── Question groups ─────────────────────────────────────────────────────── */
+
+.practice-group { display: flex; flex-direction: column; gap: .75rem; }
+.practice-group-list { display: flex; flex-direction: column; gap: .75rem; }
+
+.practice-group-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .6rem;
+  padding: .1rem .15rem;
+}
+.practice-group-titles { display: flex; flex-direction: column; min-width: 0; }
+.practice-group-role { font-weight: 600; font-size: .9333rem; color: var(--text); }
+.practice-group-company { font-size: .8rem; color: var(--text-2); }
+.practice-group-actions { display: flex; align-items: center; gap: .75rem; margin-left: auto; }
+.practice-group-link { font-size: .8667rem; color: var(--accent-text); text-decoration: none; }
+.practice-group-link:hover { text-decoration: underline; }
+
+.practice-group-general {
+  margin: 0 0 -.15rem;
+  padding: .1rem .15rem;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+/* ── Saved star ──────────────────────────────────────────────────────────── */
+
+.practice-star {
+  margin-left: auto;
+  padding: 0 .2rem;
+  border: 0;
+  background: none;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--muted-2);
+  cursor: pointer;
+  transition: color var(--duration) var(--ease), transform var(--duration) var(--ease);
+}
+.practice-star:hover { color: var(--warning); transform: scale(1.12); }
+.practice-star.is-saved { color: var(--warning); }
+.practice-star:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
+
+/* The score chip already claims the right edge on an answered card, so the star follows it rather
+   than fighting it for the same margin-left:auto. */
+.practice-score + .practice-star { margin-left: .1rem; }
+
+.practice-card {
+  padding: 1rem 1.15rem;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Entrance only — fill-mode backwards so no transform is retained (see the Design notes in CLAUDE.md
+   §8: a retained transform on an ancestor traps position:fixed children). */
+.practice-card--new { animation: practice-fade-in var(--duration) var(--ease) backwards; }
+@keyframes practice-fade-in { from { opacity: 0; transform: translateY(-6px); } }
+
+.practice-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin-bottom: .5rem; }
+
+.practice-badge {
+  padding: .15em .55em;
+  border-radius: var(--radius-pill);
+  font-size: .7333rem;
+  font-weight: 600;
+}
+.practice-badge--easy     { background: var(--success-soft); color: var(--success-text); }
+.practice-badge--medium   { background: var(--accent-soft);  color: var(--accent-text); }
+.practice-badge--hard     { background: var(--warning-soft); color: var(--warning-text); }
+.practice-badge--category { background: var(--neutral-soft); color: var(--neutral-text); }
+
+.practice-topic { font-size: .8rem; color: var(--text-2); }
+
+.practice-prompt { margin: 0; font-size: 1rem; line-height: 1.5; color: var(--text); }
+
+.practice-hint { margin-top: .6rem; }
+.practice-hint summary {
+  font-size: .8667rem;
+  font-weight: 500;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.practice-hint-body { margin: .4rem 0 0; font-size: .8667rem; line-height: 1.45; color: var(--text-2); }
+
+/* ── Answering a practice question ───────────────────────────────────────────
+   Score chip, feedback sections, retry history and the answer form. Three tones only
+   (1-2 / 3 / 4-5) so the chip reads at a glance; the tints are the existing semantic
+   tokens rather than new colours, which is what keeps both themes working for free. */
+
+.practice-score {
+  margin-left: auto;
+  padding: .15em .55em;
+  border-radius: var(--radius-pill);
+  font-size: .7333rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.practice-score--low  { background: var(--danger-soft);  color: var(--danger-text); }
+.practice-score--mid  { background: var(--warning-soft); color: var(--warning-text); }
+.practice-score--high { background: var(--success-soft); color: var(--success-text); }
+.practice-score-max { font-weight: 500; opacity: .75; }
+
+.practice-answered { margin-top: .75rem; }
+
+.practice-answer-label {
+  margin: 0 0 .2rem;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.practice-answer-text {
+  margin: 0;
+  font-size: .8667rem;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.practice-answer-given {
+  padding: .6rem .75rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+.practice-feedback-block { margin-top: .75rem; }
+.practice-feedback-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: .8667rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.practice-feedback-list li + li { margin-top: .25rem; }
+
+.practice-revised {
+  margin: 0;
+  padding: .5rem .75rem;
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  font-size: .8667rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.practice-attempts { margin-top: .85rem; }
+.practice-attempts summary {
+  font-size: .8667rem;
+  font-weight: 500;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.practice-attempt { margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--border); }
+.practice-attempt-meta { display: flex; align-items: center; gap: .5rem; margin: 0 0 .25rem; }
+.practice-attempt-meta .practice-score { margin-left: 0; }
+.practice-attempt-when { font-size: .8rem; color: var(--muted-2); }
+
+.practice-answer-form { margin-top: .85rem; }
+
+/* Same treatment as .prep-answer-input, whose tokens and dark-theme override are already tuned. */
+.practice-answer-input {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: .6rem .8rem;
+  font-size: .9333rem;
+  color: var(--text);
+  background: var(--card);
+  font-family: inherit;
+  line-height: 1.5;
+  transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+}
+.practice-answer-input::placeholder { color: var(--muted-2); }
+.practice-answer-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+html[data-theme="dark"] .practice-answer-input { background: var(--surface-3); }
+
+.practice-answer-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .6rem;
+  margin-top: .5rem;
+}
+
+.practice-star { margin-top: .5rem; }
+.practice-star summary {
+  font-size: .8667rem;
+  font-weight: 500;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.practice-star-list {
+  margin: .4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: .8667rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}

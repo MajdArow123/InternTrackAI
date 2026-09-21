@@ -36,12 +36,17 @@ public class ResumeScoreService
     /// </summary>
     /// <param name="resumeText">Plain text extracted from the candidate's resume.</param>
     /// <param name="targetRoles">Optional role titles the candidate is pursuing, used as extra context for the prompt.</param>
+    /// <param name="profileContext">
+    /// The user's field context from <see cref="IUserContextBuilder"/>, or null/empty when there is
+    /// none. Without it a "professional resume reviewer" defaults to reviewing a technology resume,
+    /// which is wrong for most of the fields this app serves.
+    /// </param>
     /// <returns>
     /// A <see cref="ResumeScoreResult"/> with <c>Success = true</c> and a score, summary,
     /// strengths, and improvement suggestions; or <c>Success = false</c> with a user-facing
     /// <c>Error</c> on failure.
     /// </returns>
-    public async Task<ResumeScoreResult> ScoreAsync(string resumeText, IEnumerable<string>? targetRoles = null)
+    public async Task<ResumeScoreResult> ScoreAsync(string resumeText, IEnumerable<string>? targetRoles = null, string? profileContext = null)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
             return Fail("OpenAI API key is not configured.");
@@ -57,7 +62,7 @@ public class ResumeScoreService
             "Return ONLY a valid JSON object — no markdown, no explanation.";
 
         var userPrompt = $"""
-            Score this resume and return a JSON object with exactly these keys:
+            {UserContextBuilder.Prefix(profileContext)}Score this resume and return a JSON object with exactly these keys:
             - score        (integer 0-100 — overall resume quality)
             - summary      (string — 2-3 sentences on overall quality and positioning)
             - strengths    (array of strings — 2-4 specific things done well)

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using InternTrackAI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,11 +14,15 @@ namespace InternTrackAI.Controllers;
 public class AnalyzerController : Controller
 {
     private readonly JobAnalyzerService _analyzer;
+    private readonly IUserContextBuilder _userContext;
 
-    public AnalyzerController(JobAnalyzerService analyzer)
+    public AnalyzerController(JobAnalyzerService analyzer, IUserContextBuilder userContext)
     {
         _analyzer = analyzer;
+        _userContext = userContext;
     }
+
+    private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     /// <summary>
     /// Accepts a raw job posting (pasted text or a URL, detected and handled by
@@ -40,7 +45,11 @@ public class AnalyzerController : Controller
         if (string.IsNullOrWhiteSpace(request?.JobDescription))
             return BadRequest(new { success = false, error = "Job description is required." });
 
-        var result = await _analyzer.AnalyzeAsync(request.JobDescription);
+        // The user's field steers which skills the model considers "key" — a nursing posting should
+        // not come back with a technology vocabulary. Empty for a profile that has never set one.
+        var profileContext = await _userContext.BuildAsync(UserId(), HttpContext.RequestAborted);
+
+        var result = await _analyzer.AnalyzeAsync(request.JobDescription, profileContext, HttpContext.RequestAborted);
         return Json(result);
     }
 }

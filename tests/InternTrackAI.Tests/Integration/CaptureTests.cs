@@ -27,6 +27,9 @@ public class CaptureTests
         private readonly Func<string, CancellationToken, Task<JobAnalysisResult>> _script;
         public int Calls;
 
+        /// <summary>The field context the controller built for the last call, so a test can assert it arrived.</summary>
+        public string? LastProfileContext;
+
         public StubAnalyzer(IServiceProvider sp, Func<string, CancellationToken, Task<JobAnalysisResult>> script)
             : base(new HttpClient(),
                    sp.GetRequiredService<IHttpClientFactory>(),
@@ -36,9 +39,10 @@ public class CaptureTests
             _script = script;
         }
 
-        public override Task<JobAnalysisResult> AnalyzeAsync(string input, CancellationToken cancellationToken = default)
+        public override Task<JobAnalysisResult> AnalyzeAsync(string input, string? profileContext = null, CancellationToken cancellationToken = default)
         {
             Interlocked.Increment(ref Calls);
+            LastProfileContext = profileContext;
             return _script(input, cancellationToken);
         }
     }

@@ -142,6 +142,8 @@ builder.Services.AddScoped<ReminderService>();
 builder.Services.AddScoped<ResumeAnalyticsService>();   // "Resume performance" card + profile stats
 builder.Services.AddScoped<SkillGapService>();          // "Skills you're missing most" card (stored data only, no AI)
 builder.Services.AddScoped<KeywordCoverageService>();   // ATS keyword coverage (deterministic, no AI)
+builder.Services.AddScoped<IUserContextBuilder, UserContextBuilder>();  // the one place the field context in every AI prompt is built
+builder.Services.AddSingleton<TargetRoleSeeds>();       // field-keyed target-role suggestions (Data/Seeds/target-roles.json)
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<UserClockProvider>();
 
@@ -154,20 +156,25 @@ builder.Services.Configure<GmailOptions>(builder.Configuration.GetSection(GmailO
 builder.Services.AddSingleton<GmailTokenProtector>();
 builder.Services.AddSingleton<IGoogleOAuthClient, GoogleOAuthClient>();
 builder.Services.AddSingleton<IGmailClient, GmailApiClient>();
-builder.Services.AddHttpClient<IStatusClassifier, OpenAiStatusClassifier>();
+builder.Services.AddHttpClient<IStatusClassifier, OpenAiStatusClassifier>().AiTimeout();
 builder.Services.AddScoped<GmailSyncService>();
 builder.Services.AddScoped<SuggestionService>();   // dashboard card, drawer, board dot, navbar badge, accept/dismiss
 builder.Services.AddHostedService<GmailSyncHostedService>();   // per-user time zone (see Services/UserClock.cs)
-builder.Services.AddHttpClient<JobAnalyzerService>();
-builder.Services.AddHttpClient<ResumeMatcherService>();
-builder.Services.AddHttpClient<ResumeScoreService>();
-builder.Services.AddHttpClient<CoverLetterGeneratorService>();
-builder.Services.AddHttpClient<FollowUpService>();   // "Draft follow-up" modal (no storage)
-builder.Services.AddHttpClient<ResumeRewriteService>();   // "Rewrite a bullet" on the profile Resume card (no storage)
-builder.Services.AddHttpClient<InterviewPrepService>();
-builder.Services.AddHttpClient<IProfileExtractor, ProfileExtractorService>();
-builder.Services.AddScoped<ProfileAutoFillService>();
-builder.Services.AddHttpClient<SalaryInsightService>();
+builder.Services.AddHttpClient<JobAnalyzerService>().AiTimeout();
+builder.Services.AddHttpClient<ResumeMatcherService>().AiTimeout();
+builder.Services.AddHttpClient<ResumeScoreService>().AiTimeout();
+builder.Services.AddHttpClient<CoverLetterGeneratorService>().AiTimeout();
+builder.Services.AddHttpClient<FollowUpService>().AiTimeout();   // "Draft follow-up" modal (no storage)
+builder.Services.AddHttpClient<ResumeRewriteService>().AiTimeout();   // "Rewrite a bullet" on the profile Resume card (no storage)
+builder.Services.AddHttpClient<InterviewPrepService>().AiTimeout();
+builder.Services.AddHttpClient<PracticeQuestionService>().AiTimeout();   // practice generation + the three dedupe layers
+builder.Services.AddHttpClient<AnswerFeedbackService>().AiTimeout();     // scores a practice answer; the app's only answer-feedback prompt
+builder.Services.AddScoped<PracticeAnswerService>();         // the only path that writes an answer to a PracticeQuestion
+builder.Services.AddHttpClient<IProfileExtractor, ProfileExtractorService>().AiTimeout();
+builder.Services.AddScoped<ProfileAutoFillService>();   // the ONLY writer of AI output to a profile, and only from a confirmed review
+builder.Services.AddScoped<ResumeParseService>();       // resume text -> ParsedResume draft; never touches the profile
+builder.Services.AddScoped<DemoProfileReset>();         // narrow per-session restore of the shared demo profile's fields
+builder.Services.AddHttpClient<SalaryInsightService>().AiTimeout();
 builder.Services.AddHttpClient<GitHubService>()
     .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(10));
 builder.Services.AddHttpClient("UrlFetcher")

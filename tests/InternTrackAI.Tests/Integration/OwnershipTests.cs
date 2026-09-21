@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using InternTrackAI.Data;
 using InternTrackAI.Models;
+using InternTrackAI.Services;
 using InternTrackAI.Models.Enums;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -46,7 +47,7 @@ public class OwnershipFixture : TestAppFactory, IAsyncLifetime
         var note   = new ApplicationNote { UserId = BobId, JobApplicationId = app.Id, Text = "Bob's private note" };
         var letter = new GeneratedCoverLetter { UserId = BobId, JobApplicationId = app.Id, Content = "Bob's letter", CompanyName = "Bob Corp", RoleTitle = "Bob Role", IsActive = true, VersionNumber = 1 };
         var resume = new ResumeVersion { UserId = BobId, VersionNumber = 1, OriginalFileName = "bob.pdf", StoredPath = $"resumes/{BobId}/bob.pdf", IsActive = true };
-        var prep   = new InterviewPrepSession { UserId = BobId, JobApplicationId = app.Id, QuestionsJson = "[]" };
+        var prep   = new PracticeQuestion { UserId = BobId, ApplicationId = app.Id, Prompt = "Bob's question?", PromptHash = QuestionHash.Of("Bob's question?"), CreatedAt = DateTime.UtcNow };
         db.AddRange(note, letter, resume, prep);
         await db.SaveChangesAsync();
         BobNoteId = note.Id; BobLetterId = letter.Id; BobResumeId = resume.Id; BobPrepId = prep.Id;
@@ -190,7 +191,15 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
     // ── InterviewPrep ──
     [Fact] public async Task InterviewPrep_Prep_GET()          => await Assert404(await _f.Alice.GetAsync($"/InterviewPrep/Prep?appId={_f.BobAppId}"));
     [Fact] public async Task InterviewPrep_Generate_POST()     => await Assert404(await _f.Alice.SendAsync(_f.JsonPost("/InterviewPrep/Generate", new { appId = _f.BobAppId })));
-    [Fact] public async Task InterviewPrep_Critique_POST()     => await Assert404(await _f.Alice.SendAsync(_f.JsonPost("/InterviewPrep/CritiqueAnswer", new { appId = _f.BobAppId, question = "Q?", answer = "My answer." })));
+    [Fact] public async Task InterviewPrep_Critique_POST()     => await Assert404(await _f.Alice.SendAsync(_f.JsonPost("/InterviewPrep/CritiqueAnswer", new { appId = _f.BobAppId, question = "Q?", answer = LongEnoughAnswer })));
+
+    // ── Practice ──
+    // The answer clears PracticeAnswerService.MinAnswerChars on purpose: the length rule is checked
+    // first, so a short answer would be rejected before ownership was ever tested.
+    [Fact] public async Task Practice_SubmitAnswer_POST()       => await Assert404(await _f.Alice.PostAsync("/Practice/SubmitAnswer", _f.Form(("questionId", _f.BobPrepId.ToString()), ("answer", LongEnoughAnswer))));
+    [Fact] public async Task Practice_ToggleSaved_POST()        => await Assert404(await _f.Alice.PostAsync("/Practice/ToggleSaved", _f.Form(("questionId", _f.BobPrepId.ToString()))));
+
+    private const string LongEnoughAnswer = "An answer long enough to be worth sending to the grader at all.";
 
     // ── Profile documents ──
     [Fact] public async Task Profile_DownloadResume_GET()      => await Assert404(await _f.Alice.GetAsync($"/Profile/DownloadResume/{_f.BobResumeId}"));
@@ -219,7 +228,7 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
         Assert.Equal("Bob Corp", app.CompanyName);
         Assert.Equal(ApplicationStatus.Applied, app.Status);
         Assert.Equal(1, await db.GeneratedCoverLetters.CountAsync(c => c.JobApplicationId == _f.BobAppId));
-        Assert.Equal(1, await db.InterviewPrepSessions.CountAsync(s => s.JobApplicationId == _f.BobAppId));
+        Assert.Equal(1, await db.PracticeQuestions.CountAsync(q => q.ApplicationId == _f.BobAppId));
     }
 
     private async Task AssertBobDocsUntouched()

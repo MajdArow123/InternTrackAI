@@ -1,4 +1,5 @@
 @model InternTrackAI.Models.ViewModels.InterviewPrepViewModel
+@using InternTrackAI.Models.Enums
 @using InternTrackAI.Models
 
 @{
@@ -48,11 +49,11 @@
     <div class="form-card mb-3">
         <p class="form-section-title">Generate interview questions</p>
 
-        @if (Model.Session is not null)
+        @if (Model.GeneratedAt is { } generatedAt)
         {
             <p class="form-hint mb-3">
-                Last generated on @clock.LocalDateTime(Model.Session.GeneratedAt).
-                Regenerate to get a fresh set based on your current resume and skills.
+                Last generated on @clock.LocalDateTime(generatedAt).
+                Regenerate to add a fresh set based on your current resume and skills &mdash; questions you already have aren't repeated.
             </p>
         }
         else
@@ -66,7 +67,7 @@
         @Html.AntiForgeryToken()
         <div class="d-flex align-items-center gap-3">
             <button type="button" class="btn btn-primary px-4" id="generateBtn">
-                @(Model.Session is null ? "Generate interview prep" : "Regenerate")
+                @(Model.GeneratedAt is null ? "Generate interview prep" : "Regenerate")
             </button>
             <span class="form-hint mt-0">Powered by GPT-4o mini</span>
         </div>
@@ -76,39 +77,39 @@
     <!-- Questions section -->
     <div id="questionsSection" @(Model.Questions.Any() ? "" : "hidden")>
         <div id="generatedAt" class="form-hint mb-3">
-            @if (Model.Session is not null)
+            @if (Model.GeneratedAt is { } lastGenerated)
             {
-                @($"Generated on {clock.LocalDate(Model.Session.GeneratedAt)}")
+                @($"Generated on {clock.LocalDate(lastGenerated)}")
             }
         </div>
         <div id="questionsContainer">
             @if (Model.Questions.Any())
             {
                 var grouped = Model.Questions.GroupBy(q => q.Category).ToDictionary(g => g.Key, g => g.ToList());
-                var catOrder = new[] { "Technical", "Behavioral", "Company-Specific" };
-                var catCss   = new Dictionary<string, string>
+                var catCss   = new Dictionary<QuestionCategory, string>
                 {
-                    ["Technical"]        = "prep-cat-technical",
-                    ["Behavioral"]       = "prep-cat-behavioral",
-                    ["Company-Specific"] = "prep-cat-company"
+                    [QuestionCategory.Technical]       = "prep-cat-technical",
+                    [QuestionCategory.Behavioral]      = "prep-cat-behavioral",
+                    [QuestionCategory.CompanySpecific] = "prep-cat-company"
                 };
-                foreach (var cat in catOrder)
+                foreach (var category in QuestionCategories.InOrder)
                 {
-                    if (!grouped.TryGetValue(cat, out var qs)) continue;
+                    if (!grouped.TryGetValue(category, out var qs)) continue;
+                    var cat = QuestionCategories.Display(category);
                     <div class="prep-category-section mb-4">
                         <div class="prep-category-header">
-                            <span class="prep-category-badge @catCss.GetValueOrDefault(cat, "prep-cat-technical")">@cat</span>
+                            <span class="prep-category-badge @catCss.GetValueOrDefault(category, "prep-cat-technical")">@cat</span>
                             <span class="form-hint mt-0">@qs.Count question@(qs.Count == 1 ? "" : "s")</span>
                         </div>
                         <div class="prep-questions-list">
                             @foreach (var q in qs)
                             {
-                                <div class="prep-question-card" data-question="@q.Question">
-                                    <div class="prep-question-text">@q.Question</div>
-                                    @if (!string.IsNullOrWhiteSpace(q.Tip))
+                                <div class="prep-question-card" data-question="@q.Prompt">
+                                    <div class="prep-question-text">@q.Prompt</div>
+                                    @if (!string.IsNullOrWhiteSpace(q.ModelHint))
                                     {
                                         <div class="prep-tip">
-                                            <span class="prep-tip-label">Tip</span>@q.Tip
+                                            <span class="prep-tip-label">Tip</span>@q.ModelHint
                                         </div>
                                     }
                                     <button type="button" class="btn btn-outline-primary btn-sm prep-practice-toggle mt-2">Practice this answer</button>

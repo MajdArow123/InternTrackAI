@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using InternTrackAI.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,11 +15,15 @@ namespace InternTrackAI.Controllers;
 public class SalaryInsightController : Controller
 {
     private readonly SalaryInsightService _service;
+    private readonly IUserContextBuilder _userContext;
 
-    public SalaryInsightController(SalaryInsightService service)
+    public SalaryInsightController(SalaryInsightService service, IUserContextBuilder userContext)
     {
         _service = service;
+        _userContext = userContext;
     }
+
+    private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     /// <summary>
     /// Estimates a typical compensation range for the role/company/location currently entered
@@ -32,8 +37,11 @@ public class SalaryInsightController : Controller
         if (string.IsNullOrWhiteSpace(req.Role) || string.IsNullOrWhiteSpace(req.Company))
             return Json(new { success = false, error = "Enter a company and role first." });
 
+        // The seniority in the profile context is what stops a Senior-level user being quoted
+        // intern pay; the field is what stops the estimate being priced as a tech job.
         var (success, range, note, error) = await _service.EstimateAsync(
-            req.Role, req.Company, req.Location, req.WorkMode);
+            req.Role, req.Company, req.Location, req.WorkMode,
+            await _userContext.BuildAsync(UserId(), HttpContext.RequestAborted));
 
         if (!success)
             return Json(new { success = false, error });

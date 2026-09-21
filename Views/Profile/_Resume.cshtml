@@ -77,19 +77,19 @@
         {
             <div class="doc-empty mb-3">
                 <p class="doc-empty-title">No resume yet</p>
-                <p class="doc-empty-text">Upload a PDF below, then let AI fill in your name, skills, and target roles.</p>
+                <p class="doc-empty-text">Upload a @InternTrackAI.Services.ResumeFileType.AcceptDescription file below. We'll read it and show you what we found &mdash; nothing is saved to your profile until you say so.</p>
             </div>
         }
 
         <form asp-action="UploadResume" method="post" enctype="multipart/form-data" class="upload-form">
             @Html.AntiForgeryToken()
             <label class="upload-zone" for="resumeInput">
-                <input type="file" name="resume" id="resumeInput" accept=".pdf" class="upload-zone-input" />
+                <input type="file" name="resume" id="resumeInput" accept="@string.Join(",", InternTrackAI.Services.ResumeFileType.Extensions)" class="upload-zone-input" />
                 <span class="upload-zone-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                 </span>
-                <span class="upload-zone-title">Drop a PDF here or <span class="upload-zone-link">browse</span></span>
-                <span class="upload-zone-hint">PDF only &middot; max 5 MB</span>
+                <span class="upload-zone-title">Drop a resume here or <span class="upload-zone-link">browse</span></span>
+                <span class="upload-zone-hint">PDF or Word (.docx) &middot; max 5 MB</span>
                 <span class="upload-zone-file" hidden></span>
             </label>
             <div class="d-flex align-items-center gap-2 mt-2">
@@ -101,12 +101,15 @@
         {
             <div class="mt-3 pt-3 analyze-row" id="resumeAiRow">
                 <div class="resume-ai-buttons">
-                    <button type="button" class="btn btn-primary analyze-btn" id="analyzeBtn">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M12 2l1.8 5.5L19 9l-5.2 1.5L12 16l-1.8-5.5L5 9l5.2-1.5z"/>
-                        </svg>
-                        <span id="analyzeBtnLabel">Analyze with AI</span>
-                    </button>
+                    <form asp-action="ReparseResume" method="post" class="d-inline" id="analyzeForm">
+                        @Html.AntiForgeryToken()
+                        <button type="submit" class="btn btn-primary analyze-btn" id="analyzeBtn">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 2l1.8 5.5L19 9l-5.2 1.5L12 16l-1.8-5.5L5 9l5.2-1.5z"/>
+                            </svg>
+                            <span id="analyzeBtnLabel">Analyze with AI</span>
+                        </button>
+                    </form>
                     <form asp-action="ScoreResume" method="post" class="d-inline" id="scoreForm">
                         @Html.AntiForgeryToken()
                         <button type="submit" class="btn btn-primary analyze-btn" id="scoreBtn">
@@ -118,11 +121,10 @@
                     </form>
                 </div>
                 <p class="form-hint mt-2 mb-0 w-100 resume-ai-hint">
-                    <strong>Analyze</strong> fills in your name, skills, and target roles from the active resume (adds, never removes).
+                    <strong>Analyze</strong> re-reads the active resume and shows you what it found &mdash; you choose what to keep before anything is saved.
                     <strong>Score</strong> rates it with strengths and specific improvements.
                     <span class="resume-ai-powered">Powered by GPT-4o mini</span>
                 </p>
-                <div id="analyzeError" class="match-error-banner mt-2 w-100" style="display:none"></div>
             </div>
 
             @if (Model.ScoreResult != null)

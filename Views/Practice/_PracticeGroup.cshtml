@@ -1,0 +1,41 @@
+@model InternTrackAI.Models.ViewModels.PracticeGroup
+@*
+    One application's questions, under a header that names the posting and links back to it. Questions
+    generated from the practice page itself fall into the general group, which shows no heading when it
+    is the only group — "General practice" above the only list on the page labels nothing.
+
+    The section wraps its own cards so a new batch can be inserted into the group it belongs to.
+    Without the wrapper the headers and cards are flat siblings and an append lands under whichever
+    header happens to be first, which is not where the questions belong.
+*@
+<section class="practice-group" data-group-id="@Model.ApplicationId">
+    @if (!Model.IsGeneral)
+    {
+        <div class="practice-group-header">
+            <div class="practice-group-titles">
+                <span class="practice-group-role">@(Model.Role ?? "This role")</span>
+                <span class="practice-group-company">@(Model.Company ?? "an application you no longer have")</span>
+            </div>
+            <div class="practice-group-actions">
+                @if (Model.ApplicationUrl is { } url)
+                {
+                    <a class="practice-group-link" href="@url">Open application</a>
+                }
+                @*
+                    Posts the same /Practice/GenerateMore the page-level button does, with this
+                    posting's id — so the questions are derived from its description and land back here.
+                *@
+                <button type="button" class="btn btn-sm btn-outline-primary"
+                        data-practice-generate-for="@Model.ApplicationId">Get more for this role</button>
+            </div>
+        </div>
+    }
+    else if (!Model.IsOnlyGroup)
+    {
+        <p class="practice-group-general">General practice</p>
+    }
+
+    <div class="practice-group-list">
+        <partial name="_PracticeQuestions" model="Model.Questions" />
+    </div>
+</section>

@@ -43,7 +43,8 @@ public class CoverLetterGeneratorService
     public async Task<(bool Success, string Content, string? Error)> GenerateAsync(
         string company, string role, string jobDescription,
         string resumeText, string fullName, string skills,
-        string targetRoles, string extraNotes, DateTime? localToday = null)
+        string targetRoles, string extraNotes, DateTime? localToday = null,
+        string? profileContext = null)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
             return (false, "", "OpenAI API key is not configured. Run: dotnet user-secrets set \"OpenAI:ApiKey\" \"sk-...\"");
@@ -51,9 +52,13 @@ public class CoverLetterGeneratorService
         if (resumeText.Length   > 5000) resumeText    = resumeText[..5000];
         if (jobDescription.Length > 4000) jobDescription = jobDescription[..4000];
 
+        // "specializing in internship and entry-level applications" narrowed this to one seniority and,
+        // with it, one implied field. The applicant's field and level come from the context block now.
         const string systemPrompt =
-            "You are a professional cover letter writer specializing in internship and entry-level applications. " +
-            "Write polished, specific cover letters that reference real details from the job description and resume. " +
+            "You are a professional cover letter writer. You write for applicants in any field — technology, " +
+            "healthcare, trades, business, education, design, law or anything else — and you never assume a " +
+            "technology background. Write polished, specific cover letters that reference real details from the " +
+            "job description and resume, in the vocabulary of the applicant's own field. " +
             "Never use placeholder text. Use formal but natural language. Return plain text only — no markdown.";
 
         // The letter is dated in the user's own zone (UserClock.Today), not the server's.
@@ -61,7 +66,7 @@ public class CoverLetterGeneratorService
         var name  = string.IsNullOrWhiteSpace(fullName) ? "the applicant" : fullName;
 
         var userPrompt = $"""
-            Write a professional cover letter using the information below.
+            {UserContextBuilder.Prefix(profileContext)}Write a professional cover letter using the information below.
 
             APPLICANT:
             Name: {name}
@@ -157,7 +162,7 @@ public class CoverLetterGeneratorService
     /// </summary>
     /// <returns>Same shape as <see cref="GenerateAsync"/>: success flag, rewritten content, error message.</returns>
     public async Task<(bool Success, string Content, string? Error)> ImproveAsync(
-        string existingLetter, string company, string role, string instructions)
+        string existingLetter, string company, string role, string instructions, string? profileContext = null)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
             return (false, "", "OpenAI API key is not configured. Run: dotnet user-secrets set \"OpenAI:ApiKey\" \"sk-...\"");
@@ -175,7 +180,7 @@ public class CoverLetterGeneratorService
             : $"This letter is for the {role} role at {company}.\n\n";
 
         var userPrompt = $"""
-            {context}EXISTING DRAFT:
+            {UserContextBuilder.Prefix(profileContext)}{context}EXISTING DRAFT:
             {existingLetter}
 
             INSTRUCTIONS:

@@ -39,8 +39,9 @@ public sealed record ResumeTextResult(ResumeTextStatus Status, string? Text)
 
 /// <summary>
 /// The only way to get a resume's text. Reads <see cref="ResumeVersion.ExtractedText"/> when it is set and
-/// otherwise parses the PDF once with <see cref="ResumeMatcherService.ExtractPdfText"/> and writes the result
-/// back, so every later read is a column read.
+/// otherwise parses the file once — <see cref="ResumeMatcherService.ExtractPdfText"/> for a PDF,
+/// <see cref="DocxText.Extract"/> for a .docx, chosen by <see cref="ResumeFileType.FormatOf"/> — and writes
+/// the result back, so every later read is a column read regardless of format.
 ///
 /// The text can never go stale: a version's file is immutable (uploading a new resume creates a new row), so
 /// there is nothing to invalidate. Switching the active resume simply selects a different row.
@@ -55,6 +56,14 @@ public class ResumeTextService
     /// not a real resume. Matches the guard the AI endpoints applied individually before this service existed.
     /// </summary>
     public const int MinUsefulChars = 50;
+
+    /// <summary>
+    /// Under this, a file that parsed without error almost certainly has no text layer — a resume
+    /// scanned or photographed into a PDF. Deliberately well above <see cref="MinUsefulChars"/>: the
+    /// review flow tells the user to re-export as a text-based file, and saying that about a genuinely
+    /// short resume would be wrong. OCR is out of scope by decision, not oversight.
+    /// </summary>
+    public const int LikelyScannedChars = 200;
 
     private readonly ApplicationDbContext _db;
     private readonly UploadStorage _uploads;
@@ -93,7 +102,11 @@ public class ResumeTextService
         try
         {
             await using var fs = File.OpenRead(_uploads.Resolve(version.StoredPath));
-            text = ResumeMatcherService.ExtractPdfText(fs);
+            // The format branch lives here rather than at the call sites: this service is the one way
+            // to read a resume's text (CLAUDE.md §8), so adding a format must not add a branch anywhere else.
+            text = ResumeFileType.FormatOf(version.StoredPath) == ResumeFormat.Docx
+                ? DocxText.Extract(fs)
+                : ResumeMatcherService.ExtractPdfText(fs);
         }
         catch (Exception ex)
         {
@@ -123,6 +136,14 @@ public class ResumeTextService
         string.IsNullOrWhiteSpace(text) || text.Length < MinUsefulChars
             ? new ResumeTextResult(ResumeTextStatus.NoText, text)
             : new ResumeTextResult(ResumeTextStatus.Ok, text);
+
+    /// <summary>
+    /// True when a successful read produced so little text that the file is almost certainly a scan.
+    /// Separate from <see cref="ResumeTextStatus"/> because the file is fine and the upload succeeded —
+    /// only the parse has nothing useful to work with, and only the parse should say so.
+    /// </summary>
+    public static bool LooksScanned(ResumeTextResult result) =>
+        (result.Text?.Trim().Length ?? 0) < LikelyScannedChars;
 
     /// <summary>
     /// Writes the text back through a tracked read of the row, so this works whether the caller loaded the

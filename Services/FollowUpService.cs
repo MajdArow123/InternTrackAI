@@ -32,6 +32,15 @@ public sealed record FollowUpContext
     public DateTime? LastContactLocal { get; init; }
     public string? JobDescription { get; init; }
     public string? SenderName { get; init; }
+
+    /// <summary>
+    /// The applicant's field, already formatted as "Registered Nursing (Healthcare)" or just the free
+    /// text when no category is set. Null when they have not set one, in which case the prompt says so
+    /// rather than leaving the label blank. This is the only field-awareness this service takes: it
+    /// already builds its own rich context, so it does not use the shared context block.
+    /// </summary>
+    public string? Field { get; init; }
+
     public IReadOnlyList<string> Skills { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> TargetRoles { get; init; } = Array.Empty<string>();
     public IReadOnlyList<string> MatchingSkills { get; init; } = Array.Empty<string>();
@@ -162,7 +171,7 @@ public class FollowUpService
 
         var profile = await _db.UserProfiles.AsNoTracking()
             .Where(p => p.UserId == userId)
-            .Select(p => new { p.DisplayName, p.FullName, p.SkillsJson, p.TargetRolesJson })
+            .Select(p => new { p.DisplayName, p.FullName, p.SkillsJson, p.TargetRolesJson, p.Field, p.FieldCategory })
             .FirstOrDefaultAsync(ct);
 
         var letter = await _db.GeneratedCoverLetters.AsNoTracking()
@@ -192,6 +201,7 @@ public class FollowUpService
             LastContactLocal = clock.ToLocal(app.LastContactAt),
             JobDescription   = app.JobDescription,
             SenderName       = FirstNonBlank(profile?.DisplayName, profile?.FullName),
+            Field            = ProfileFields.Label(profile?.Field, profile?.FieldCategory),
             Skills           = ProfileTags.FromJson(profile?.SkillsJson),
             TargetRoles      = ProfileTags.FromJson(profile?.TargetRolesJson),
             MatchingSkills   = SkillList(app.MatchingSkillsJson),
@@ -367,6 +377,7 @@ public class FollowUpService
 
         var profile = new StringBuilder()
             .Append("Name for the sign-off: ").AppendLine(string.IsNullOrWhiteSpace(c.SenderName) ? "(none given)" : Clean(OneLine(c.SenderName), 100))
+            .Append("Field: ").AppendLine(string.IsNullOrWhiteSpace(c.Field) ? "(not stated — infer it from the posting)" : Clean(OneLine(c.Field), 100))
             .Append("Skills: ").AppendLine(c.Skills.Count > 0 ? Clean(string.Join(", ", c.Skills), 600) : "(none listed)")
             .Append("Target roles: ").AppendLine(c.TargetRoles.Count > 0 ? Clean(string.Join(", ", c.TargetRoles), 300) : "(none listed)");
 

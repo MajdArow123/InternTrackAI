@@ -1,3 +1,4 @@
+using InternTrackAI.Models.Enums;
 using InternTrackAI.Services;
 
 namespace InternTrackAI.Models;
@@ -28,6 +29,31 @@ public class UserProfile
 
     // Target job titles the user is pursuing, same JSON-column rationale as SkillsJson.
     public string? TargetRolesJson { get; set; }
+
+    // ── Field awareness ──
+    // Every one of these is nullable and every reader must cope with null: the app shipped without
+    // them, so existing profiles have none set and must keep working unchanged. They exist for one
+    // reason — Services/UserContextBuilder.cs turns them into the context block that goes into every
+    // AI prompt, so a nursing or accounting user stops getting software-engineering answers.
+
+    // Free text, the user's own words for what they do: "Software Engineering", "Registered Nursing".
+    // This is the line that actually makes AI output domain-specific; FieldCategory only coarsens it
+    // for things that need a fixed set, like the target-role suggestion map.
+    public string? Field { get; set; }
+
+    public FieldCategory? FieldCategory { get; set; }
+    public SeniorityLevel? Seniority { get; set; }
+
+    // Clamped to ProfileFields.MinYearsExperience..MaxYearsExperience on save.
+    public int? YearsExperience { get; set; }
+
+    // City/region, e.g. "Toronto, ON". Deliberately finer-grained than Country, which predates this
+    // and is storage-only (it has never reached a prompt); Location is the one that does.
+    public string? Location { get; set; }
+
+    // When a resume parse was last confirmed on the review screen (Services/ProfileAutoFillService.cs).
+    // Null means never — including for everyone who filled this profile in by hand.
+    public DateTime? ProfileLastEnrichedAt { get; set; }
 
     // GitHub username shown as a "Projects" section on the profile page, with a handful of
     // repos pulled live from the public GitHub API.

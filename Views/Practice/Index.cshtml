@@ -1,0 +1,116 @@
+@model InternTrackAI.Models.ViewModels.PracticeViewModel
+@using InternTrackAI.Models.Enums
+@{
+    ViewData["Title"] = "Practice";
+
+    string FilterUrl(PracticeDifficulty? d, QuestionCategory? c, bool saved) =>
+        Url.Action("Index", new { difficulty = d?.ToString(), category = c?.ToString(), saved = saved ? "true" : null })!;
+}
+
+<div class="container py-4 container-narrow">
+
+    <nav class="breadcrumb-nav" aria-label="breadcrumb">
+        <ol class="breadcrumb-list">
+            <li><a asp-controller="Home" asp-action="Index">Home</a></li>
+            <li>Practice</li>
+        </ol>
+    </nav>
+
+    <div class="page-header">
+        <div>
+            <h1>Practice</h1>
+            <p class="sub">Interview questions in your field, at the level you pick</p>
+        </div>
+    </div>
+
+@if (!Model.Progress.IsEmpty)
+{
+    <partial name="_PracticeProgress" model="Model.Progress" />
+}
+
+    <div class="form-card mb-3">
+        <p class="form-section-title">Difficulty and category</p>
+        <p class="form-hint mb-3">
+            These filter what's listed below <strong>and</strong> decide what &ldquo;Get more questions&rdquo; writes next.
+        </p>
+
+        <div class="practice-filters">
+            <div class="practice-filter-group" role="group" aria-label="Difficulty">
+                <a class="practice-filter @(Model.Difficulty is null ? "is-active" : "")" href="@FilterUrl(null, Model.Category, Model.SavedOnly)">Any</a>
+                @foreach (var d in Enum.GetValues<PracticeDifficulty>())
+                {
+                    <a class="practice-filter @(Model.Difficulty == d ? "is-active" : "")" href="@FilterUrl(d, Model.Category, Model.SavedOnly)">@d</a>
+                }
+            </div>
+
+            <div class="practice-filter-group" role="group" aria-label="Category">
+                <a class="practice-filter @(Model.Category is null ? "is-active" : "")" href="@FilterUrl(Model.Difficulty, null, Model.SavedOnly)">Any</a>
+                @foreach (var c in QuestionCategories.InOrder)
+                {
+                    <a class="practice-filter @(Model.Category == c ? "is-active" : "")" href="@FilterUrl(Model.Difficulty, c, Model.SavedOnly)">@QuestionCategories.Display(c)</a>
+                }
+            </div>
+
+            @*
+                A plain filter, unlike the two above — it narrows the list and has no say in what the
+                next batch generates. It composes with them: saved + Hard is your saved Hard questions.
+            *@
+            <div class="practice-filter-group" role="group" aria-label="Saved">
+                <a class="practice-filter @(Model.SavedOnly ? "is-active" : "")"
+                   href="@FilterUrl(Model.Difficulty, Model.Category, !Model.SavedOnly)"
+                   aria-pressed="@(Model.SavedOnly ? "true" : "false")">★ Saved</a>
+            </div>
+        </div>
+
+        <form id="practiceGenerateForm" class="mt-3">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="difficulty" value="@Model.NextDifficulty" />
+            <input type="hidden" name="category" value="@Model.NextCategory" />
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <button type="submit" class="btn btn-primary" id="practiceGenerateBtn">
+                    <span id="practiceGenerateLabel">Get more questions</span>
+                </button>
+                <span class="form-hint mt-0">
+                    @Model.NextDifficulty &middot; @QuestionCategories.Display(Model.NextCategory) &middot; Powered by GPT-4o mini
+                </span>
+            </div>
+        </form>
+
+        <div id="practiceNote" class="form-hint mb-0 mt-2" hidden></div>
+        <div id="practiceError" class="match-error-banner mt-2" hidden></div>
+    </div>
+
+    <div id="practiceList" class="practice-list">
+        @foreach (var group in Model.Groups)
+        {
+            <partial name="_PracticeGroup" model="group" />
+        }
+    </div>
+
+@*
+    Only rendered when the list is empty — practice.js hides it after the first append. Emitting it
+    hidden would put "No questions yet" in the markup of a page that is full of questions.
+*@
+@if (Model.ShownCount == 0)
+{
+    <div id="practiceEmpty" class="form-card">
+        @if (Model.FilteredToNothing)
+        {
+            <p class="form-section-title form-section-title--sm mb-1">Nothing at this level yet</p>
+            <p class="form-hint mb-0">
+                You have @Model.TotalCount question@(Model.TotalCount == 1 ? "" : "s") in other difficulties, categories or unsaved.
+                <a href="@FilterUrl(null, null, false)">Clear the filters</a> or get more to fill this one in.
+            </p>
+        }
+        else
+        {
+            <p class="form-section-title form-section-title--sm mb-1">No questions yet</p>
+            <p class="form-hint mb-0">Pick a difficulty and category, then get your first set. Questions you generate from an application's interview prep show up here too.</p>
+        }
+    </div>
+}
+</div>
+
+@section Scripts {
+    <script src="~/js/practice.js" asp-append-version="true"></script>
+}

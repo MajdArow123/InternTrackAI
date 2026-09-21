@@ -4626,6 +4626,31 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 
 .practice-group { display: flex; flex-direction: column; gap: .75rem; }
 
+.practice-batch-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  margin: 0 -1rem;
+  padding: .75rem 1rem;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0,0,0,.06);
+}
+html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0,.4); }
+.practice-batch-inner { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
+
+/* The per-card busy state during a batch: the card's own form is hidden, so the spinner needs a home. */
+.practice-card-busy {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-top: .75rem;
+  font-size: .8667rem;
+  color: var(--text-2);
+}
+
+.practice-card-batch-error { margin-top: .75rem; }
+
 .practice-list-footer {
   display: flex;
   align-items: center;

@@ -232,6 +232,19 @@ public class PracticeController : Controller
         });
     }
 
+    // ── GET /Practice/Progress ───────────────────────────
+
+    /// <summary>The progress card on its own, re-rendered.</summary>
+    /// <remarks>
+    /// Exists for the batch button. Each <see cref="SubmitAnswer"/> returns a fresh progress card with
+    /// its answer, which is right for a single submission but wrong for a batch: swapping it N times
+    /// makes the numbers jitter as calls land out of order. The client ignores those during a batch and
+    /// calls this <b>once</b> after every answer has settled. No model call, so no rate limit.
+    /// </remarks>
+    [HttpGet]
+    public async Task<IActionResult> Progress() =>
+        PartialView("_PracticeProgress", await ProgressAsync(UserId(), HttpContext.RequestAborted));
+
     // ── POST /Practice/ToggleSaved ───────────────────────
 
     /// <summary>Stars or unstars one question. Returns the state it landed in, not the one asked for.</summary>

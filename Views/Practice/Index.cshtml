@@ -145,6 +145,19 @@
 }
 </div>
 
+@*
+    The batch bar. Sticky at the foot of the viewport, hidden until at least one card has enough text
+    to be worth scoring — a bar that is always there but usually disabled is furniture.
+*@
+<div id="practiceBatchBar" class="practice-batch-bar" hidden>
+    <div class="practice-batch-inner">
+        <button type="button" class="btn btn-primary" id="practiceBatchBtn">
+            <span id="practiceBatchLabel">Get feedback on all answers</span>
+        </button>
+        <span class="form-hint mt-0" id="practiceBatchNote"></span>
+    </div>
+</div>
+
 @section Scripts {
     <script src="~/js/practice.js" asp-append-version="true"></script>
 }

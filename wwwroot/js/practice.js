@@ -114,6 +114,7 @@
                 // Scroll to the first new card rather than the top: the user asked for more
                 // questions, so put them where they are looking.
                 added[added.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                if (window.practiceRefreshBatchBar) window.practiceRefreshBatchBar();
             })
             .catch(function (err) {
                 show(error, err.message || 'Request failed. Check your connection and try again.');
@@ -146,7 +147,9 @@
 
         list.addEventListener('input', function (e) {
             const cardForm = e.target.closest('[data-practice-answer-form]');
-            if (cardForm) refresh(cardForm);
+            if (!cardForm) return;
+            refresh(cardForm);
+            refreshBar();
         });
 
         // Star toggle. The server returns the state it landed in rather than the state asked for, so a
@@ -179,6 +182,155 @@
                 })
                 .finally(function () { star.dataset.inFlight = '0'; });
         });
+
+        // ── Batch scoring ────────────────────────────────────────────────────
+        // Fans out to the same /Practice/SubmitAnswer the per-question button uses. No batch endpoint:
+        // one response per card is what lets each result land on its own card as it arrives, partial
+        // failure is then just one rejected promise, and the rate limit applies per call so the ones
+        // that do not fit come back 429 and say so. A server-side batch would need streaming or a
+        // single ~20s response.
+        const BATCH_CONCURRENCY = 3;
+
+        const bar   = document.getElementById('practiceBatchBar');
+        const batchBtn   = document.getElementById('practiceBatchBtn');
+        const batchLabel = document.getElementById('practiceBatchLabel');
+        const batchNote  = document.getElementById('practiceBatchNote');
+        let batchRunning = false;
+
+        /// Cards with enough typed text to be worth a call, and not already scored.
+        function pending() {
+            return Array.from(list.querySelectorAll('.practice-card')).filter(function (card) {
+                const cardForm = card.querySelector('[data-practice-answer-form]');
+                const input = card.querySelector('textarea[name="answer"]');
+                if (!cardForm || !input || cardForm.hidden) return false;
+                return input.value.trim().length >= MIN_ANSWER_CHARS;
+            });
+        }
+
+        function refreshBar() {
+            if (!bar || batchRunning) return;
+            const n = pending().length;
+            bar.hidden = n === 0;
+            if (n > 0) {
+                batchLabel.textContent = 'Get feedback on all ' + n + ' answer' + (n === 1 ? '' : 's');
+                batchBtn.disabled = false;
+            }
+        }
+
+        /// Scores one card and swaps it in. Resolves with the outcome either way — a rejected call is
+        /// this card's problem, never the batch's.
+        function scoreCard(card) {
+            const cardForm = card.querySelector('[data-practice-answer-form]');
+            const input = card.querySelector('textarea[name="answer"]');
+            const answer = input.value.trim();
+
+            cardForm.hidden = true;
+            const busy = document.createElement('p');
+            busy.className = 'practice-card-busy';
+            busy.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:12px;height:12px;border-width:2px"></span> Scoring…';
+            card.appendChild(busy);
+
+            const body = new URLSearchParams();
+            body.set('questionId', card.dataset.questionId);
+            body.set('answer', answer);
+
+            const headers = { 'X-Requested-With': 'XMLHttpRequest' };
+            if (token) headers['RequestVerificationToken'] = token.value;
+
+            return fetch('/Practice/SubmitAnswer', { method: 'POST', body: body, headers: headers })
+                .then(function (res) {
+                    return res.json().catch(function () {
+                        throw new Error(res.status === 429
+                            ? 'You have hit the practice limit, so this one did not run.'
+                            : 'Could not score that answer.');
+                    });
+                })
+                .then(function (data) {
+                    if (!data.success || !data.html) throw new Error(data.error || 'Could not score that answer.');
+
+                    const holder = document.createElement('div');
+                    holder.innerHTML = data.html;
+                    const replacement = holder.firstElementChild;
+                    if (!replacement) throw new Error('Could not score that answer.');
+
+                    // Deliberately ignoring data.progress here: the card is swapped once per answer,
+                    // the progress card once at the end.
+                    card.replaceWith(replacement);
+                    return true;
+                })
+                .catch(function (err) {
+                    busy.remove();
+                    cardForm.hidden = false;
+                    const error = cardForm.querySelector('[data-practice-answer-error]');
+                    if (error) {
+                        error.textContent = err.message || 'Could not score that answer.';
+                        error.hidden = false;
+                    }
+                    return false;
+                });
+        }
+
+        // Appended and replaced cards change what is pending, and a restored draft can make the bar
+        // relevant before the user types anything.
+        window.practiceRefreshBatchBar = refreshBar;
+        refreshBar();
+
+        if (batchBtn) {
+            batchBtn.addEventListener('click', function () {
+                if (batchRunning) return;
+
+                const cards = pending();
+                if (cards.length === 0) return;
+
+                batchRunning = true;
+                batchBtn.disabled = true;
+                batchLabel.innerHTML = '<span class="spinner-border spinner-border-sm" style="width:14px;height:14px;border-width:2px"></span> Scoring ' + cards.length + '…';
+                batchNote.textContent = '';
+
+                let scored = 0;
+                let failed = 0;
+                let next = 0;
+
+                // A small pool rather than all at once: five answers become two waves instead of five
+                // serial calls, without opening fifteen sockets or hammering the limiter in one burst.
+                function worker() {
+                    if (next >= cards.length) return Promise.resolve();
+                    const card = cards[next++];
+                    return scoreCard(card).then(function (ok) {
+                        if (ok) scored++; else failed++;
+                        return worker();
+                    });
+                }
+
+                const pool = [];
+                for (let i = 0; i < Math.min(BATCH_CONCURRENCY, cards.length); i++) pool.push(worker());
+
+                Promise.all(pool).then(function () {
+                    batchRunning = false;
+                    batchLabel.textContent = 'Get feedback on all answers';
+
+                    batchNote.textContent = failed === 0
+                        ? 'Scored ' + scored + '.'
+                        : 'Scored ' + scored + ' of ' + (scored + failed) + '. ' + failed +
+                          " didn't run — see the message on each card.";
+
+                    // Once, after everything has settled, so the numbers don't jitter as calls land.
+                    fetch('/Practice/Progress', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                        .then(function (r) { return r.ok ? r.text() : null; })
+                        .then(function (html) {
+                            if (!html) return;
+                            const current = document.getElementById('practiceProgress');
+                            if (!current) return;
+                            const holder = document.createElement('div');
+                            holder.innerHTML = html;
+                            const fresh = holder.firstElementChild;
+                            if (fresh) current.replaceWith(fresh);
+                        })
+                        .catch(function () { /* the cards are already right; the card can wait for a reload */ })
+                        .finally(refreshBar);
+                });
+            });
+        }
 
         function paintStar(star, saved) {
             const label = saved ? 'Saved — click to unsave' : 'Save this question';
@@ -273,6 +425,7 @@
                     }
 
                     replacement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    if (window.practiceRefreshBatchBar) window.practiceRefreshBatchBar();
                 })
                 .catch(function (err) {
                     cardForm.dataset.inFlight = '0';

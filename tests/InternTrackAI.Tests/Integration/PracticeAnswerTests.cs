@@ -229,6 +229,102 @@ public class PracticeAnswerTests
         Assert.Contains("Name the protocol", h.Model.Prompts[0]);
     }
 
+    // ── The batch path (§2) ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task The_progress_endpoint_renders_the_card_on_its_own()
+    {
+        // The batch button calls this once after every answer has settled. Swapping the progress card
+        // per answer instead would make the numbers jitter as calls land out of order.
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 4)));
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+        var question = await h.Seed(userId);
+        await h.Seed(userId, "A second question?");
+
+        await SubmitOk(client, question.Id, GoodAnswer);
+
+        var res = await client.GetAsync("/Practice/Progress");
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+
+        var html = WebUtility.HtmlDecode(await res.Content.ReadAsStringAsync());
+        Assert.Contains("id=\"practiceProgress\"", html);
+        Assert.Contains("Your progress", html);
+        Assert.Contains("1<span class=\"practice-progress-of\">/2</span>", html);
+        Assert.DoesNotContain("practice-card", html);   // the card alone, not the list
+    }
+
+    [Fact]
+    public async Task One_rate_limited_answer_does_not_stop_the_others_from_being_stored()
+    {
+        // Partial failure is the normal case for a batch: the calls that fit are scored and the ones
+        // that do not say why, rather than the whole batch failing as a unit.
+        var parent = new TestAppFactory();
+        using var _ = parent;
+        var model = new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 4));
+        using var factory = parent.WithWebHostBuilder(b =>
+        {
+            b.UseSetting("OpenAI:ApiKey", "sk-test-not-a-real-key");
+            b.UseSetting("RateLimiting:AI:Practice:PermitLimit", "2");
+            b.UseSetting("RateLimiting:AI:Practice:WindowMinutes", "60");
+            b.ConfigureServices(services =>
+                services.AddHttpClient<AnswerFeedbackService>().ConfigurePrimaryHttpMessageHandler(() => model));
+        });
+
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var email = await Http.RegisterAsync(client);
+
+        string userId;
+        using (var scope = factory.Services.CreateScope())
+            userId = (await scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>().FindByEmailAsync(email))!.Id;
+
+        var ids = new List<int>();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            for (var i = 0; i < 3; i++)
+            {
+                var prompt = $"Batch question {i}?";
+                var q = new PracticeQuestion
+                {
+                    UserId = userId, Prompt = prompt, Topic = "triage", Category = QuestionCategory.Technical,
+                    Difficulty = PracticeDifficulty.Medium, PromptHash = QuestionHash.Of(prompt), CreatedAt = DateTime.UtcNow
+                };
+                db.PracticeQuestions.Add(q);
+                await db.SaveChangesAsync();
+                ids.Add(q.Id);
+            }
+        }
+
+        var statuses = new List<HttpStatusCode>();
+        foreach (var id in ids)
+        {
+            var tok = await Http.GetAntiforgeryTokenAsync(client, "/Practice");
+            var req = new HttpRequestMessage(HttpMethod.Post, "/Practice/SubmitAnswer")
+            {
+                Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["questionId"] = id.ToString(), ["answer"] = GoodAnswer, ["__RequestVerificationToken"] = tok
+                })
+            };
+            req.Headers.Add("X-Requested-With", "XMLHttpRequest");
+            statuses.Add((await client.SendAsync(req)).StatusCode);
+        }
+
+        Assert.Equal(new[] { HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.TooManyRequests }, statuses);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var stored = await db.PracticeQuestions.AsNoTracking().Where(q => q.UserId == userId).OrderBy(q => q.Id).ToListAsync();
+
+            // The two that fit are scored and durable; the third is untouched, not half-written.
+            Assert.Equal(2, stored.Count(q => q.AnsweredAt is not null));
+            Assert.Null(stored[^1].AnsweredAt);
+            Assert.Null(stored[^1].UserAnswer);
+        }
+    }
+
     // ── Retry and the capped history ─────────────────────────────────────────
 
     [Fact]

@@ -115,6 +115,14 @@ public class PracticeQuestionService
         var knownTopics = new List<string>(exclusions.Topics);
         var topicRejections = 0;
 
+        // Counted so one log line at the end can answer "did nothing happen, or did I miss it" without
+        // anyone having to reason about which of three layers ate the batch.
+        var modelCalls = 0;
+        var returned = 0;
+        var blankDrops = 0;
+        var hashDrops = 0;
+        var surplus = 0;
+
         for (var attempt = 0; attempt <= MaxTopUps; attempt++)
         {
             var shortfall = count - kept.Count;
@@ -130,15 +138,25 @@ public class PracticeQuestionService
                 difficulty, category, shortfall + OverRequest, promptExclusions,
                 profileContext, company, role, jobDescription);
 
+            modelCalls++;
             var (ok, generated, error) = await CallModelAsync(prompt, ct);
-            if (!ok) return kept.Count == 0 ? PracticeGenerationResult.Failed(error!) : Done(kept, count, topicRejections, difficulty, category);
+            if (!ok)
+            {
+                _logger.LogWarning(
+                    "Practice generation failed for {Difficulty}/{Category}: {Error} (asked {Asked}, kept {Kept} before the failure, {Calls} model call(s)).",
+                    difficulty, category, error, count, kept.Count, modelCalls);
+
+                return kept.Count == 0 ? PracticeGenerationResult.Failed(error!) : Done(kept, count, topicRejections, difficulty, category);
+            }
+
+            returned += generated.Count;
 
             foreach (var g in generated)
             {
-                if (kept.Count == count) break;
+                if (kept.Count == count) { surplus++; continue; }
 
                 var hash = QuestionHash.Of(g.Prompt);
-                if (hash.Length == 0) continue;
+                if (hash.Length == 0) { blankDrops++; continue; }
 
                 // Topic first: it catches the reorderings and filler-padded repeats the prompt lets
                 // through, which the prompt-text hash cannot see because the wording genuinely differs.
@@ -151,6 +169,7 @@ public class PracticeQuestionService
 
                 if (!known.Add(hash))
                 {
+                    hashDrops++;
                     if (!string.IsNullOrWhiteSpace(g.Topic)) droppedTopics.Add(g.Topic);
                     continue;
                 }
@@ -174,6 +193,18 @@ public class PracticeQuestionService
         }
 
         var saved = await SaveAsync(kept, ct);
+
+        // One line, every generation, whatever the outcome. The recurring question this answers is
+        // "the count did not move and I saw no message — did nothing happen, or did I miss it?", and
+        // it is not answerable from the outside: an exhausted combination, a rate limit and a model
+        // error all look identical from the page. Logged at Information because it is the normal path;
+        // it carries no question text and no user id beyond what the request already has.
+        _logger.LogInformation(
+            "Practice generation for {Difficulty}/{Category}: asked {Asked}, {Calls} model call(s), model returned {Returned}, "
+            + "dropped {TopicDrops} same-topic + {HashDrops} same-question + {BlankDrops} blank + {Surplus} surplus, stored {Stored}.",
+            difficulty, category, count, modelCalls, returned,
+            topicRejections, hashDrops, blankDrops, surplus, saved.Count);
+
         return Done(saved, count, topicRejections, difficulty, category);
     }
 

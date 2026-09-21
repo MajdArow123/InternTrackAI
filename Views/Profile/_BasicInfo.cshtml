@@ -1,3 +1,4 @@
+@using InternTrackAI.Models.Enums
 @model InternTrackAI.Models.ViewModels.ProfileViewModel
 @{
     var clock       = await Clocks.GetAsync();
@@ -64,6 +65,51 @@
                         }
                     </select>
                     <div class="form-hint mt-1" id="timeZoneHint">Interview times, notes and reminders are shown in this zone. Now: <span id="timeZoneNow">@clock.NowLocal.ToString(UserClock.TimeFormat, System.Globalization.CultureInfo.InvariantCulture)</span></div>
+                </div>
+
+                @* ── Your field ──
+                   Sits inside the same form so it shares SaveInfo, the save indicator and the shake
+                   validation. Every field is optional: a profile with none set behaves exactly as it
+                   did before these existed. *@
+                <div class="col-12 border-top pt-3 mt-2">
+                    <p class="form-section-title form-section-title--sm mb-1">Your field</p>
+                    <p class="form-hint mb-0 mt-0">Tells the AI what work you're actually in, so job analysis, resume scoring, cover letters and interview questions use your field's language instead of defaulting to software. Also picks which roles the suggestions below offer.</p>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label" for="fieldInput">Field <span class="text-muted fw-normal">(optional)</span></label>
+                    <input name="field" id="fieldInput" class="form-control" placeholder="e.g. Registered Nursing"
+                           maxlength="@ProfileFields.MaxTextLength" value="@Model.Profile.Field" />
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label" for="fieldCategorySelect">Field category <span class="text-muted fw-normal">(optional)</span></label>
+                    <select name="fieldCategory" id="fieldCategorySelect" class="form-select">
+                        <option value="">Not set</option>
+                        @foreach (var category in Enum.GetValues<FieldCategory>())
+                        {
+                            <option value="@category" selected="@(Model.Profile.FieldCategory == category)">@ProfileFields.Display(category)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label" for="senioritySelect">Career level <span class="text-muted fw-normal">(optional)</span></label>
+                    <select name="seniority" id="senioritySelect" class="form-select">
+                        <option value="">Not set</option>
+                        @foreach (var level in Enum.GetValues<SeniorityLevel>())
+                        {
+                            <option value="@level" selected="@(Model.Profile.Seniority == level)">@ProfileFields.Display(level)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label" for="yearsExperienceInput">Years of experience <span class="text-muted fw-normal">(optional)</span></label>
+                    <input name="yearsExperience" id="yearsExperienceInput" class="form-control" type="number"
+                           min="@ProfileFields.MinYearsExperience" max="@ProfileFields.MaxYearsExperience" step="1"
+                           placeholder="e.g. 1" value="@(Model.Profile.YearsExperience?.ToString())" />
+                </div>
+                <div class="col-sm-4">
+                    <label class="form-label" for="locationInput">City / region <span class="text-muted fw-normal">(optional)</span></label>
+                    <input name="location" id="locationInput" class="form-control" placeholder="e.g. Toronto, ON"
+                           maxlength="@ProfileFields.MaxTextLength" value="@Model.Profile.Location" />
                 </div>
             </div>
             <div class="mt-3 d-flex align-items-center">

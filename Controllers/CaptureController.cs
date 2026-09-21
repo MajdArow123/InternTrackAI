@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using InternTrackAI.Models.Enums;
 using InternTrackAI.Models.ViewModels;
 using InternTrackAI.Services;
@@ -25,15 +26,19 @@ public class CaptureController : Controller
     public const int DefaultTimeoutSeconds = 15;
 
     private readonly JobAnalyzerService _analyzer;
+    private readonly IUserContextBuilder _userContext;
     private readonly IConfiguration _config;
     private readonly ILogger<CaptureController> _logger;
 
-    public CaptureController(JobAnalyzerService analyzer, IConfiguration config, ILogger<CaptureController> logger)
+    public CaptureController(JobAnalyzerService analyzer, IUserContextBuilder userContext, IConfiguration config, ILogger<CaptureController> logger)
     {
         _analyzer = analyzer;
+        _userContext = userContext;
         _config = config;
         _logger = logger;
     }
+
+    private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
 
     /// <summary>
     /// Validates the posting URL, runs it through the existing AI job analyzer (capped at
@@ -60,10 +65,13 @@ public class CaptureController : Controller
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(HttpContext.RequestAborted);
         cts.CancelAfter(timeout);
 
+        // Built inside the linked token's scope so the field lookup is covered by the same time cap
+        // as the analysis itself.
         JobAnalysisResult result;
         try
         {
-            result = await _analyzer.AnalyzeAsync(uri.AbsoluteUri, cts.Token);
+            var profileContext = await _userContext.BuildAsync(UserId(), cts.Token);
+            result = await _analyzer.AnalyzeAsync(uri.AbsoluteUri, profileContext, cts.Token);
         }
         catch (Exception ex) when (ex is OperationCanceledException || cts.IsCancellationRequested)
         {

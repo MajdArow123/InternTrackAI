@@ -1,0 +1,176 @@
+{
+  "_comment": "Target-role suggestions for the profile typeahead, keyed by Models/Enums/FieldCategory. Editable without a rebuild: the file is copied to the output directory, not compiled in. Keys must match FieldCategory member names exactly (TargetRoleSeedTests pins this). These are a starting point for the combobox, never a restriction - free text is always accepted.",
+
+  "Technology": [
+    "Software Engineering Intern",
+    "Backend Developer Intern",
+    "Frontend Developer Intern",
+    "Full-Stack Developer Intern",
+    "Data Science Intern",
+    "Machine Learning Intern",
+    "DevOps Intern",
+    "Cloud Engineering Intern",
+    "Mobile Developer Intern",
+    "QA Engineer Intern",
+    "Cybersecurity Intern",
+    "Data Engineer Intern"
+  ],
+
+  "Engineering": [
+    "Mechanical Engineering Intern",
+    "Electrical Engineering Intern",
+    "Civil Engineering Intern",
+    "Chemical Engineering Intern",
+    "Manufacturing Engineering Intern",
+    "Quality Engineering Intern",
+    "Structural Engineering Intern",
+    "Process Engineering Intern",
+    "Aerospace Engineering Intern",
+    "Environmental Engineering Intern",
+    "Project Engineering Intern",
+    "Engineering Technologist"
+  ],
+
+  "Business": [
+    "Business Analyst Intern",
+    "Operations Intern",
+    "Marketing Intern",
+    "Human Resources Intern",
+    "Supply Chain Intern",
+    "Sales Development Intern",
+    "Project Coordinator Intern",
+    "Product Management Intern",
+    "Management Consulting Intern",
+    "Customer Success Intern"
+  ],
+
+  "Finance": [
+    "Finance Intern",
+    "Accounting Intern",
+    "Investment Banking Analyst Intern",
+    "Financial Analyst Intern",
+    "Audit Intern",
+    "Tax Intern",
+    "Risk Analyst Intern",
+    "Treasury Intern",
+    "Actuarial Intern",
+    "Credit Analyst Intern"
+  ],
+
+  "Healthcare": [
+    "Nursing Student Placement",
+    "Clinical Research Intern",
+    "Medical Laboratory Intern",
+    "Pharmacy Intern",
+    "Physiotherapy Placement",
+    "Health Informatics Intern",
+    "Public Health Intern",
+    "Medical Office Assistant",
+    "Personal Support Worker",
+    "Radiology Technologist Placement",
+    "Respiratory Therapy Placement",
+    "Dietetics Intern"
+  ],
+
+  "Education": [
+    "Teaching Assistant",
+    "Student Teacher Placement",
+    "Curriculum Development Intern",
+    "Education Policy Intern",
+    "Early Childhood Educator Assistant",
+    "Instructional Design Intern",
+    "Academic Advising Intern",
+    "Tutoring Coordinator",
+    "Educational Technology Intern",
+    "Student Affairs Intern"
+  ],
+
+  "Design": [
+    "UX Design Intern",
+    "UI Design Intern",
+    "Graphic Design Intern",
+    "Product Design Intern",
+    "Interior Design Intern",
+    "Industrial Design Intern",
+    "Motion Design Intern",
+    "UX Research Intern",
+    "Brand Design Intern",
+    "Architectural Design Intern"
+  ],
+
+  "Science": [
+    "Research Assistant",
+    "Laboratory Technician Intern",
+    "Biology Research Intern",
+    "Chemistry Research Intern",
+    "Environmental Science Intern",
+    "Biotechnology Intern",
+    "Physics Research Intern",
+    "Geology Field Assistant",
+    "Quality Control Analyst Intern",
+    "Data Analysis Intern"
+  ],
+
+  "Legal": [
+    "Legal Intern",
+    "Paralegal Intern",
+    "Law Clerk",
+    "Compliance Intern",
+    "Legal Research Assistant",
+    "Contracts Intern",
+    "Policy Research Intern",
+    "Intellectual Property Intern",
+    "Corporate Legal Intern",
+    "Litigation Support Intern"
+  ],
+
+  "Trades": [
+    "Electrician Apprentice",
+    "Plumbing Apprentice",
+    "HVAC Apprentice",
+    "Carpentry Apprentice",
+    "Welding Apprentice",
+    "Automotive Technician Apprentice",
+    "Millwright Apprentice",
+    "Machinist Apprentice",
+    "Construction Site Assistant",
+    "Heavy Equipment Technician Apprentice"
+  ],
+
+  "Media": [
+    "Journalism Intern",
+    "Content Writing Intern",
+    "Social Media Intern",
+    "Video Production Intern",
+    "Communications Intern",
+    "Public Relations Intern",
+    "Photography Intern",
+    "Broadcast Production Intern",
+    "Editorial Intern",
+    "Copywriting Intern"
+  ],
+
+  "PublicSector": [
+    "Policy Analyst Intern",
+    "Government Relations Intern",
+    "Municipal Planning Intern",
+    "Nonprofit Program Intern",
+    "Community Outreach Intern",
+    "Public Administration Intern",
+    "Social Services Intern",
+    "Program Evaluation Intern",
+    "Grants Administration Intern",
+    "Emergency Management Intern"
+  ],
+
+  "Other": [
+    "Intern",
+    "Summer Student",
+    "Co-op Student",
+    "Junior Associate",
+    "Research Assistant",
+    "Program Assistant",
+    "Operations Assistant",
+    "Administrative Assistant"
+  ]
+}

@@ -56,13 +56,17 @@ public class ResumeMatcherService
     /// </summary>
     /// <param name="resumeText">Plain text extracted from the candidate's active resume.</param>
     /// <param name="jobDescription">The job description to match against.</param>
+    /// <param name="profileContext">
+    /// The user's field context from <see cref="IUserContextBuilder"/>, or null/empty when there is
+    /// none. Built by the caller so this stays a database-free prompt service.
+    /// </param>
     /// <returns>
     /// A <see cref="ResumeMatchResult"/> with <c>Success = true</c> and a score (0-100),
     /// recommendation tier, matching/missing skills, strengths, and a plain-English summary; or
     /// <c>Success = false</c> with a user-facing <c>Error</c> on failure (missing API key, HTTP
     /// failure, or unparseable response).
     /// </returns>
-    public async Task<ResumeMatchResult> MatchAsync(string resumeText, string jobDescription)
+    public async Task<ResumeMatchResult> MatchAsync(string resumeText, string jobDescription, string? profileContext = null)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
             return Fail("OpenAI API key is not configured. Run: dotnet user-secrets set \"OpenAI:ApiKey\" \"sk-...\"");
@@ -76,7 +80,7 @@ public class ResumeMatcherService
             "Return ONLY a valid JSON object — no markdown, no explanation.";
 
         var userPrompt = $"""
-            Compare this resume against this job description and return a JSON object with exactly these keys:
+            {UserContextBuilder.Prefix(profileContext)}Compare this resume against this job description and return a JSON object with exactly these keys:
             - score          (integer 0-100 — overall fit percentage; be realistic and precise)
             - matchingSkills (array of strings — skills present in both resume and JD, max 10)
             - missingSkills  (array of strings — important skills in JD not found in resume, max 8)

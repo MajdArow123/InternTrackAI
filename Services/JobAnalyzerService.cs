@@ -51,7 +51,11 @@ public class JobAnalyzerService
     /// time limit — the bookmarklet's <c>/Capture</c> endpoint — pass a timed token; cancellation
     /// surfaces as a failed result, not an exception. The default keeps the original behaviour.
     /// </param>
-    public virtual async Task<JobAnalysisResult> AnalyzeAsync(string input, CancellationToken cancellationToken = default)
+    /// <param name="profileContext">
+    /// The user's field context from <see cref="IUserContextBuilder"/>, or null/empty when there is
+    /// none. Built by the controller rather than here so this stays a database-free prompt service.
+    /// </param>
+    public virtual async Task<JobAnalysisResult> AnalyzeAsync(string input, string? profileContext = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(_apiKey) || _apiKey == "your-openai-api-key-here")
             return Fail("OpenAI API key is not configured. Run: dotnet user-secrets set \"OpenAI:ApiKey\" \"sk-...\"");
@@ -71,12 +75,12 @@ public class JobAnalyzerService
             "Extract structured data and return ONLY a valid JSON object — no markdown, no explanation.";
 
         var userPrompt = $"""
-            Parse this job description and return a JSON object with exactly these keys:
+            {UserContextBuilder.Prefix(profileContext)}Parse this job description and return a JSON object with exactly these keys:
             - companyName  (string or null)
             - roleTitle    (string or null)
             - location     (string or null — city/state/country or "Remote")
             - salary       (string or null — include currency and period, e.g. "$30/hr" or "$80,000/yr")
-            - skills       (array of strings — up to 8 key technical skills, empty array if none found)
+            - skills       (array of strings — up to 8 key skills the posting asks for, in the vocabulary of the posting's own field, empty array if none found)
             - deadline     (string or null — the application deadline as an ISO date "YYYY-MM-DD", only if the posting states one)
             - interviewDate (string or null — a specific interview date as an ISO date "YYYY-MM-DD", only if the posting states one)
 

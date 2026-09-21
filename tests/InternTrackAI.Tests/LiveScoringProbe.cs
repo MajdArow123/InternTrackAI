@@ -244,6 +244,76 @@ public class LiveScoringProbe
         _out.WriteLine($"MODEL CALLS: {handler.Calls} of {MaxCalls} budget");
     }
 
+    /// <summary>
+    /// The two answers the maintainer reported scoring 3/5 in production, verbatim, with their
+    /// questions. 2 calls.
+    /// </summary>
+    /// <remarks>
+    /// Prediction recorded before running, so the result can contradict it: both are specific about
+    /// <em>mechanisms</em> ("the compiler finds every call site", "Testing Library", "the empty string,
+    /// whitespace, and the malformed case") but contain nothing the candidate personally did — no
+    /// project, no incident, no outcome. The 3-band says exactly that: "correct and relevant, but
+    /// generic. The kind of answer anyone who had read about the topic could give. No concrete detail
+    /// of their own."
+    /// </remarks>
+    [Fact]
+    public async Task Score_the_two_answers_reported_as_over_corrected()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(EnvVar)))
+        {
+            _out.WriteLine($"Skipped: {EnvVar} is not set.");
+            return;
+        }
+
+        var config = new ConfigurationBuilder()
+            .AddUserSecrets("aspnet-InternTrackAI-a9273f32-3acf-454b-ae9a-5c9465b893ec")
+            .AddEnvironmentVariables()
+            .Build();
+
+        var handler = new BudgetedHandler();
+        var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(30) };
+
+        const string q1 = "In your opinion, what are the advantages of using TypeScript over JavaScript for a large codebase?";
+        const string a1 =
+            "The real win is that refactoring stops being guesswork. In a large codebase, renaming a field " +
+            "or changing a function signature in plain JS means grepping and hoping; with types the compiler " +
+            "finds every call site. Second is that types document intent at the boundary \u2014 I can read a " +
+            "function's signature and know what it accepts without reading its body or its tests. The cost is " +
+            "real though: build tooling, `any` creeping in under deadline pressure, and third-party types that " +
+            "lag the library. I'd take it on anything a team maintains for more than a few months, and skip it " +
+            "for a throwaway script.";
+
+        const string q2 = "How would you approach writing unit tests for a function that processes user input in a React application?";
+        const string a2 =
+            "I'd separate the logic from the component first. If the function processes input, it should be " +
+            "testable without rendering anything \u2014 pass in a value, assert on the output, cover the empty " +
+            "string, whitespace, and the malformed case. Then test the component separately with Testing " +
+            "Library, driving it the way a user would: type into the field, assert what appears on screen, " +
+            "rather than reaching into state. The thing I'd avoid is testing implementation details, because " +
+            "those tests break on every refactor and pass while the feature is broken, which is the worst of both.";
+
+        const string softwareProfile =
+            "USER PROFILE CONTEXT\nField: Software Engineering (Technology)\nSeniority: Student, ~1 year experience";
+
+        foreach (var (label, question, answer) in new[] { ("Q1 TypeScript", q1, a1), ("Q2 React testing", q2, a2) })
+        {
+            var prompt = AnswerFeedbackPrompt.Build(
+                new AnswerContext(question, answer, QuestionCategory.Technical, PracticeDifficulty.Medium),
+                softwareProfile);
+
+            var scored = await CallAsync(http, config, prompt);
+
+            _out.WriteLine(new string('=', 78));
+            _out.WriteLine($"{label}  ->  {scored.Score}/5   (production reported 3/5)");
+            _out.WriteLine(new string('=', 78));
+            foreach (var s in scored.RawStrengths) _out.WriteLine($"   strength: {s}");
+            foreach (var m in scored.Missing)      _out.WriteLine($"   MISSING:  {m}");
+            _out.WriteLine("");
+        }
+
+        _out.WriteLine($"MODEL CALLS: {handler.Calls} of {MaxCalls} budget");
+    }
+
     private static string Build(string answer) =>
         AnswerFeedbackPrompt.Build(
             new AnswerContext(Question, answer, QuestionCategory.Technical, PracticeDifficulty.Medium),

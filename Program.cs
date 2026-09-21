@@ -142,6 +142,8 @@ builder.Services.AddScoped<ReminderService>();
 builder.Services.AddScoped<ResumeAnalyticsService>();   // "Resume performance" card + profile stats
 builder.Services.AddScoped<SkillGapService>();          // "Skills you're missing most" card (stored data only, no AI)
 builder.Services.AddScoped<KeywordCoverageService>();   // ATS keyword coverage (deterministic, no AI)
+builder.Services.AddScoped<IUserContextBuilder, UserContextBuilder>();  // the one place the field context in every AI prompt is built
+builder.Services.AddSingleton<TargetRoleSeeds>();       // field-keyed target-role suggestions (Data/Seeds/target-roles.json)
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<UserClockProvider>();
 
@@ -165,8 +167,11 @@ builder.Services.AddHttpClient<CoverLetterGeneratorService>();
 builder.Services.AddHttpClient<FollowUpService>();   // "Draft follow-up" modal (no storage)
 builder.Services.AddHttpClient<ResumeRewriteService>();   // "Rewrite a bullet" on the profile Resume card (no storage)
 builder.Services.AddHttpClient<InterviewPrepService>();
+builder.Services.AddHttpClient<PracticeQuestionService>();   // practice generation + the three dedupe layers
 builder.Services.AddHttpClient<IProfileExtractor, ProfileExtractorService>();
-builder.Services.AddScoped<ProfileAutoFillService>();
+builder.Services.AddScoped<ProfileAutoFillService>();   // the ONLY writer of AI output to a profile, and only from a confirmed review
+builder.Services.AddScoped<ResumeParseService>();       // resume text -> ParsedResume draft; never touches the profile
+builder.Services.AddScoped<DemoProfileReset>();         // narrow per-session restore of the shared demo profile's fields
 builder.Services.AddHttpClient<SalaryInsightService>();
 builder.Services.AddHttpClient<GitHubService>()
     .ConfigureHttpClient(c => c.Timeout = TimeSpan.FromSeconds(10));

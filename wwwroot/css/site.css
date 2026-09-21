@@ -4508,3 +4508,132 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
   font-size: .8rem; margin: .5rem 0 0; color: var(--text-2);
   padding-top: .5rem; border-top: 1px solid var(--border);
 }
+
+/* ── Resume review (/Profile/ReviewResume) ───────────────
+   The screen between an AI parse and the profile. Built from the same surfaces and tokens as
+   .doc-row above; nothing here introduces a colour, radius or spacing step of its own. */
+.review-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+}
+
+.review-row {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  padding: .75rem .9rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-md);
+  transition: background var(--duration) var(--ease);
+}
+.review-row:hover { background: var(--surface-3); }
+
+/* A row with nothing to tick (the read-only "what we read" block) shouldn't invite a click. */
+.review-row--plain { background: transparent; padding-left: 0; padding-right: 0; }
+.review-row--plain:hover { background: transparent; }
+
+/* Nudged down to sit on the first line of the label rather than the top of the box. */
+.review-check { margin-top: .2rem; flex-shrink: 0; }
+
+.review-row-body { min-width: 0; flex: 1; }
+
+.review-row-title {
+  display: block;
+  font-size: .9333rem;
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+}
+.review-row--plain .review-row-title { cursor: default; }
+
+/* The resume snippet a skill was claimed from. --text-2, not --muted-2: this is prose and has to
+   clear AA (see the --muted-2 note in section 8 of CLAUDE.md). */
+.review-evidence {
+  margin: .2rem 0 0;
+  font-size: .8667rem;
+  line-height: 1.45;
+  color: var(--text-2);
+}
+
+.review-summary {
+  margin: 0 0 .75rem;
+  font-size: .9333rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+
+.review-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: .45rem;
+  padding: .15em .5em;
+  border-radius: var(--radius-pill);
+  background: var(--warning-soft);
+  color: var(--warning-text);
+  font-size: .7333rem;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.review-tag--muted { background: var(--neutral-soft); color: var(--neutral-text); }
+
+/* ── Practice page (/Practice) ───────────────────────────
+   Same surfaces and tokens as the resume review list; nothing new introduced. */
+.practice-filters { display: flex; flex-direction: column; gap: .5rem; }
+.practice-filter-group { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+.practice-filter {
+  padding: .3rem .75rem;
+  border-radius: var(--radius-pill);
+  background: var(--surface-2);
+  color: var(--text-2);
+  font-size: .8667rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: background var(--duration) var(--ease), color var(--duration) var(--ease);
+}
+.practice-filter:hover { background: var(--surface-3); color: var(--text); }
+.practice-filter.is-active { background: var(--accent); color: #fff; }
+
+.practice-list { display: flex; flex-direction: column; gap: .75rem; margin-bottom: 1rem; }
+
+.practice-card {
+  padding: 1rem 1.15rem;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Entrance only — fill-mode backwards so no transform is retained (see the Design notes in CLAUDE.md
+   §8: a retained transform on an ancestor traps position:fixed children). */
+.practice-card--new { animation: practice-fade-in var(--duration) var(--ease) backwards; }
+@keyframes practice-fade-in { from { opacity: 0; transform: translateY(-6px); } }
+
+.practice-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin-bottom: .5rem; }
+
+.practice-badge {
+  padding: .15em .55em;
+  border-radius: var(--radius-pill);
+  font-size: .7333rem;
+  font-weight: 600;
+}
+.practice-badge--easy     { background: var(--success-soft); color: var(--success-text); }
+.practice-badge--medium   { background: var(--accent-soft);  color: var(--accent-text); }
+.practice-badge--hard     { background: var(--warning-soft); color: var(--warning-text); }
+.practice-badge--category { background: var(--neutral-soft); color: var(--neutral-text); }
+
+.practice-topic { font-size: .8rem; color: var(--text-2); }
+
+.practice-prompt { margin: 0; font-size: 1rem; line-height: 1.5; color: var(--text); }
+
+.practice-hint { margin-top: .6rem; }
+.practice-hint summary {
+  font-size: .8667rem;
+  font-weight: 500;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.practice-hint-body { margin: .4rem 0 0; font-size: .8667rem; line-height: 1.45; color: var(--text-2); }

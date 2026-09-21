@@ -128,33 +128,6 @@ namespace InternTrackAI.Data.Migrations
                     b.ToTable("GmailConnections");
                 });
 
-            modelBuilder.Entity("InternTrackAI.Models.InterviewPrepSession", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
-
-                    b.Property<DateTime>("GeneratedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<int>("JobApplicationId")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<string>("QuestionsJson")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("UserId")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("JobApplicationId");
-
-                    b.ToTable("InterviewPrepSessions");
-                });
-
             modelBuilder.Entity("InternTrackAI.Models.JobApplication", b =>
                 {
                     b.Property<int>("Id")
@@ -237,6 +210,105 @@ namespace InternTrackAI.Data.Migrations
                     b.HasIndex("ResumeVersionId");
 
                     b.ToTable("JobApplications");
+                });
+
+            modelBuilder.Entity("InternTrackAI.Models.ParsedResume", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Applied")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CharactersExtracted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RawJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ResumeVersionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.ToTable("ParsedResumes");
+                });
+
+            modelBuilder.Entity("InternTrackAI.Models.PracticeQuestion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AiFeedback")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("AnsweredAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("ApplicationId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Difficulty")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsSaved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ModelHint")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Prompt")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PromptHash")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Score")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Topic")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserAnswer")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ApplicationId");
+
+                    b.HasIndex("UserId", "CreatedAt");
+
+                    b.HasIndex("UserId", "PromptHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId", "Topic");
+
+                    b.ToTable("PracticeQuestions");
                 });
 
             modelBuilder.Entity("InternTrackAI.Models.ResumeVersion", b =>
@@ -359,6 +431,12 @@ namespace InternTrackAI.Data.Migrations
                     b.Property<string>("DisplayName")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Field")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("FieldCategory")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("FollowUpAfterDays")
                         .HasColumnType("INTEGER");
 
@@ -368,6 +446,9 @@ namespace InternTrackAI.Data.Migrations
                     b.Property<string>("GitHubUsername")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Location")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("TEXT");
 
@@ -375,6 +456,12 @@ namespace InternTrackAI.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<int>("PhotoVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("ProfileLastEnrichedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Seniority")
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("SkillsJson")
@@ -390,6 +477,9 @@ namespace InternTrackAI.Data.Migrations
                     b.Property<string>("UserId")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<int?>("YearsExperience")
+                        .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
 
@@ -629,17 +719,6 @@ namespace InternTrackAI.Data.Migrations
                     b.Navigation("JobApplication");
                 });
 
-            modelBuilder.Entity("InternTrackAI.Models.InterviewPrepSession", b =>
-                {
-                    b.HasOne("InternTrackAI.Models.JobApplication", "JobApplication")
-                        .WithMany()
-                        .HasForeignKey("JobApplicationId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("JobApplication");
-                });
-
             modelBuilder.Entity("InternTrackAI.Models.JobApplication", b =>
                 {
                     b.HasOne("InternTrackAI.Models.ResumeVersion", "ResumeVersion")
@@ -648,6 +727,16 @@ namespace InternTrackAI.Data.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("ResumeVersion");
+                });
+
+            modelBuilder.Entity("InternTrackAI.Models.PracticeQuestion", b =>
+                {
+                    b.HasOne("InternTrackAI.Models.JobApplication", "Application")
+                        .WithMany()
+                        .HasForeignKey("ApplicationId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Application");
                 });
 
             modelBuilder.Entity("InternTrackAI.Models.StatusSuggestion", b =>

@@ -176,6 +176,10 @@
                 // questions, so put them where they are looking.
                 added[added.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
                 if (window.practiceRefreshBatchBar) window.practiceRefreshBatchBar();
+
+                // New questions change the denominator. Without this the card keeps reporting the
+                // count from page load while the new cards sit right above it.
+                if (window.practiceRefreshProgress) window.practiceRefreshProgress();
             })
             .catch(function (err) {
                 rethrowIfBug(err);
@@ -219,6 +223,29 @@
                 saveDraft(card.dataset.questionId, e.target.value);
             }
         });
+
+        // ── Progress card ────────────────────────────────────────────────────
+        // Anything that changes the number of questions or answers has to refresh this, or it keeps
+        // reporting whatever was true at page load. That is not cosmetic: the card reads as
+        // authoritative, so a stale denominator gets reported as questions having failed to save.
+        // Exposed because generate() lives outside this function.
+        window.practiceRefreshProgress = function () {
+            return fetch('/Practice/Progress', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function (r) { return r.ok ? r.text() : null; })
+                .then(function (html) {
+                    if (!html) return;
+                    const current = document.getElementById('practiceProgress');
+                    if (!current) return;
+                    const holder = document.createElement('div');
+                    holder.innerHTML = html;
+                    const fresh = holder.firstElementChild;
+                    if (fresh) current.replaceWith(fresh);
+                })
+                .catch(function (err) {
+                    rethrowIfBug(err);
+                    /* the cards are already right; the card catches up on the next load */
+                });
+        };
 
         // ── Collapse / expand ────────────────────────────────────────────────
         const bulk = document.getElementById('practiceBulkToggle');
@@ -436,19 +463,7 @@
                           " didn't run — see the message on each card.";
 
                     // Once, after everything has settled, so the numbers don't jitter as calls land.
-                    fetch('/Practice/Progress', { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
-                        .then(function (r) { return r.ok ? r.text() : null; })
-                        .then(function (html) {
-                            if (!html) return;
-                            const current = document.getElementById('practiceProgress');
-                            if (!current) return;
-                            const holder = document.createElement('div');
-                            holder.innerHTML = html;
-                            const fresh = holder.firstElementChild;
-                            if (fresh) current.replaceWith(fresh);
-                        })
-                        .catch(function () { /* the cards are already right; the card can wait for a reload */ })
-                        .finally(refreshBar);
+                    window.practiceRefreshProgress().finally(refreshBar);
                 });
             });
         }

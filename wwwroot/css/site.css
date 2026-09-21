@@ -4637,18 +4637,27 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .practice-manage-action { padding-top: .9rem; border-top: 1px solid var(--border); }
 .practice-manage-action:first-child { padding-top: 0; border-top: 0; }
 
+/* Sits outside .container-narrow on purpose — a sticky action bar should span the viewport — but its
+   contents are held to the same 780px column, so the button lines up with everything above it rather
+   than drifting to the far left of a wide screen. */
 .practice-batch-bar {
   position: sticky;
   bottom: 0;
   z-index: 5;
-  margin: 0 -1rem;
   padding: .75rem 1rem;
   background: var(--card);
   border-top: 1px solid var(--border);
   box-shadow: 0 -4px 16px rgba(0,0,0,.06);
 }
 html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0,.4); }
-.practice-batch-inner { display: flex; align-items: center; flex-wrap: wrap; gap: .75rem; }
+.practice-batch-inner {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .75rem;
+  max-width: 780px;
+  margin: 0 auto;
+}
 
 /* The per-card busy state during a batch: the card's own form is hidden, so the spinner needs a home. */
 .practice-card-busy {

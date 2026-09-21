@@ -148,46 +148,46 @@
         }
     </div>
 }
+
+    @*
+        Manage practice data. Collapsed, at the very foot of the page, and deliberately a long way from
+        "Get more questions" — neither of these should be one mis-click from generating.
+    *@
+    @if (Model.HasAnyQuestions)
+    {
+        <details class="form-card practice-manage">
+            <summary class="practice-manage-summary">Manage practice data</summary>
+
+            <div class="practice-manage-body">
+                <form asp-action="ClearUnanswered" method="post" class="practice-manage-action">
+                    @Html.AntiForgeryToken()
+                    <div>
+                        <button type="submit" class="btn btn-outline-secondary btn-sm" @(Model.ClearableCount == 0 ? "disabled" : "")>
+                            Clear @Model.ClearableCount unanswered question@(Model.ClearableCount == 1 ? "" : "s")
+                        </button>
+                        <p class="form-hint mb-0 mt-1">
+                            Tidies the list. Your answers, scores and history stay exactly as they are, and
+                            <strong>saved questions are kept</strong> even if you haven't answered them.
+                        </p>
+                    </div>
+                </form>
+
+                <form asp-action="DeleteAll" method="post" class="practice-manage-action practice-manage-action--danger"
+                      data-confirm-title="Delete all practice data?"
+                      data-confirm="This removes all @Model.TotalCount of your practice questions, along with every answer, score, retry and saved star. It cannot be undone."
+                      data-confirm-ok="Delete everything">
+                    @Html.AntiForgeryToken()
+                    <div>
+                        <button type="submit" class="btn btn-outline-danger btn-sm">Delete all practice data</button>
+                        <p class="form-hint mb-0 mt-1">
+                            Questions, answers, scores, retries and saved stars. This cannot be undone.
+                        </p>
+                    </div>
+                </form>
+            </div>
+        </details>
+    }
 </div>
-
-@*
-    Manage practice data. Collapsed, at the very foot of the page, and deliberately a long way from
-    "Get more questions" — neither of these should be one mis-click from generating.
-*@
-@if (Model.HasAnyQuestions)
-{
-    <details class="form-card practice-manage">
-        <summary class="practice-manage-summary">Manage practice data</summary>
-
-        <div class="practice-manage-body">
-            <form asp-action="ClearUnanswered" method="post" class="practice-manage-action">
-                @Html.AntiForgeryToken()
-                <div>
-                    <button type="submit" class="btn btn-outline-secondary btn-sm" @(Model.ClearableCount == 0 ? "disabled" : "")>
-                        Clear @Model.ClearableCount unanswered question@(Model.ClearableCount == 1 ? "" : "s")
-                    </button>
-                    <p class="form-hint mb-0 mt-1">
-                        Tidies the list. Your answers, scores and history stay exactly as they are, and
-                        <strong>saved questions are kept</strong> even if you haven't answered them.
-                    </p>
-                </div>
-            </form>
-
-            <form asp-action="DeleteAll" method="post" class="practice-manage-action practice-manage-action--danger"
-                  data-confirm-title="Delete all practice data?"
-                  data-confirm="This removes all @Model.TotalCount of your practice questions, along with every answer, score, retry and saved star. It cannot be undone."
-                  data-confirm-ok="Delete everything">
-                @Html.AntiForgeryToken()
-                <div>
-                    <button type="submit" class="btn btn-outline-danger btn-sm">Delete all practice data</button>
-                    <p class="form-hint mb-0 mt-1">
-                        Questions, answers, scores, retries and saved stars. This cannot be undone.
-                    </p>
-                </div>
-            </form>
-        </div>
-    </details>
-}
 
 @*
     The batch bar. Sticky at the foot of the viewport, hidden until at least one card has enough text

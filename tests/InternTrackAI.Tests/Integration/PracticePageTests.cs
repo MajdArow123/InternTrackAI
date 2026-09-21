@@ -203,6 +203,11 @@ public class PracticePageTests
 
         Assert.True(second.GetProperty("success").GetBoolean());
         Assert.Equal(0, second.GetProperty("added").GetInt32());
-        Assert.Contains("covered a lot of ground", second.GetProperty("note").GetString());
+        var note = second.GetProperty("note").GetString();
+        Assert.Contains("No new questions this time", note);
+        // Hard, because that is what this helper asks for — so this also pins that the note reflects the
+        // requested combination rather than the generator's default.
+        Assert.Contains("Hard \u00b7 Technical", note);
+        Assert.DoesNotContain("Medium", note);
     }
 }

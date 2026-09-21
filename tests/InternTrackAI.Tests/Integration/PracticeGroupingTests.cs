@@ -424,6 +424,29 @@ public class PracticeGroupingTests
         Assert.Contains("You've answered everything that matches these filters.", html);
     }
 
+    [Fact]
+    public async Task The_manage_section_renders_inside_the_page_content_column()
+    {
+        // It shipped OUTSIDE .container-narrow, so on a wide screen it rendered full-bleed at x=0 while
+        // every other element started at x=250 — present in the DOM, aligned with nothing, and
+        // reported as "I can't find them anywhere". A width-independent assertion, because the bug was
+        // invisible at the narrow viewport it was first checked at.
+        using var h = new Harness();
+        var client = h.Client();
+        await h.SeedQuestion(await h.UserIdOf(await Http.RegisterAsync(client)), "A question?");
+
+        var html = await Page(client);
+
+        var containerAt = html.IndexOf("container-narrow", StringComparison.Ordinal);
+        var manageAt = html.IndexOf("practice-manage", StringComparison.Ordinal);
+        var containerClosesAt = html.LastIndexOf("</div>", StringComparison.Ordinal);
+
+        Assert.True(containerAt >= 0 && manageAt > containerAt,
+            "the manage section should render after the content container opens");
+        Assert.True(manageAt < containerClosesAt,
+            "the manage section should render inside the content container, not after it closes");
+    }
+
     // ── Managing practice data ───────────────────────────────────────────────
 
     private static async Task<HttpResponseMessage> Post(HttpClient client, string action)

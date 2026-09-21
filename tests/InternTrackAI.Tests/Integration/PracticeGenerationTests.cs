@@ -147,7 +147,10 @@ public class PracticeGenerationTests
 
         Assert.Equal(5, (await h.QuestionsOf(userId)).Count);   // the first batch only
         Assert.Empty(second.Questions);
-        Assert.Contains("covered a lot of ground", second.Note);
+        // The note names the exhausted combination, so "try another" points somewhere specific
+        // rather than at an unchanged count.
+        Assert.Contains("No new questions this time", second.Note);
+        Assert.Contains("Medium \u00b7 Technical", second.Note);
     }
 
     [Fact]

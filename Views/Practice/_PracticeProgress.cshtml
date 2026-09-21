@@ -11,7 +11,12 @@
     string Tone(double v) => v >= 4 ? "high" : v >= 3 ? "mid" : "low";
 }
 
-<div class="form-card practice-progress mb-3">
+@*
+    id is the swap target: /Practice/SubmitAnswer returns this partial re-rendered alongside the
+    answered card, because a progress card that goes stale the moment you answer is worse than one
+    that is obviously broken — the numbers still look authoritative.
+*@
+<div class="form-card practice-progress mb-3" id="practiceProgress">
     <p class="form-section-title">Your progress</p>
 
     <div class="practice-progress-stats">

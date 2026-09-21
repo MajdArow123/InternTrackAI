@@ -61,6 +61,41 @@ public static class AnswerFeedbackPrompt
         "Most real answers are a 2 or a 3. Do not give a 4 for an answer with no specifics in it, and do " +
         "not soften the score to be kind — a score that is always 4 tells the candidate nothing.";
 
+    /// <summary>
+    /// The rule that actually moves the score, and the only prompt change here that <b>measured</b> as
+    /// working. Kept separate from <see cref="ScoringRule"/> because it is a different kind of
+    /// instruction: it names a condition the model can <em>check</em> rather than a standard it must
+    /// judge.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Measured 2026-09-21, 6 real calls (`LiveScoringProbe`).</b> A junk answer from the production
+    /// smoke test — four fluent sentences, no specifics — scored <b>3/5</b> under the old prompt.
+    /// Rewriting the prose around the 2/3 boundary ("find the specific thing that earns a 3", "most
+    /// answers are a 2 or a 3") left it at <b>3/5</b>: no movement at all. This rule dropped it to
+    /// <b>2/5</b> while a genuinely specific answer stayed at <b>4/5</b> — stricter, not merely harsher,
+    /// which is the distinction only a real call can settle.
+    /// </para>
+    /// <para>
+    /// <b>The generalisable lesson, and it refines CLAUDE.md §8.</b> The dedupe runs concluded that
+    /// prompts do not steer. This is sharper: prompts asking for <em>judgement</em> ("is this generic?")
+    /// do not land, while prompts naming a <em>checkable condition</em> ("is there a number, a date, a
+    /// named tool, a situation that happened?") do. Before writing more prose at a model, ask whether
+    /// the instruction can be reduced to something it can look for.
+    /// </para>
+    /// <para>
+    /// It is appended <b>last</b>, after the JSON contract, because that is where it was measured. Do not
+    /// tidy it into <see cref="ScoringRule"/> without re-running the probe.
+    /// </para>
+    /// </remarks>
+    public const string ConcreteAnchorRule =
+        "HARD RULE, apply before anything else. Scan the answer for a CONCRETE ANCHOR: a number, " +
+        "a date or duration, a named tool/method/policy/product, a named role or person, or a specific " +
+        "situation the candidate says actually happened to them. " +
+        "If there is NO concrete anchor, the score is AT MOST 2, no matter how fluent, balanced or " +
+        "correct the answer is. State which anchor you found, or that you found none, as the first " +
+        "item in missingPoints.";
+
     public static string SystemPrompt =>
         "You are an experienced interviewer in the candidate's own field, scoring a practice answer. The " +
         "candidate may work in ANY field — technology, healthcare, trades, business, education, design, " +
@@ -111,6 +146,9 @@ public static class AnswerFeedbackPrompt
           .Append("- missingPoints: up to 3 things a strong answer would have covered and this one did not. Empty if nothing is missing.\n")
           .Append("- revisedOpening: rewrite their FIRST ONE OR TWO SENTENCES as a stronger opening, in their own voice and using their own details. Not a model answer to the whole question.\n")
           .Append("- Address the candidate as \"you\". Plain sentences, no markdown, no bullet characters.\n");
+
+        // Last, after the JSON contract, because that is the position it was measured in.
+        sb.Append('\n').Append(ConcreteAnchorRule);
 
         return sb.ToString();
     }

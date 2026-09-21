@@ -163,6 +163,31 @@ public class PracticeAnswerTests
         Assert.Contains(GoodAnswer, html);
     }
 
+    [Fact]
+    public async Task Submitting_returns_the_refreshed_progress_card_with_it()
+    {
+        // The bug this pins was found in production: SubmitAnswer swapped only the question card, so
+        // the progress card kept showing the pre-answer figures until a reload. Stale numbers in a card
+        // that reads as authoritative are worse than no card.
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 4)));
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+        var question = await h.Seed(userId);
+        await h.Seed(userId, "A second question nobody has answered?");
+
+        // Before: nothing answered.
+        var before = WebUtility.HtmlDecode(await (await client.GetAsync("/Practice")).Content.ReadAsStringAsync());
+        Assert.Contains("0<span class=\"practice-progress-of\">/2</span>", before.Replace("&quot;", "\""));
+
+        var body = await SubmitOk(client, question.Id, GoodAnswer);
+
+        var progress = WebUtility.HtmlDecode(body.GetProperty("progress").GetString()!);
+        Assert.Contains("id=\"practiceProgress\"", progress);
+        Assert.Contains("Your progress", progress);
+        Assert.Contains("1<span class=\"practice-progress-of\">/2</span>", progress.Replace("&quot;", "\""));
+        Assert.Contains("Average score", progress);
+    }
+
     [Theory]
     [InlineData(1, "practice-score--low")]
     [InlineData(3, "practice-score--mid")]

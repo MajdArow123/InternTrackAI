@@ -253,6 +253,20 @@
                     if (!replacement) throw new Error('Could not score that answer. Try again.');
 
                     card.replaceWith(replacement);
+
+                    // Answering changes every number on the progress card, so the server re-renders it
+                    // and we swap it too. Without this it keeps showing the pre-answer figures until a
+                    // reload, which is worse than showing nothing: they still look authoritative.
+                    if (data.progress) {
+                        const current = document.getElementById('practiceProgress');
+                        if (current) {
+                            const holder2 = document.createElement('div');
+                            holder2.innerHTML = data.progress;
+                            const fresh = holder2.firstElementChild;
+                            if (fresh) current.replaceWith(fresh);
+                        }
+                    }
+
                     replacement.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 })
                 .catch(function (err) {

@@ -312,6 +312,41 @@ public class DemoProfileResetTests
         Assert.Equal("Registered Nursing", profile.Field);
         Assert.NotNull(profile.ProfileLastEnrichedAt);
     }
+
+    [Fact]
+    public async Task A_demo_profile_that_never_had_a_field_gets_one_on_sign_in()
+    {
+        // The production case. The field-awareness columns arrived in Phase 1 as nullable and nothing
+        // backfilled the existing demo row, so the live demo profile had no Field until somebody signed
+        // in through DemoLogin. With no Field the generator is told to infer it from the posting, which
+        // is the documented null-field behaviour and looks broken to a visitor: one live batch came back
+        // spanning design, client comms, accounting, nursing and project management.
+        using var h = new DemoHarness();
+        var registrar = h.Client();
+        await Http.RegisterAsync(registrar, h.Email, DemoHarness.Password);
+        h.UserIdCache = await h.UserId();
+
+        using (var scope = h.Factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var profile = await db.UserProfiles.SingleAsync(p => p.UserId == h.UserIdCache);
+            profile.Field = null;
+            profile.FieldCategory = null;
+            profile.Seniority = null;
+            profile.YearsExperience = null;
+            profile.Location = null;
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Null((await h.Profile()).Field);
+
+        await h.SignIn();
+
+        var restored = await h.Profile();
+        Assert.Equal(DemoSeeder.Field, restored.Field);
+        Assert.Equal(DemoSeeder.Category, restored.FieldCategory);
+        Assert.Equal(DemoSeeder.Seniority, restored.Seniority);
+    }
 }
 
 /// <summary>

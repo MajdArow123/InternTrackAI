@@ -50,8 +50,14 @@ public class PracticeViewModel
     public QuestionCategory? Category { get; set; }
     public bool SavedOnly { get; set; }
 
+    /// <summary>Hides questions already scored, so what is left to do is what is on screen.</summary>
+    public bool HideAnswered { get; set; }
+
     /// <summary>Every question the user has, ignoring the filters — so an empty filtered list can say which case it is.</summary>
     public int TotalCount { get; set; }
+
+    /// <summary>How many "Clear unanswered" would actually remove, so the button can say a number rather than a promise.</summary>
+    public int ClearableCount { get; set; }
 
     public int ShownCount => Groups.Sum(g => g.Questions.Count);
 
@@ -59,7 +65,7 @@ public class PracticeViewModel
     public bool FilteredToNothing => HasAnyQuestions && ShownCount == 0;
 
     /// <summary>True when a filter is on that the empty state should offer to clear.</summary>
-    public bool HasActiveFilter => Difficulty is not null || Category is not null || SavedOnly;
+    public bool HasActiveFilter => Difficulty is not null || Category is not null || SavedOnly || HideAnswered;
 
     /// <summary>What "Get more" will produce, given the current filters. Unset falls back to the generator's defaults.</summary>
     public PracticeDifficulty NextDifficulty => Difficulty ?? PracticeDifficulty.Medium;

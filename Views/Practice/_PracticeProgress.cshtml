@@ -61,6 +61,16 @@
         }
     </div>
 
+    @*
+        Where you are, and a way to get to what's left. On a fifteen-card page finding the next
+        unanswered question otherwise means scrolling.
+    *@
+    <p class="practice-progress-index">
+        <a href="#" data-practice-jump="answered">@Model.Answered answered</a>
+        <span class="practice-progress-of"> &middot; </span>
+        <a href="#" data-practice-jump="unanswered">@(Model.Total - Model.Answered) unanswered</a>
+    </p>
+
     @if (Model.WeakestTopic is { } weakest && Model.WeakestTopicAverage is { } weakestAverage)
     {
         <p class="practice-progress-weakest">

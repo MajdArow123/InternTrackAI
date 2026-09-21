@@ -47,7 +47,8 @@
                     `<span class="salary-insight-range">${esc(data.range)}</span>` +
                     `<span class="salary-insight-note">${esc(data.note)}</span>`;
                 card.hidden = false;
-            } catch (_) {
+            } catch (err) {
+                rethrowIfBug(err);
                 errorEl.textContent = 'Request failed. Check your connection and try again.';
                 errorEl.hidden = false;
             } finally {

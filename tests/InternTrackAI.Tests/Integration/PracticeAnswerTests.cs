@@ -93,25 +93,28 @@ public class PracticeAnswerTests
         public void Dispose() { Factory.Dispose(); Parent.Dispose(); }
     }
 
-    private static async Task<HttpResponseMessage> Submit(HttpClient client, int questionId, string answer)
+    private static async Task<HttpResponseMessage> Submit(HttpClient client, int questionId, string answer, int? elapsedSeconds = null)
     {
         var token = await Http.GetAntiforgeryTokenAsync(client, "/Practice");
+        var fields = new Dictionary<string, string>
+        {
+            ["questionId"] = questionId.ToString(),
+            ["answer"] = answer,
+            ["__RequestVerificationToken"] = token
+        };
+        if (elapsedSeconds is { } e) fields["elapsedSeconds"] = e.ToString();
+
         var req = new HttpRequestMessage(HttpMethod.Post, "/Practice/SubmitAnswer")
         {
-            Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["questionId"] = questionId.ToString(),
-                ["answer"] = answer,
-                ["__RequestVerificationToken"] = token
-            })
+            Content = new FormUrlEncodedContent(fields)
         };
         req.Headers.Add("X-Requested-With", "XMLHttpRequest");
         return await client.SendAsync(req);
     }
 
-    private static async Task<System.Text.Json.JsonElement> SubmitOk(HttpClient client, int questionId, string answer)
+    private static async Task<System.Text.Json.JsonElement> SubmitOk(HttpClient client, int questionId, string answer, int? elapsedSeconds = null)
     {
-        var res = await Submit(client, questionId, answer);
+        var res = await Submit(client, questionId, answer, elapsedSeconds);
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
         return System.Text.Json.JsonDocument.Parse(await res.Content.ReadAsStringAsync()).RootElement;
     }
@@ -229,6 +232,182 @@ public class PracticeAnswerTests
         Assert.Contains("Name the protocol", h.Model.Prompts[0]);
     }
 
+    // ── Answer timing (§6) ───────────────────────────────────────────────────
+
+    [Fact]
+    public async Task A_reported_answer_time_is_stored_and_shown()
+    {
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 4)));
+        var client = h.Client();
+        var question = await h.Seed(await h.UserIdOf(await Http.RegisterAsync(client)));
+
+        var body = await SubmitOk(client, question.Id, GoodAnswer, elapsedSeconds: 134);
+
+        Assert.Equal(134, (await h.Reload(question.Id)).AnsweredInSeconds);
+        Assert.Contains("2m 14s", WebUtility.HtmlDecode(body.GetProperty("html").GetString()));
+    }
+
+    [Theory]
+    [InlineData(null, null)]      // not reported
+    [InlineData(0, null)]         // nonsense
+    [InlineData(-5, null)]        // hostile
+    [InlineData(99999, 3600)]     // a tab left open, clamped
+    [InlineData(45, 45)]
+    public async Task A_client_reported_time_is_bounded_rather_than_trusted(int? reported, int? expected)
+    {
+        // The browser measures this, so it is advisory. Nothing depends on it being truthful.
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 3)));
+        var client = h.Client();
+        var question = await h.Seed(await h.UserIdOf(await Http.RegisterAsync(client)));
+
+        await SubmitOk(client, question.Id, GoodAnswer, reported);
+
+        Assert.Equal(expected, (await h.Reload(question.Id)).AnsweredInSeconds);
+    }
+
+    [Fact]
+    public void The_clamp_is_pure_and_pinned()
+    {
+        Assert.Null(PracticeAnswerService.ElapsedSeconds(null));
+        Assert.Null(PracticeAnswerService.ElapsedSeconds(0));
+        Assert.Null(PracticeAnswerService.ElapsedSeconds(int.MinValue));
+        Assert.Equal(1, PracticeAnswerService.ElapsedSeconds(1));
+        Assert.Equal(PracticeAnswerService.MaxAnsweredSeconds, PracticeAnswerService.ElapsedSeconds(int.MaxValue));
+    }
+
+    // ── Collapse defaults (§5b) ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task A_freshly_scored_card_comes_back_expanded_but_reloads_collapsed()
+    {
+        // The rule: the card you just finished is the one worth reading, so it opens. Everything the
+        // page renders afterwards is history and stays folded, which is what keeps five answered
+        // questions scannable.
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 4)));
+        var client = h.Client();
+        var question = await h.Seed(await h.UserIdOf(await Http.RegisterAsync(client)));
+
+        var justScored = (await SubmitOk(client, question.Id, GoodAnswer)).GetProperty("html").GetString()!;
+        Assert.Contains("data-practice-feedback open", justScored);
+
+        var reloaded = await (await client.GetAsync("/Practice")).Content.ReadAsStringAsync();
+        Assert.Contains("data-practice-feedback", reloaded);
+        Assert.DoesNotContain("data-practice-feedback open", reloaded);
+    }
+
+    [Fact]
+    public async Task An_answered_card_is_marked_so_the_page_can_be_scanned()
+    {
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 2)));
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+        var question = await h.Seed(userId);
+        await h.Seed(userId, "Still unanswered?");
+
+        await SubmitOk(client, question.Id, GoodAnswer);
+        var html = await (await client.GetAsync("/Practice")).Content.ReadAsStringAsync();
+
+        Assert.Contains("practice-card--scored-low", html);      // 2 of 5
+        Assert.Contains("data-answered=\"true\"", html);
+        Assert.Contains("data-answered=\"false\"", html);
+    }
+
+    // ── The batch path (§2) ──────────────────────────────────────────────────
+
+    [Fact]
+    public async Task The_progress_endpoint_renders_the_card_on_its_own()
+    {
+        // The batch button calls this once after every answer has settled. Swapping the progress card
+        // per answer instead would make the numbers jitter as calls land out of order.
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 4)));
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+        var question = await h.Seed(userId);
+        await h.Seed(userId, "A second question?");
+
+        await SubmitOk(client, question.Id, GoodAnswer);
+
+        var res = await client.GetAsync("/Practice/Progress");
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+
+        var html = WebUtility.HtmlDecode(await res.Content.ReadAsStringAsync());
+        Assert.Contains("id=\"practiceProgress\"", html);
+        Assert.Contains("Your progress", html);
+        Assert.Contains("1<span class=\"practice-progress-of\">/2</span>", html);
+        Assert.DoesNotContain("practice-card", html);   // the card alone, not the list
+    }
+
+    [Fact]
+    public async Task One_rate_limited_answer_does_not_stop_the_others_from_being_stored()
+    {
+        // Partial failure is the normal case for a batch: the calls that fit are scored and the ones
+        // that do not say why, rather than the whole batch failing as a unit.
+        var parent = new TestAppFactory();
+        using var _ = parent;
+        var model = new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 4));
+        using var factory = parent.WithWebHostBuilder(b =>
+        {
+            b.UseSetting("OpenAI:ApiKey", "sk-test-not-a-real-key");
+            b.UseSetting("RateLimiting:AI:Practice:PermitLimit", "2");
+            b.UseSetting("RateLimiting:AI:Practice:WindowMinutes", "60");
+            b.ConfigureServices(services =>
+                services.AddHttpClient<AnswerFeedbackService>().ConfigurePrimaryHttpMessageHandler(() => model));
+        });
+
+        var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var email = await Http.RegisterAsync(client);
+
+        string userId;
+        using (var scope = factory.Services.CreateScope())
+            userId = (await scope.ServiceProvider.GetRequiredService<UserManager<IdentityUser>>().FindByEmailAsync(email))!.Id;
+
+        var ids = new List<int>();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            for (var i = 0; i < 3; i++)
+            {
+                var prompt = $"Batch question {i}?";
+                var q = new PracticeQuestion
+                {
+                    UserId = userId, Prompt = prompt, Topic = "triage", Category = QuestionCategory.Technical,
+                    Difficulty = PracticeDifficulty.Medium, PromptHash = QuestionHash.Of(prompt), CreatedAt = DateTime.UtcNow
+                };
+                db.PracticeQuestions.Add(q);
+                await db.SaveChangesAsync();
+                ids.Add(q.Id);
+            }
+        }
+
+        var statuses = new List<HttpStatusCode>();
+        foreach (var id in ids)
+        {
+            var tok = await Http.GetAntiforgeryTokenAsync(client, "/Practice");
+            var req = new HttpRequestMessage(HttpMethod.Post, "/Practice/SubmitAnswer")
+            {
+                Content = new FormUrlEncodedContent(new Dictionary<string, string>
+                {
+                    ["questionId"] = id.ToString(), ["answer"] = GoodAnswer, ["__RequestVerificationToken"] = tok
+                })
+            };
+            req.Headers.Add("X-Requested-With", "XMLHttpRequest");
+            statuses.Add((await client.SendAsync(req)).StatusCode);
+        }
+
+        Assert.Equal(new[] { HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.TooManyRequests }, statuses);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var stored = await db.PracticeQuestions.AsNoTracking().Where(q => q.UserId == userId).OrderBy(q => q.Id).ToListAsync();
+
+            // The two that fit are scored and durable; the third is untouched, not half-written.
+            Assert.Equal(2, stored.Count(q => q.AnsweredAt is not null));
+            Assert.Null(stored[^1].AnsweredAt);
+            Assert.Null(stored[^1].UserAnswer);
+        }
+    }
+
     // ── Retry and the capped history ─────────────────────────────────────────
 
     [Fact]
@@ -250,8 +429,36 @@ public class PracticeAnswerTests
         Assert.Equal(GoodAnswer, Assert.Single(history).Answer);
         Assert.Equal(2, history[0].Score);
 
-        Assert.Contains("Earlier attempt (1)", html);
-        Assert.Contains(GoodAnswer, html);
+        // Side by side, oldest first, with the current one marked — this is the comparison the stacked
+        // disclosure could not give: seeing what changed between a 2 and a 4 meant scrolling.
+        Assert.Contains("Your attempts", html);
+        Assert.Contains("Attempt 1", html);
+        Assert.Contains("Attempt 2 · latest", html);
+        Assert.Contains("practice-compare-col--current", html);
+        Assert.Contains(GoodAnswer, html);       // the earlier attempt
+        Assert.Contains(second, html);           // and the current one
+
+        // The earlier attempt reads before the current one, so left-to-right is the progression.
+        Assert.True(html.IndexOf(GoodAnswer, StringComparison.Ordinal) < html.IndexOf(second, StringComparison.Ordinal),
+            "attempts should render oldest first");
+
+        // One rendering of the current answer, not two: the comparison replaces the "Your answer" block.
+        Assert.DoesNotContain("Your answer</p>", html);
+    }
+
+    [Fact]
+    public async Task A_single_attempt_shows_the_plain_answer_not_a_comparison()
+    {
+        // Nothing to compare against, so the comparison track would be one lonely column.
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 4)));
+        var client = h.Client();
+        var question = await h.Seed(await h.UserIdOf(await Http.RegisterAsync(client)));
+
+        var html = WebUtility.HtmlDecode((await SubmitOk(client, question.Id, GoodAnswer)).GetProperty("html").GetString());
+
+        Assert.Contains("Your answer", html);
+        Assert.DoesNotContain("Your attempts", html);
+        Assert.DoesNotContain("practice-compare", html);
     }
 
     [Fact]

@@ -85,6 +85,17 @@ public class PracticeQuestion
     /// </remarks>
     public string? PriorAttemptsJson { get; set; }
 
+    /// <summary>
+    /// How long the answer took, first keystroke to submit, in seconds. Null when not reported.
+    /// </summary>
+    /// <remarks>
+    /// <b>Client-supplied and therefore advisory.</b> The browser measures it and the server clamps it
+    /// to a sane range (see <c>PracticeAnswerService</c>); nothing depends on it being truthful, and it
+    /// is shown as a muted label rather than as a result. Real interviews are timed, so the number is
+    /// useful feedback on its own — but it is not a score and must never become one.
+    /// </remarks>
+    public int? AnsweredInSeconds { get; set; }
+
     public bool IsSaved { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -336,6 +336,7 @@
             go(typeof index === 'number' && index > 0 ? index : 0, 1);
             return true;
         } catch (err) {
+            rethrowIfBug(err);
             if (window.console && console.error) console.error('[tour]', err);
             try { teardown(); } catch (e) { /* already gone */ }
             state = null;

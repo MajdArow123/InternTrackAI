@@ -78,7 +78,8 @@
                 outputSection.hidden = false;
                 outputSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
-            } catch (_) {
+            } catch (err) {
+                rethrowIfBug(err);
                 showError('Request failed. Check your connection and try again.');
             } finally {
                 setLoading(false);
@@ -131,7 +132,8 @@
                 updateWordCount();
                 improveInput.value = '';
 
-            } catch (_) {
+            } catch (err) {
+                rethrowIfBug(err);
                 improveError.textContent = 'Request failed. Check your connection and try again.';
                 improveError.hidden = false;
             } finally {
@@ -157,7 +159,8 @@
                 await navigator.clipboard.writeText(outputTA.value);
                 copyConfirm.hidden = false;
                 setTimeout(() => { copyConfirm.hidden = true; }, 2500);
-            } catch (_) {
+            } catch (err) {
+                rethrowIfBug(err);
                 outputTA.select();
                 document.execCommand('copy');
             }

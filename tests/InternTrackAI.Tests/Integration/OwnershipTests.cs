@@ -199,6 +199,20 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
     [Fact] public async Task Practice_SubmitAnswer_POST()       => await Assert404(await _f.Alice.PostAsync("/Practice/SubmitAnswer", _f.Form(("questionId", _f.BobPrepId.ToString()), ("answer", LongEnoughAnswer))));
     [Fact] public async Task Practice_ToggleSaved_POST()        => await Assert404(await _f.Alice.PostAsync("/Practice/ToggleSaved", _f.Form(("questionId", _f.BobPrepId.ToString()))));
 
+    // These take no id — they are scoped by the signed-in user — so the check is that Alice running
+    // them leaves Bob's rows alone. Covered behaviourally in PracticeGroupingTests; asserted here too
+    // because "takes no id" is exactly the shape that gets forgotten in an ownership review.
+    [Fact]
+    public async Task Practice_resets_only_touch_the_callers_own_questions()
+    {
+        await _f.Alice.PostAsync("/Practice/ClearUnanswered", _f.Form());
+        await _f.Alice.PostAsync("/Practice/DeleteAll", _f.Form());
+
+        using var scope = _f.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.NotNull(await db.PracticeQuestions.FirstOrDefaultAsync(q => q.Id == _f.BobPrepId));
+    }
+
     private const string LongEnoughAnswer = "An answer long enough to be worth sending to the grader at all.";
 
     // ── Profile documents ──

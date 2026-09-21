@@ -251,7 +251,9 @@ public class InterviewPrepController : Controller
             .FirstOrDefaultAsync(q => q.UserId == uid && q.PromptHash == hash);
 
         var result = row is not null
-            ? await _answers.SubmitAsync(uid, row, req.Answer, HttpContext.RequestAborted)
+            // No timing from the prep page: its inline script does not measure one, and inventing a
+            // value would be worse than leaving the column null.
+            ? await _answers.SubmitAsync(uid, row, req.Answer, elapsedSeconds: null, HttpContext.RequestAborted)
             : await _answers.EvaluateWithoutStoringAsync(
                   uid, req.Question, req.Answer, app.CompanyName, app.RoleTitle, HttpContext.RequestAborted);
 

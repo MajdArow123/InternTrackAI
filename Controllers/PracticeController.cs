@@ -48,7 +48,7 @@ public class PracticeController : Controller
     // ── GET /Practice ────────────────────────────────────
 
     [HttpGet]
-    public async Task<IActionResult> Index(string? difficulty, string? category, bool saved = false)
+    public async Task<IActionResult> Index(string? difficulty, string? category, bool saved = false, bool hideAnswered = false)
     {
         var userId = UserId();
         var selectedDifficulty = ParseDifficulty(difficulty);
@@ -58,6 +58,7 @@ public class PracticeController : Controller
         if (selectedDifficulty is { } d) query = query.Where(q => q.Difficulty == d);
         if (selectedCategory is { } c)   query = query.Where(q => q.Category == c);
         if (saved)                       query = query.Where(q => q.IsSaved);
+        if (hideAnswered)                query = query.Where(q => q.AnsweredAt == null);
 
         var questions = await query.OrderByDescending(q => q.Id).ToListAsync(HttpContext.RequestAborted);
 
@@ -67,8 +68,14 @@ public class PracticeController : Controller
             Progress   = await ProgressAsync(userId, HttpContext.RequestAborted),
             Difficulty = selectedDifficulty,
             Category   = selectedCategory,
-            SavedOnly  = saved,
-            TotalCount = await _db.PracticeQuestions.CountAsync(q => q.UserId == userId, HttpContext.RequestAborted)
+            SavedOnly    = saved,
+            HideAnswered = hideAnswered,
+            TotalCount = await _db.PracticeQuestions.CountAsync(q => q.UserId == userId, HttpContext.RequestAborted),
+
+            // Counted with the same predicate the delete uses, so the button can never promise a
+            // number it will not remove.
+            ClearableCount = await _db.PracticeQuestions
+                .CountAsync(q => q.UserId == userId && q.AnsweredAt == null && !q.IsSaved, HttpContext.RequestAborted)
         });
     }
 
@@ -109,8 +116,11 @@ public class PracticeController : Controller
                 Newest        = g.Max(q => q.Id),
                 Questions     = g.ToList()
             })
-            .OrderByDescending(g => g.ApplicationId is null ? 0 : 1)   // general practice last
-            .ThenByDescending(g => g.Newest)
+            // Newest first, and general practice is not special. It used to sort last, which meant
+            // questions generated from the page button — the common case, since they carry no
+            // ApplicationId — always rendered below every application group, i.e. underneath
+            // everything already answered.
+            .OrderByDescending(g => g.Newest)
             .Select(g =>
             {
                 applications.TryGetValue(g.ApplicationId ?? 0, out var app);
@@ -152,7 +162,7 @@ public class PracticeController : Controller
     /// becomes Medium/Technical rather than "any" — the generator needs one of each to write against.
     /// </remarks>
     [HttpPost, ValidateAntiForgeryToken]
-    [EnableRateLimiting(AiRateLimiting.PolicyName)]
+    [EnableRateLimiting(AiRateLimiting.PracticePolicyName)]
     public async Task<IActionResult> GenerateMore(string? difficulty, string? category, int? applicationId)
     {
         var userId = UserId();
@@ -194,8 +204,8 @@ public class PracticeController : Controller
     /// and a fresh submission cannot drift apart. The client swaps the card it submitted from.
     /// </remarks>
     [HttpPost, ValidateAntiForgeryToken]
-    [EnableRateLimiting(AiRateLimiting.PolicyName)]
-    public async Task<IActionResult> SubmitAnswer(int questionId, string? answer)
+    [EnableRateLimiting(AiRateLimiting.PracticePolicyName)]
+    public async Task<IActionResult> SubmitAnswer(int questionId, string? answer, int? elapsedSeconds = null)
     {
         var userId = UserId();
 
@@ -209,7 +219,7 @@ public class PracticeController : Controller
         if (question is null)
             return NotFound(new { success = false, error = "Question not found." });
 
-        var result = await _answers.SubmitAsync(userId, question, answer!, HttpContext.RequestAborted);
+        var result = await _answers.SubmitAsync(userId, question, answer!, elapsedSeconds, HttpContext.RequestAborted);
 
         if (!result.Success)
             return Json(new { success = false, error = result.Error });
@@ -221,11 +231,84 @@ public class PracticeController : Controller
         {
             success  = true,
             score    = result.Feedback!.Score,
-            html     = await this.RenderPartialAsync("_PracticeQuestion", question),
+            // Expanded because it was just scored — the one card you want to read right now. Cards
+            // rendered by Index come back collapsed, which is what keeps a page of finished questions
+            // scannable.
+            html     = await this.RenderPartialAsync("_PracticeQuestion", question,
+                           new Dictionary<string, object?> { ["Expanded"] = true }),
             progress = await this.RenderPartialAsync("_PracticeProgress",
                            await ProgressAsync(userId, HttpContext.RequestAborted))
         });
     }
+
+    // ── POST /Practice/ClearUnanswered ───────────────────
+
+    /// <summary>
+    /// Deletes questions the user never answered. <b>Answers, scores and history are untouched.</b>
+    /// </summary>
+    /// <remarks>
+    /// No confirm dialog, deliberately: nothing of the user's own work is in an unanswered question —
+    /// it is generated text they have not engaged with — and it is regenerable. <b>Saved questions
+    /// survive</b> even when unanswered: a star is an explicit "come back to this", and silently
+    /// dropping one under a no-confirm button would be a nasty surprise. The page says so next to the
+    /// button rather than leaving it to be discovered.
+    /// </remarks>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ClearUnanswered()
+    {
+        var userId = UserId();
+
+        var removed = await _db.PracticeQuestions
+            .Where(q => q.UserId == userId && q.AnsweredAt == null && !q.IsSaved)
+            .ExecuteDeleteAsync(HttpContext.RequestAborted);
+
+        TempData["Toast"] = removed == 0
+            ? "info|There were no unanswered questions to clear."
+            : $"success|Cleared {removed} unanswered question{(removed == 1 ? "" : "s")}. Your answers and saved questions are untouched.";
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    // ── POST /Practice/DeleteAll ─────────────────────────
+
+    /// <summary>
+    /// Deletes every practice question this user has, answers and scores included.
+    /// </summary>
+    /// <remarks>
+    /// The destructive one, and the only reason it is a separate action rather than a parameter on the
+    /// one above: a single button that sometimes keeps your history and sometimes does not is a button
+    /// nobody can trust. The view puts it behind the app's <c>data-confirm</c> dialog naming exactly
+    /// what goes, and both live in a collapsed section at the foot of the page so neither is a
+    /// mis-click away from "Get more questions".
+    /// </remarks>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAll()
+    {
+        var userId = UserId();
+
+        var removed = await _db.PracticeQuestions
+            .Where(q => q.UserId == userId)
+            .ExecuteDeleteAsync(HttpContext.RequestAborted);
+
+        TempData["Toast"] = removed == 0
+            ? "info|You had no practice questions to delete."
+            : $"success|Deleted all {removed} practice question{(removed == 1 ? "" : "s")}, with their answers and scores.";
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    // ── GET /Practice/Progress ───────────────────────────
+
+    /// <summary>The progress card on its own, re-rendered.</summary>
+    /// <remarks>
+    /// Exists for the batch button. Each <see cref="SubmitAnswer"/> returns a fresh progress card with
+    /// its answer, which is right for a single submission but wrong for a batch: swapping it N times
+    /// makes the numbers jitter as calls land out of order. The client ignores those during a batch and
+    /// calls this <b>once</b> after every answer has settled. No model call, so no rate limit.
+    /// </remarks>
+    [HttpGet]
+    public async Task<IActionResult> Progress() =>
+        PartialView("_PracticeProgress", await ProgressAsync(UserId(), HttpContext.RequestAborted));
 
     // ── POST /Practice/ToggleSaved ───────────────────────
 

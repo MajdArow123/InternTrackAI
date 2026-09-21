@@ -298,6 +298,216 @@ public class PracticeGroupingTests
         return count;
     }
 
+    // ── The denominator, pinned in both directions ───────────────────────────
+
+    [Fact]
+    public async Task The_denominator_grows_as_questions_are_added()
+    {
+        // Investigated after a report of 5/5 staying 5/5 across a second batch. The denominator was
+        // never the bug — a batch that stores nothing (rate-limited, or deduped to zero) leaves it
+        // unchanged, and both of those report themselves above the list. Pinned because it is exactly
+        // the kind of thing that drifts.
+        using var h = new Harness();
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+
+        for (var i = 0; i < 5; i++)
+            await h.SeedQuestion(userId, $"First batch {i}?", score: i == 0 ? 3 : null);
+
+        // The Answered stat specifically — "/5" on its own also matches the score-out-of-5 beside it.
+        const string answeredOf = "<span class=\"practice-progress-of\">";
+        Assert.Contains($"1{answeredOf}/5</span>", await Page(client));
+
+        for (var i = 0; i < 5; i++)
+            await h.SeedQuestion(userId, $"Second batch {i}?");
+
+        var after = await Page(client);
+        Assert.Contains($"1{answeredOf}/10</span>", after);
+        Assert.DoesNotContain($"1{answeredOf}/5</span>", after);
+    }
+
+    [Theory]
+    [InlineData("/Practice?difficulty=Hard")]
+    [InlineData("/Practice?category=Behavioral")]
+    [InlineData("/Practice?saved=true")]
+    [InlineData("/Practice?hideAnswered=true")]
+    public async Task The_denominator_ignores_every_filter(string url)
+    {
+        // It is progress, not a summary of the current view. A denominator that moved with the filters
+        // would make the card lie about how much is left.
+        using var h = new Harness();
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+
+        await h.SeedQuestion(userId, "Easy technical unsaved unanswered?", difficulty: PracticeDifficulty.Easy);
+        await h.SeedQuestion(userId, "Hard technical saved answered?", difficulty: PracticeDifficulty.Hard, score: 4, saved: true);
+        await h.SeedQuestion(userId, "Medium technical unsaved answered?", score: 2);
+
+        Assert.Contains("<span class=\"practice-progress-of\">/3</span>", await Page(client, url));
+    }
+
+    [Fact]
+    public async Task Generating_more_questions_never_deletes_the_answered_ones()
+    {
+        // Answered questions are the history progress and saved questions are built on.
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Questions(("A brand new question?", "new topic"))));
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+        var answered = await h.SeedQuestion(userId, "An answered question?", score: 5, saved: true);
+
+        var token = await Http.GetAntiforgeryTokenAsync(client, "/Practice");
+        var req = new HttpRequestMessage(HttpMethod.Post, "/Practice/GenerateMore")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["difficulty"] = "Medium", ["category"] = "Technical", ["__RequestVerificationToken"] = token
+            })
+        };
+        req.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(req)).StatusCode);
+
+        var still = await h.Reload(answered.Id);
+        Assert.Equal(5, still.Score);
+        Assert.True(still.IsSaved);
+        Assert.NotNull(still.AnsweredAt);
+    }
+
+    // ── Ordering (§4) ────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task The_group_that_most_recently_got_questions_is_first()
+    {
+        // General practice used to sort last unconditionally, so questions generated from the page
+        // button — which carry no ApplicationId — always rendered below every application group, i.e.
+        // underneath everything already finished.
+        using var h = new Harness();
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+
+        var appId = await h.SeedApplication(userId, "Sunnybrook", "Student Nurse");
+        await h.SeedQuestion(userId, "An older application question?", appId);
+        await h.SeedQuestion(userId, "A newer general question?");
+
+        var html = await Page(client);
+
+        Assert.True(html.IndexOf("A newer general question?", StringComparison.Ordinal)
+                    < html.IndexOf("An older application question?", StringComparison.Ordinal),
+            "the newest group should render first");
+    }
+
+    [Fact]
+    public async Task Hide_answered_leaves_only_what_is_left_to_do()
+    {
+        using var h = new Harness();
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+
+        await h.SeedQuestion(userId, "Already scored?", score: 4);
+        await h.SeedQuestion(userId, "Still to do?");
+
+        var html = await Page(client, "/Practice?hideAnswered=true");
+
+        Assert.Contains("Still to do?", html);
+        Assert.DoesNotContain("Already scored?", html);
+    }
+
+    [Fact]
+    public async Task Hiding_answered_when_everything_is_answered_says_so()
+    {
+        using var h = new Harness();
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+        await h.SeedQuestion(userId, "The only question, already scored?", score: 4);
+
+        var html = await Page(client, "/Practice?hideAnswered=true");
+
+        Assert.Contains("You've answered everything that matches these filters.", html);
+    }
+
+    // ── Managing practice data ───────────────────────────────────────────────
+
+    private static async Task<HttpResponseMessage> Post(HttpClient client, string action)
+    {
+        var token = await Http.GetAntiforgeryTokenAsync(client, "/Practice");
+        return await client.PostAsync($"/Practice/{action}",
+            new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token }));
+    }
+
+    [Fact]
+    public async Task Clearing_unanswered_keeps_every_answer_score_and_star()
+    {
+        // The whole point of splitting the two buttons: this one must never cost anything the user did.
+        using var h = new Harness();
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+
+        var answered = await h.SeedQuestion(userId, "Answered, keep me?", score: 4);
+        var savedUnanswered = await h.SeedQuestion(userId, "Starred but unanswered, keep me?", saved: true);
+        var plain = await h.SeedQuestion(userId, "Plain unanswered, clear me?");
+
+        Assert.Equal(HttpStatusCode.Redirect, (await Post(client, "ClearUnanswered")).StatusCode);
+
+        Assert.Equal(4, (await h.Reload(answered.Id)).Score);
+        Assert.True((await h.Reload(savedUnanswered.Id)).IsSaved);
+
+        using var scope = h.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Null(await db.PracticeQuestions.FirstOrDefaultAsync(q => q.Id == plain.Id));
+        Assert.Equal(2, await db.PracticeQuestions.CountAsync(q => q.UserId == userId));
+    }
+
+    [Fact]
+    public async Task Deleting_everything_removes_answers_and_scores_too()
+    {
+        using var h = new Harness();
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+
+        await h.SeedQuestion(userId, "Answered?", score: 5, saved: true);
+        await h.SeedQuestion(userId, "Unanswered?");
+
+        Assert.Equal(HttpStatusCode.Redirect, (await Post(client, "DeleteAll")).StatusCode);
+
+        using var scope = h.Factory.Services.CreateScope();
+        Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>()
+            .PracticeQuestions.CountAsync(q => q.UserId == userId));
+    }
+
+    [Fact]
+    public async Task Neither_reset_touches_another_users_questions()
+    {
+        using var h = new Harness();
+
+        var bob = h.Client();
+        var bobsQuestion = await h.SeedQuestion(await h.UserIdOf(await Http.RegisterAsync(bob)), "Bob's question?");
+
+        var alice = h.Client();
+        var aliceId = await h.UserIdOf(await Http.RegisterAsync(alice));
+        await h.SeedQuestion(aliceId, "Alice's question?");
+
+        await Post(alice, "ClearUnanswered");
+        await Post(alice, "DeleteAll");
+
+        Assert.NotNull(await h.Reload(bobsQuestion.Id));
+    }
+
+    [Fact]
+    public async Task The_clear_button_counts_what_it_will_actually_remove()
+    {
+        // The count and the delete use the same predicate, so the button can't promise a number it
+        // won't deliver.
+        using var h = new Harness();
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+
+        await h.SeedQuestion(userId, "Answered?", score: 3);
+        await h.SeedQuestion(userId, "Saved?", saved: true);
+        await h.SeedQuestion(userId, "Clearable one?");
+        await h.SeedQuestion(userId, "Clearable two?");
+
+        Assert.Contains("Clear 2 unanswered questions", await Page(client));
+    }
+
     // ── Saved questions (§5.4) ───────────────────────────────────────────────
 
     private static async Task<HttpResponseMessage> Toggle(HttpClient client, int questionId)

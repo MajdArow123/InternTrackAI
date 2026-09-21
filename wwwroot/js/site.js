@@ -3,6 +3,26 @@
 
 // Write your JavaScript code.
 
+// Re-throws an error that a catch block was never written to handle.
+//
+// Why this exists: a guard against one failure will happily hide a different one. An autosave helper
+// here wrapped localStorage in try/catch to survive a private window, and that catch silently
+// swallowed a ReferenceError from a const in its temporal dead zone — so drafts never restored and
+// nothing anywhere reported a problem. The same shape is all over this file's neighbours: the job
+// analyzer wraps ~39 statements in one try and answers every one of them with "Request failed. Check
+// your connection", so a TypeError while rendering a result would send the user to look at their wifi.
+//
+// ReferenceError is the one that is *always* a bug: an undefined identifier or a TDZ access is never a
+// runtime condition anyone writes a catch for. It is therefore safe to re-throw from any catch.
+// TypeError and SyntaxError are deliberately NOT re-thrown here, because they are legitimate expected
+// failures in this codebase — fetch() rejects with TypeError when the network is down, and JSON.parse
+// throws SyntaxError on a bad body. Callers that know neither applies to them re-throw those too.
+//
+// Usage: `catch (err) { rethrowIfBug(err); ...normal handling... }`
+function rethrowIfBug(err) {
+    if (err instanceof ReferenceError) throw err;
+}
+
 // Global toast helper for AJAX flows (the server-rendered TempData toast in _Layout.cshtml
 // only fires on a full page load, so AJAX-driven saves call this instead).
 function showAppToast(type, message) {

@@ -71,6 +71,11 @@
             </div>
         </div>
 
+        <div class="practice-bulk-toggle" id="practiceBulkToggle" hidden>
+            <button type="button" class="practice-filter" data-practice-toggle-all="collapse">Collapse all</button>
+            <button type="button" class="practice-filter" data-practice-toggle-all="expand">Expand all</button>
+        </div>
+
         <form id="practiceGenerateForm" class="mt-3">
             @Html.AntiForgeryToken()
             <input type="hidden" name="difficulty" value="@Model.NextDifficulty" />

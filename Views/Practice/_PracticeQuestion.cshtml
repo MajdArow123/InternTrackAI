@@ -17,9 +17,16 @@
 
     var score = Model.Score ?? 0;
     var scoreTone = score >= 4 ? "high" : score == 3 ? "mid" : "low";
+
+    // Set only by SubmitAnswer, for the card just scored. Everything Index renders comes back
+    // collapsed — five answered cards expanded is a very long page, and the one you want open is the
+    // one you just finished.
+    var expanded = ViewData["Expanded"] as bool? ?? false;
 }
 
-<div class="practice-card" data-question-id="@Model.Id">
+<div class="practice-card @(answered ? $"practice-card--scored-{scoreTone}" : "")"
+     data-question-id="@Model.Id"
+     data-answered="@(answered ? "true" : "false")">
     <div class="practice-card-meta">
         <span class="practice-badge practice-badge--@Model.Difficulty.ToString().ToLowerInvariant()">@Model.Difficulty</span>
         <span class="practice-badge practice-badge--category">@QuestionCategories.Display(Model.Category)</span>
@@ -48,7 +55,12 @@
 
     @if (answered && feedback is not null)
     {
-        <div class="practice-answered">
+        <details class="practice-answered" data-practice-feedback open="@(expanded ? "open" : null)">
+            <summary class="practice-answered-summary">
+                <span class="practice-answered-summary-open">Hide feedback</span>
+                <span class="practice-answered-summary-closed">Show feedback</span>
+            </summary>
+
             <div class="practice-answer-given">
                 <p class="practice-answer-label">Your answer</p>
                 <p class="practice-answer-text">@Model.UserAnswer</p>
@@ -114,7 +126,7 @@
             }
 
             <button type="button" class="btn btn-outline-primary btn-sm mt-2" data-practice-retry>Retry this question</button>
-        </div>
+        </details>
     }
 
     @*
@@ -161,7 +173,11 @@
 
     @if (!string.IsNullOrWhiteSpace(Model.ModelHint))
     {
-        <details class="practice-hint" open="@(answered ? "open" : null)">
+        @*
+            Opens with the feedback, not merely because the question was answered. Once the answered
+            body folds away, a hint hanging open underneath a collapsed card contradicts it.
+        *@
+        <details class="practice-hint" open="@(expanded ? "open" : null)">
             <summary>What a strong answer covers</summary>
             <p class="practice-hint-body">@Model.ModelHint</p>
         </details>

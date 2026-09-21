@@ -229,6 +229,43 @@ public class PracticeAnswerTests
         Assert.Contains("Name the protocol", h.Model.Prompts[0]);
     }
 
+    // ── Collapse defaults (§5b) ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task A_freshly_scored_card_comes_back_expanded_but_reloads_collapsed()
+    {
+        // The rule: the card you just finished is the one worth reading, so it opens. Everything the
+        // page renders afterwards is history and stays folded, which is what keeps five answered
+        // questions scannable.
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 4)));
+        var client = h.Client();
+        var question = await h.Seed(await h.UserIdOf(await Http.RegisterAsync(client)));
+
+        var justScored = (await SubmitOk(client, question.Id, GoodAnswer)).GetProperty("html").GetString()!;
+        Assert.Contains("data-practice-feedback open", justScored);
+
+        var reloaded = await (await client.GetAsync("/Practice")).Content.ReadAsStringAsync();
+        Assert.Contains("data-practice-feedback", reloaded);
+        Assert.DoesNotContain("data-practice-feedback open", reloaded);
+    }
+
+    [Fact]
+    public async Task An_answered_card_is_marked_so_the_page_can_be_scanned()
+    {
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 2)));
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+        var question = await h.Seed(userId);
+        await h.Seed(userId, "Still unanswered?");
+
+        await SubmitOk(client, question.Id, GoodAnswer);
+        var html = await (await client.GetAsync("/Practice")).Content.ReadAsStringAsync();
+
+        Assert.Contains("practice-card--scored-low", html);      // 2 of 5
+        Assert.Contains("data-answered=\"true\"", html);
+        Assert.Contains("data-answered=\"false\"", html);
+    }
+
     // ── The batch path (§2) ──────────────────────────────────────────────────
 
     [Fact]

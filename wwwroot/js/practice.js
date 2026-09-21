@@ -152,6 +152,37 @@
             refreshBar();
         });
 
+        // ── Collapse / expand ────────────────────────────────────────────────
+        const bulk = document.getElementById('practiceBulkToggle');
+
+        function refreshBulk() {
+            if (bulk) bulk.hidden = list.querySelectorAll('[data-practice-feedback]').length === 0;
+        }
+
+        document.addEventListener('click', function (e) {
+            const toggle = e.target.closest('[data-practice-toggle-all]');
+            if (!toggle) return;
+            const open = toggle.dataset.practiceToggleAll === 'expand';
+            list.querySelectorAll('[data-practice-feedback]').forEach(function (d) { d.open = open; });
+        });
+
+        // The index in the progress card. Jumps to the first card of that kind rather than scrolling.
+        document.addEventListener('click', function (e) {
+            const jump = e.target.closest('[data-practice-jump]');
+            if (!jump) return;
+            e.preventDefault();
+
+            const wantAnswered = jump.dataset.practiceJump === 'answered';
+            const target = Array.from(list.querySelectorAll('.practice-card'))
+                .find(function (c) { return (c.dataset.answered === 'true') === wantAnswered; });
+
+            if (target) {
+                target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                target.classList.add('practice-card--flash');
+                setTimeout(function () { target.classList.remove('practice-card--flash'); }, 1200);
+            }
+        });
+
         // Star toggle. The server returns the state it landed in rather than the state asked for, so a
         // fast double-click cannot leave the button and the row disagreeing.
         list.addEventListener('click', function (e) {
@@ -272,8 +303,9 @@
 
         // Appended and replaced cards change what is pending, and a restored draft can make the bar
         // relevant before the user types anything.
-        window.practiceRefreshBatchBar = refreshBar;
+        window.practiceRefreshBatchBar = function () { refreshBar(); refreshBulk(); };
         refreshBar();
+        refreshBulk();
 
         if (batchBtn) {
             batchBtn.addEventListener('click', function () {

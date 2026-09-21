@@ -4761,6 +4761,38 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
 
 .practice-answered { margin-top: .75rem; }
 
+/* The disclosure. Its summary reads as a quiet control, not a heading — the score chip above is
+   what carries the result at a glance. */
+.practice-answered-summary {
+  font-size: .8667rem;
+  font-weight: 500;
+  color: var(--accent-text);
+  cursor: pointer;
+  margin-bottom: .5rem;
+}
+.practice-answered-summary-open { display: none; }
+.practice-answered[open] .practice-answered-summary-open { display: inline; }
+.practice-answered[open] .practice-answered-summary-closed { display: none; }
+
+.practice-bulk-toggle { display: flex; gap: .4rem; margin-top: .75rem; }
+.practice-bulk-toggle .practice-filter { border: 0; font: inherit; cursor: pointer; }
+
+.practice-progress-index { margin: 0 0 .7rem; font-size: .8667rem; }
+.practice-progress-index a { color: var(--accent-text); text-decoration: none; }
+.practice-progress-index a:hover { text-decoration: underline; }
+
+/* Answered cards carry a left edge in the score's colour, so a page of them can be scanned without
+   reading any of them. */
+.practice-card--scored-low  { border-left: 3px solid var(--danger); }
+.practice-card--scored-mid  { border-left: 3px solid var(--warning); }
+.practice-card--scored-high { border-left: 3px solid var(--success); }
+
+.practice-card--flash { animation: practice-flash 1.2s var(--ease); }
+@keyframes practice-flash {
+  0%, 100% { box-shadow: var(--shadow-xs); }
+  30%      { box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-xs); }
+}
+
 .practice-answer-label {
   margin: 0 0 .2rem;
   font-size: .8rem;

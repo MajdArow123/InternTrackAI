@@ -226,7 +226,11 @@ public class PracticeController : Controller
         {
             success  = true,
             score    = result.Feedback!.Score,
-            html     = await this.RenderPartialAsync("_PracticeQuestion", question),
+            // Expanded because it was just scored — the one card you want to read right now. Cards
+            // rendered by Index come back collapsed, which is what keeps a page of finished questions
+            // scannable.
+            html     = await this.RenderPartialAsync("_PracticeQuestion", question,
+                           new Dictionary<string, object?> { ["Expanded"] = true }),
             progress = await this.RenderPartialAsync("_PracticeProgress",
                            await ProgressAsync(userId, HttpContext.RequestAborted))
         });

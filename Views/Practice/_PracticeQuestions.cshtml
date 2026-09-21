@@ -1,27 +1,10 @@
 @model List<InternTrackAI.Models.PracticeQuestion>
-@using InternTrackAI.Models.Enums
 @*
-    One question card per row. Rendered both on first load and by /Practice/GenerateMore, so the
-    markup for a card exists exactly once — the client appends this HTML rather than rebuilding it.
+    The list. One card each, rendered through _PracticeQuestion so that the card's markup — including
+    its answered state — exists exactly once: this loop, /Practice/GenerateMore and
+    /Practice/SubmitAnswer all render the same partial.
 *@
 @foreach (var q in Model)
 {
-    <div class="practice-card" data-question-id="@q.Id">
-        <div class="practice-card-meta">
-            <span class="practice-badge practice-badge--@q.Difficulty.ToString().ToLowerInvariant()">@q.Difficulty</span>
-            <span class="practice-badge practice-badge--category">@QuestionCategories.Display(q.Category)</span>
-            @if (!string.IsNullOrWhiteSpace(q.Topic))
-            {
-                <span class="practice-topic">@q.Topic</span>
-            }
-        </div>
-        <p class="practice-prompt">@q.Prompt</p>
-        @if (!string.IsNullOrWhiteSpace(q.ModelHint))
-        {
-            <details class="practice-hint">
-                <summary>What a strong answer covers</summary>
-                <p class="practice-hint-body">@q.ModelHint</p>
-            </details>
-        }
-    </div>
+    <partial name="_PracticeQuestion" model="q" />
 }

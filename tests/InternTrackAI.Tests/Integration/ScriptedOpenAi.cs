@@ -37,6 +37,22 @@ public sealed class ScriptedOpenAi : HttpMessageHandler
             questions = questions.Select(q => new { prompt = q.Prompt, topic = q.Topic, modelHint = new[] { "a point", "another point" } })
         });
 
+    /// <summary>Builds the JSON body the answer grader expects. Improvements default to the two it asks for.</summary>
+    public static string Feedback(
+        int score = 3,
+        string[]? strengths = null,
+        string[]? improvements = null,
+        string[]? missingPoints = null,
+        string revisedOpening = "On the night shift, I was the only nurse covering triage.") =>
+        JsonSerializer.Serialize(new
+        {
+            score,
+            strengths     = strengths     ?? new[] { "You gave a concrete example." },
+            improvements  = improvements  ?? new[] { "Say what the outcome was.", "Name the protocol." },
+            missingPoints = missingPoints ?? new[] { "How you escalated." },
+            revisedOpening
+        });
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var sent = await request.Content!.ReadAsStringAsync(cancellationToken);

@@ -1,0 +1,158 @@
+@model InternTrackAI.Models.PracticeQuestion
+@using InternTrackAI.Models.Enums
+@using InternTrackAI.Services
+@*
+    One question card, in whichever state it is in. Rendered on first load, by /Practice/GenerateMore
+    and by /Practice/SubmitAnswer — which is why the answered state lives here rather than in JS: the
+    card a user has just answered is built by the same code as the card they reload the page to.
+*@
+@{
+    var answered = Model.AnsweredAt is not null;
+
+    // FromJson never throws, so a row whose stored feedback is unreadable renders as a thin card
+    // rather than 500-ing the page it appears on.
+    var feedback = answered ? AnswerFeedback.FromJson(Model.AiFeedback) : null;
+    var improvements = feedback?.Improvements.Where(i => i.Length > 0).ToList() ?? new List<string>();
+    var attempts = AttemptHistory.Read(Model.PriorAttemptsJson);
+
+    var score = Model.Score ?? 0;
+    var scoreTone = score >= 4 ? "high" : score == 3 ? "mid" : "low";
+}
+
+<div class="practice-card" data-question-id="@Model.Id">
+    <div class="practice-card-meta">
+        <span class="practice-badge practice-badge--@Model.Difficulty.ToString().ToLowerInvariant()">@Model.Difficulty</span>
+        <span class="practice-badge practice-badge--category">@QuestionCategories.Display(Model.Category)</span>
+        @if (!string.IsNullOrWhiteSpace(Model.Topic))
+        {
+            <span class="practice-topic">@Model.Topic</span>
+        }
+        @if (answered)
+        {
+            <span class="practice-score practice-score--@scoreTone" title="Your score on this answer">@score<span class="practice-score-max">/@AnswerFeedback.MaxScore</span></span>
+        }
+    </div>
+
+    <p class="practice-prompt">@Model.Prompt</p>
+
+    @if (answered && feedback is not null)
+    {
+        <div class="practice-answered">
+            <div class="practice-answer-given">
+                <p class="practice-answer-label">Your answer</p>
+                <p class="practice-answer-text">@Model.UserAnswer</p>
+            </div>
+
+            @if (feedback.Strengths.Any())
+            {
+                <div class="practice-feedback-block">
+                    <p class="practice-answer-label">What worked</p>
+                    <ul class="practice-feedback-list">
+                        @foreach (var s in feedback.Strengths) { <li>@s</li> }
+                    </ul>
+                </div>
+            }
+
+            @if (improvements.Any())
+            {
+                <div class="practice-feedback-block">
+                    <p class="practice-answer-label">@(improvements.Count == 1 ? "One thing to change" : "Two things to change")</p>
+                    <ul class="practice-feedback-list">
+                        @foreach (var i in improvements) { <li>@i</li> }
+                    </ul>
+                </div>
+            }
+
+            @if (feedback.MissingPoints.Any())
+            {
+                <div class="practice-feedback-block">
+                    <p class="practice-answer-label">What you left out</p>
+                    <ul class="practice-feedback-list">
+                        @foreach (var m in feedback.MissingPoints) { <li>@m</li> }
+                    </ul>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(feedback.RevisedOpening))
+            {
+                <div class="practice-feedback-block">
+                    <p class="practice-answer-label">A stronger opening</p>
+                    <blockquote class="practice-revised">@feedback.RevisedOpening</blockquote>
+                </div>
+            }
+
+            @if (attempts.Any())
+            {
+                @*
+                    Collapsed: the point of keeping these is "what did I say last time", which you look
+                    up deliberately. Capped at AttemptHistory.Keep, so this never grows a scrollbar.
+                *@
+                <details class="practice-attempts">
+                    <summary>Earlier attempt@(attempts.Count == 1 ? "" : "s") (@attempts.Count)</summary>
+                    @foreach (var a in attempts)
+                    {
+                        <div class="practice-attempt">
+                            <p class="practice-attempt-meta">
+                                <span class="practice-score practice-score--@(a.Score >= 4 ? "high" : a.Score == 3 ? "mid" : "low")">@a.Score<span class="practice-score-max">/@AnswerFeedback.MaxScore</span></span>
+                                <span class="practice-attempt-when">@a.AnsweredAt.ToString("d MMM yyyy")</span>
+                            </p>
+                            <p class="practice-answer-text">@a.Answer</p>
+                        </div>
+                    }
+                </details>
+            }
+
+            <button type="button" class="btn btn-outline-primary btn-sm mt-2" data-practice-retry>Retry this question</button>
+        </div>
+    }
+
+    @*
+        One form per card, always in the markup. When the question is answered it starts hidden and
+        "Retry this question" reveals it, which is why retrying needs no round trip: the previous attempt
+        only rotates into history when the next one is submitted.
+    *@
+    <form class="practice-answer-form" data-practice-answer-form hidden="@(answered ? "hidden" : null)">
+        <label class="practice-answer-label" for="practice-answer-@Model.Id">
+            @(answered ? "Try it again" : "Your answer")
+        </label>
+        <textarea id="practice-answer-@Model.Id" name="answer" class="practice-answer-input" rows="5"
+                  maxlength="@PracticeAnswerService.MaxAnswerChars"
+                  placeholder="Answer as you would out loud…"></textarea>
+
+        @if (Model.Category == QuestionCategory.Behavioral)
+        {
+            @*
+                Collapsed, not expanded: a scaffold on every behavioural card is noise to someone who
+                already structures their answers this way.
+            *@
+            <details class="practice-star">
+                <summary>Structure it with STAR</summary>
+                <ul class="practice-star-list">
+                    <li><strong>Situation</strong> — where you were and what was going on.</li>
+                    <li><strong>Task</strong> — what you were responsible for.</li>
+                    <li><strong>Action</strong> — what you actually did, in the first person.</li>
+                    <li><strong>Result</strong> — how it turned out, with a number or a consequence.</li>
+                </ul>
+            </details>
+        }
+
+        <div class="practice-answer-actions">
+            <button type="submit" class="btn btn-primary btn-sm" data-practice-submit disabled>
+                <span data-practice-submit-label>Get feedback</span>
+            </button>
+            <span class="form-hint mt-0" data-practice-counter>
+                0 / @PracticeAnswerService.MinAnswerChars characters
+            </span>
+        </div>
+
+        <div class="match-error-banner mt-2" data-practice-answer-error hidden></div>
+    </form>
+
+    @if (!string.IsNullOrWhiteSpace(Model.ModelHint))
+    {
+        <details class="practice-hint" open="@(answered ? "open" : null)">
+            <summary>What a strong answer covers</summary>
+            <p class="practice-hint-body">@Model.ModelHint</p>
+        </details>
+    }
+</div>

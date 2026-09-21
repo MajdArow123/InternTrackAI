@@ -22,15 +22,18 @@ public class InterviewPrepController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly InterviewPrepService _service;
+    private readonly PracticeAnswerService _answers;
     private readonly ResumeTextService _resumeText;
     private readonly IUserContextBuilder _userContext;
     private readonly ILogger<InterviewPrepController> _logger;
 
-    public InterviewPrepController(ApplicationDbContext db, InterviewPrepService service, ResumeTextService resumeText,
-                                   IUserContextBuilder userContext, ILogger<InterviewPrepController> logger)
+    public InterviewPrepController(ApplicationDbContext db, InterviewPrepService service, PracticeAnswerService answers,
+                                   ResumeTextService resumeText, IUserContextBuilder userContext,
+                                   ILogger<InterviewPrepController> logger)
     {
         _db      = db;
         _service = service;
+        _answers = answers;
         _resumeText = resumeText;
         _userContext = userContext;
         _logger = logger;
@@ -209,34 +212,53 @@ public class InterviewPrepController : Controller
     }
 
     /// <summary>
-    /// Critiques the candidate's typed practice answer to a single interview question, acting as
-    /// an AI coach. Stateless — feedback is not persisted, since this is meant for in-the-moment
-    /// practice rather than a saved history.
+    /// Scores the candidate's typed answer to one interview question on this page.
     /// </summary>
-    /// <param name="req">The application id (for company/role context), the question being
-    /// answered, and the candidate's answer text.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>The URL and the response shape are unchanged</b> — <c>{ success, feedback }</c> with feedback as
+    /// plain text — because <c>Prep.cshtml</c>'s inline script renders straight from it and moving that
+    /// script to <c>wwwroot/js</c> is deliberately a separate change. Underneath, this now goes through
+    /// <see cref="PracticeAnswerService"/>, the same path the practice page uses, and
+    /// <see cref="AnswerFeedback.ToPlainText"/> flattens the result back to the shape the page expects.
+    /// </para>
+    /// <para>
+    /// <b>The attempt is persisted now.</b> The row is found by hashing the submitted question text: this
+    /// page renders from <see cref="PracticeQuestion"/> rows and the unique index is
+    /// <c>(UserId, PromptHash)</c>, so the lookup is exact and indexed. When nothing matches — a page
+    /// left open across a regenerate — the answer is still scored, just not stored. Until the inline
+    /// script is rewritten, a stored answer is only <em>visible</em> on <c>/Practice</c>.
+    /// </para>
+    /// </remarks>
     [HttpPost]
     [ValidateAntiForgeryToken]
     [EnableRateLimiting(AiRateLimiting.PolicyName)]
     public async Task<IActionResult> CritiqueAnswer([FromBody] CritiqueAnswerRequest req)
     {
-        if (string.IsNullOrWhiteSpace(req.Answer))
-            return Json(new { success = false, error = "Type an answer first." });
-
         var uid = UserId();
+
+        // Checked before the application is loaded so a too-short answer costs nothing.
+        if (PracticeAnswerService.Validate(req.Answer) is { } invalid)
+            return Json(new { success = false, error = invalid });
+
         var app = await _db.JobApplications
             .FirstOrDefaultAsync(a => a.Id == req.AppId && a.UserId == uid);
         if (app is null)
             return NotFound(new { success = false, error = "Application not found." });
 
-        var (success, feedback, error) = await _service.CritiqueAnswerAsync(
-            req.Question, req.Answer, app.RoleTitle, app.CompanyName,
-            await _userContext.BuildAsync(uid, HttpContext.RequestAborted));
+        var hash = QuestionHash.Of(req.Question);
+        var row = hash.Length == 0 ? null : await _db.PracticeQuestions
+            .FirstOrDefaultAsync(q => q.UserId == uid && q.PromptHash == hash);
 
-        if (!success)
-            return Json(new { success = false, error });
+        var result = row is not null
+            ? await _answers.SubmitAsync(uid, row, req.Answer, HttpContext.RequestAborted)
+            : await _answers.EvaluateWithoutStoringAsync(
+                  uid, req.Question, req.Answer, app.CompanyName, app.RoleTitle, HttpContext.RequestAborted);
 
-        return Json(new { success = true, feedback });
+        if (!result.Success)
+            return Json(new { success = false, error = result.Error });
+
+        return Json(new { success = true, feedback = result.Feedback!.ToPlainText() });
     }
 }
 

@@ -168,6 +168,8 @@ builder.Services.AddHttpClient<FollowUpService>();   // "Draft follow-up" modal 
 builder.Services.AddHttpClient<ResumeRewriteService>();   // "Rewrite a bullet" on the profile Resume card (no storage)
 builder.Services.AddHttpClient<InterviewPrepService>();
 builder.Services.AddHttpClient<PracticeQuestionService>();   // practice generation + the three dedupe layers
+builder.Services.AddHttpClient<AnswerFeedbackService>();     // scores a practice answer; the app's only answer-feedback prompt
+builder.Services.AddScoped<PracticeAnswerService>();         // the only path that writes an answer to a PracticeQuestion
 builder.Services.AddHttpClient<IProfileExtractor, ProfileExtractorService>();
 builder.Services.AddScoped<ProfileAutoFillService>();   // the ONLY writer of AI output to a profile, and only from a confirmed review
 builder.Services.AddScoped<ResumeParseService>();       // resume text -> ParsedResume draft; never touches the profile

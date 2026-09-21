@@ -4637,3 +4637,119 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
   cursor: pointer;
 }
 .practice-hint-body { margin: .4rem 0 0; font-size: .8667rem; line-height: 1.45; color: var(--text-2); }
+
+/* ── Answering a practice question ───────────────────────────────────────────
+   Score chip, feedback sections, retry history and the answer form. Three tones only
+   (1-2 / 3 / 4-5) so the chip reads at a glance; the tints are the existing semantic
+   tokens rather than new colours, which is what keeps both themes working for free. */
+
+.practice-score {
+  margin-left: auto;
+  padding: .15em .55em;
+  border-radius: var(--radius-pill);
+  font-size: .7333rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.practice-score--low  { background: var(--danger-soft);  color: var(--danger-text); }
+.practice-score--mid  { background: var(--warning-soft); color: var(--warning-text); }
+.practice-score--high { background: var(--success-soft); color: var(--success-text); }
+.practice-score-max { font-weight: 500; opacity: .75; }
+
+.practice-answered { margin-top: .75rem; }
+
+.practice-answer-label {
+  margin: 0 0 .2rem;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.practice-answer-text {
+  margin: 0;
+  font-size: .8667rem;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.practice-answer-given {
+  padding: .6rem .75rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+
+.practice-feedback-block { margin-top: .75rem; }
+.practice-feedback-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: .8667rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}
+.practice-feedback-list li + li { margin-top: .25rem; }
+
+.practice-revised {
+  margin: 0;
+  padding: .5rem .75rem;
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  font-size: .8667rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.practice-attempts { margin-top: .85rem; }
+.practice-attempts summary {
+  font-size: .8667rem;
+  font-weight: 500;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.practice-attempt { margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--border); }
+.practice-attempt-meta { display: flex; align-items: center; gap: .5rem; margin: 0 0 .25rem; }
+.practice-attempt-meta .practice-score { margin-left: 0; }
+.practice-attempt-when { font-size: .8rem; color: var(--muted-2); }
+
+.practice-answer-form { margin-top: .85rem; }
+
+/* Same treatment as .prep-answer-input, whose tokens and dark-theme override are already tuned. */
+.practice-answer-input {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: .6rem .8rem;
+  font-size: .9333rem;
+  color: var(--text);
+  background: var(--card);
+  font-family: inherit;
+  line-height: 1.5;
+  transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+}
+.practice-answer-input::placeholder { color: var(--muted-2); }
+.practice-answer-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+html[data-theme="dark"] .practice-answer-input { background: var(--surface-3); }
+
+.practice-answer-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .6rem;
+  margin-top: .5rem;
+}
+
+.practice-star { margin-top: .5rem; }
+.practice-star summary {
+  font-size: .8667rem;
+  font-weight: 500;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.practice-star-list {
+  margin: .4rem 0 0;
+  padding-left: 1.1rem;
+  font-size: .8667rem;
+  line-height: 1.5;
+  color: var(--text-2);
+}

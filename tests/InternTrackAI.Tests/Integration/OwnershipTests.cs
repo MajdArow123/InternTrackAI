@@ -191,7 +191,14 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
     // ── InterviewPrep ──
     [Fact] public async Task InterviewPrep_Prep_GET()          => await Assert404(await _f.Alice.GetAsync($"/InterviewPrep/Prep?appId={_f.BobAppId}"));
     [Fact] public async Task InterviewPrep_Generate_POST()     => await Assert404(await _f.Alice.SendAsync(_f.JsonPost("/InterviewPrep/Generate", new { appId = _f.BobAppId })));
-    [Fact] public async Task InterviewPrep_Critique_POST()     => await Assert404(await _f.Alice.SendAsync(_f.JsonPost("/InterviewPrep/CritiqueAnswer", new { appId = _f.BobAppId, question = "Q?", answer = "My answer." })));
+    [Fact] public async Task InterviewPrep_Critique_POST()     => await Assert404(await _f.Alice.SendAsync(_f.JsonPost("/InterviewPrep/CritiqueAnswer", new { appId = _f.BobAppId, question = "Q?", answer = LongEnoughAnswer })));
+
+    // ── Practice ──
+    // The answer clears PracticeAnswerService.MinAnswerChars on purpose: the length rule is checked
+    // first, so a short answer would be rejected before ownership was ever tested.
+    [Fact] public async Task Practice_SubmitAnswer_POST()       => await Assert404(await _f.Alice.PostAsync("/Practice/SubmitAnswer", _f.Form(("questionId", _f.BobPrepId.ToString()), ("answer", LongEnoughAnswer))));
+
+    private const string LongEnoughAnswer = "An answer long enough to be worth sending to the grader at all.";
 
     // ── Profile documents ──
     [Fact] public async Task Profile_DownloadResume_GET()      => await Assert404(await _f.Alice.GetAsync($"/Profile/DownloadResume/{_f.BobResumeId}"));

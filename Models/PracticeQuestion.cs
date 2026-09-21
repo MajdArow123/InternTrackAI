@@ -71,6 +71,20 @@ public class PracticeQuestion
 
     public DateTime? AnsweredAt { get; set; }
 
+    /// <summary>
+    /// The last <see cref="Services.AttemptHistory.Keep"/> superseded attempts, newest first, as JSON —
+    /// null until the question has been answered a second time. The <em>current</em> attempt lives in the
+    /// four columns above; this is only what it replaced.
+    /// </summary>
+    /// <remarks>
+    /// A nullable text column rather than an attempts table, deliberately: retry history is read only as
+    /// part of the question it belongs to and never queried across rows, and a nullable string is the one
+    /// migration shape free of all three things that have actually broken on PostgreSQL in this repo
+    /// (identity columns, DateTime, bool). Capped for the same reason parsed resume drafts are pruned to
+    /// three — an unbounded list in a column is an unbounded column.
+    /// </remarks>
+    public string? PriorAttemptsJson { get; set; }
+
     public bool IsSaved { get; set; }
     public DateTime CreatedAt { get; set; }
 }

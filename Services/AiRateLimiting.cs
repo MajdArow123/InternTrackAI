@@ -89,6 +89,36 @@ public sealed class AiUsageLimiter : IDisposable
 }
 
 /// <summary>
+/// The wall-clock cap on one OpenAI call, and the extension every AI <c>HttpClient</c> registration
+/// carries.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>Without this an AI client inherits <see cref="HttpClient"/>'s 100-second default</b>, which is
+/// not a timeout anyone chose: a hung connection holds the request — and the user's spinner — for the
+/// better part of two minutes, and it is the same order as Railway's own
+/// <c>healthcheckTimeout</c>. Every other outbound client in this app already caps itself
+/// (<c>ResendEmailSender</c> and <c>GitHubService</c> at 10s, <c>UrlFetcher</c> at 15s); the AI ones
+/// were the gap.
+/// </para>
+/// <para>
+/// 30 seconds is the spec's number and is comfortably above what these calls take —
+/// <c>max_tokens</c> is 200–2000 across the services, so a normal reply lands in a few seconds. A
+/// generation that has not answered in 30s is not going to produce something the user still wants.
+/// <c>CaptureController</c> caps its own analyzer call tighter (<c>Capture:AnalyzeTimeoutSeconds</c>,
+/// default 15) because a bookmarklet round-trip has a person waiting on a redirect.
+/// </para>
+/// </remarks>
+public static class AiHttpDefaults
+{
+    public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>Applies <see cref="Timeout"/>. Every AI client registration in Program.cs ends with this.</summary>
+    public static IHttpClientBuilder AiTimeout(this IHttpClientBuilder builder) =>
+        builder.ConfigureHttpClient(c => c.Timeout = Timeout);
+}
+
+/// <summary>
 /// Wires ASP.NET Core's built-in rate limiter with a single named policy, <see cref="PolicyName"/>,
 /// partitioned by the signed-in user's id (falling back to the client IP for anonymous callers,
 /// which the [Authorize] filters normally turn away first). The partitions are views over

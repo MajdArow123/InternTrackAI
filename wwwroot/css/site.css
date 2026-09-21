@@ -4846,17 +4846,38 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
   color: var(--text);
 }
 
-.practice-attempts { margin-top: .85rem; }
-.practice-attempts summary {
-  font-size: .8667rem;
-  font-weight: 500;
-  color: var(--accent-text);
-  cursor: pointer;
+.practice-attempt-when { font-size: .8rem; color: var(--muted-2); margin: 0 0 .35rem; }
+
+/* Attempts side by side. A horizontal scroll rather than a stack at narrow widths on purpose: a
+   stack is what this replaces, so collapsing to one on a phone would give back the same
+   non-comparison. Capped at AttemptHistory.Keep + 1 columns, so the track never grows unbounded. */
+.practice-compare { margin-bottom: .25rem; }
+.practice-compare-track {
+  display: flex;
+  gap: .6rem;
+  overflow-x: auto;
+  padding-bottom: .35rem;
+  scroll-snap-type: x proximity;
 }
-.practice-attempt { margin-top: .6rem; padding-top: .6rem; border-top: 1px solid var(--border); }
-.practice-attempt-meta { display: flex; align-items: center; gap: .5rem; margin: 0 0 .25rem; }
-.practice-attempt-meta .practice-score { margin-left: 0; }
-.practice-attempt-when { font-size: .8rem; color: var(--muted-2); }
+.practice-compare-col {
+  flex: 0 0 min(15rem, 78%);
+  scroll-snap-align: start;
+  padding: .6rem .75rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+}
+.practice-compare-col--current {
+  background: var(--accent-surface);
+  box-shadow: inset 0 0 0 1px var(--accent-soft);
+}
+.practice-compare-head {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  margin: 0 0 .15rem;
+}
+.practice-compare-head .practice-score { margin-left: auto; }
+.practice-compare-n { font-size: .8rem; font-weight: 600; color: var(--text-2); }
 
 .practice-answer-form { margin-top: .85rem; }
 

@@ -429,8 +429,36 @@ public class PracticeAnswerTests
         Assert.Equal(GoodAnswer, Assert.Single(history).Answer);
         Assert.Equal(2, history[0].Score);
 
-        Assert.Contains("Earlier attempt (1)", html);
-        Assert.Contains(GoodAnswer, html);
+        // Side by side, oldest first, with the current one marked — this is the comparison the stacked
+        // disclosure could not give: seeing what changed between a 2 and a 4 meant scrolling.
+        Assert.Contains("Your attempts", html);
+        Assert.Contains("Attempt 1", html);
+        Assert.Contains("Attempt 2 · latest", html);
+        Assert.Contains("practice-compare-col--current", html);
+        Assert.Contains(GoodAnswer, html);       // the earlier attempt
+        Assert.Contains(second, html);           // and the current one
+
+        // The earlier attempt reads before the current one, so left-to-right is the progression.
+        Assert.True(html.IndexOf(GoodAnswer, StringComparison.Ordinal) < html.IndexOf(second, StringComparison.Ordinal),
+            "attempts should render oldest first");
+
+        // One rendering of the current answer, not two: the comparison replaces the "Your answer" block.
+        Assert.DoesNotContain("Your answer</p>", html);
+    }
+
+    [Fact]
+    public async Task A_single_attempt_shows_the_plain_answer_not_a_comparison()
+    {
+        // Nothing to compare against, so the comparison track would be one lonely column.
+        using var h = new Harness(new ScriptedOpenAi(ScriptedOpenAi.Feedback(score: 4)));
+        var client = h.Client();
+        var question = await h.Seed(await h.UserIdOf(await Http.RegisterAsync(client)));
+
+        var html = WebUtility.HtmlDecode((await SubmitOk(client, question.Id, GoodAnswer)).GetProperty("html").GetString());
+
+        Assert.Contains("Your answer", html);
+        Assert.DoesNotContain("Your attempts", html);
+        Assert.DoesNotContain("practice-compare", html);
     }
 
     [Fact]

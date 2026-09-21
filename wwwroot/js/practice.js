@@ -16,19 +16,30 @@
 
     function draftKey(id) { return DRAFT_PREFIX + id; }
 
+    // Stricter than rethrowIfBug: inside a localStorage call neither ReferenceError nor TypeError is
+    // an expected condition. A blocked or full store throws a DOMException (SecurityError,
+    // QuotaExceededError), so anything else here is a bug and must not be disguised as "no draft".
+    function storageBug(err) {
+        if (err instanceof ReferenceError || err instanceof TypeError) throw err;
+    }
+
     function readDraft(id) {
-        try { return localStorage.getItem(draftKey(id)); } catch (_) { return null; }
+        try { return localStorage.getItem(draftKey(id)); }
+        catch (err) { storageBug(err); return null; }
     }
 
     function saveDraft(id, text) {
         try {
             if (text && text.trim().length > 0) localStorage.setItem(draftKey(id), text);
             else localStorage.removeItem(draftKey(id));
-        } catch (_) { /* full, blocked, or private mode — the draft is a convenience, not a feature */ }
+        } catch (err) {
+            storageBug(err);
+            /* full, blocked, or private mode — the draft is a convenience, not a feature */
+        }
     }
 
     function clearDraft(id) {
-        try { localStorage.removeItem(draftKey(id)); } catch (_) { }
+        try { localStorage.removeItem(draftKey(id)); } catch (err) { storageBug(err); }
     }
 
     // First keystroke per card, so the reported duration is time spent answering rather than time the
@@ -71,10 +82,20 @@
             : 'Get more questions';
     }
 
-    function show(el, text) {
+    /// Shows a generate outcome in the banner, and as a toast when the banner is off-screen.
+    ///
+    /// The banner lives in the filter card at the top of the page, but "Get more" can now be pressed
+    /// from the foot of the list or from a group header — hundreds of pixels below it. Pressing one of
+    /// those and having the only feedback render off-screen looks exactly like the button doing
+    /// nothing, which is how a rate-limited generate got mistaken for a broken progress card.
+    function show(el, text, tone) {
         if (!text) { el.hidden = true; return; }
         el.textContent = text;
         el.hidden = false;
+
+        const box = el.getBoundingClientRect();
+        const onScreen = box.top >= 0 && box.bottom <= (window.innerHeight || document.documentElement.clientHeight);
+        if (!onScreen && typeof showAppToast === 'function') showAppToast(tone || 'info', text);
     }
 
     form.addEventListener('submit', function (e) {
@@ -122,11 +143,11 @@
             })
             .then(function (data) {
                 if (!data.success) {
-                    show(error, data.error || 'Could not generate questions. Try again.');
+                    show(error, data.error || 'Could not generate questions. Try again.', 'error');
                     return;
                 }
 
-                show(note, data.note);
+                show(note, data.note, 'info');
 
                 if (!data.html || !data.added) return;
 
@@ -157,7 +178,8 @@
                 if (window.practiceRefreshBatchBar) window.practiceRefreshBatchBar();
             })
             .catch(function (err) {
-                show(error, err.message || 'Request failed. Check your connection and try again.');
+                rethrowIfBug(err);
+                show(error, err.message || 'Request failed. Check your connection and try again.', 'error');
             })
             .finally(function () { setBusy(false); });
     }
@@ -252,7 +274,8 @@
                     if (!data.success) throw new Error(data.error || 'Could not save that question.');
                     paintStar(star, data.saved);
                 })
-                .catch(function () {
+                .catch(function (err) {
+                    rethrowIfBug(err);
                     // Nothing destructive happened, and an error banner on a star is heavier than the
                     // action deserves. The button simply stays as it was.
                     showAppToast('error', 'Could not save that question. Try again.');
@@ -339,6 +362,7 @@
                     return true;
                 })
                 .catch(function (err) {
+                    rethrowIfBug(err);
                     busy.remove();
                     cardForm.hidden = false;
                     const error = cardForm.querySelector('[data-practice-answer-error]');
@@ -528,6 +552,7 @@
                     if (window.practiceRefreshBatchBar) window.practiceRefreshBatchBar();
                 })
                 .catch(function (err) {
+                    rethrowIfBug(err);
                     cardForm.dataset.inFlight = '0';
                     if (label) label.textContent = 'Get feedback';
                     refresh(cardForm);

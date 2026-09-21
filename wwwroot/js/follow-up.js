@@ -230,7 +230,8 @@
     async function copy(text, message, fallbackField) {
         try {
             await navigator.clipboard.writeText(text);
-        } catch (_) {
+        } catch (err) {
+            rethrowIfBug(err);
             fallbackField.select();
             document.execCommand('copy');
         }

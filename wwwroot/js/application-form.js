@@ -98,7 +98,8 @@
                 } else {
                     showError(data.error || 'Analysis failed. Please try again.');
                 }
-            } catch (_) {
+            } catch (err) {
+                rethrowIfBug(err);
                 showError('Request failed. Check your connection and try again.');
             } finally {
                 setLoading(false);
@@ -279,6 +280,7 @@
                 document.getElementById('hiddenMatchingSkillsJson').value = JSON.stringify(d.matchingSkills || []);
                 document.getElementById('hiddenMissingSkillsJson').value = JSON.stringify(d.missingSkills || []);
             } catch (err) {
+                rethrowIfBug(err);
                 card.innerHTML = '<p class="js-error-text">Resume match request failed. Please try again.</p>';
             }
         }

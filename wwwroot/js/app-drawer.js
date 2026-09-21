@@ -149,7 +149,8 @@
         try {
             const arr = JSON.parse(raw || '[]');
             return Array.isArray(arr) ? arr : [];
-        } catch (_) {
+        } catch (err) {
+            rethrowIfBug(err);
             return [];
         }
     }

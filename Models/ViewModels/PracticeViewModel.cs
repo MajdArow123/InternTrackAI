@@ -56,6 +56,9 @@ public class PracticeViewModel
     /// <summary>Every question the user has, ignoring the filters — so an empty filtered list can say which case it is.</summary>
     public int TotalCount { get; set; }
 
+    /// <summary>How many "Clear unanswered" would actually remove, so the button can say a number rather than a promise.</summary>
+    public int ClearableCount { get; set; }
+
     public int ShownCount => Groups.Sum(g => g.Questions.Count);
 
     public bool HasAnyQuestions => TotalCount > 0;

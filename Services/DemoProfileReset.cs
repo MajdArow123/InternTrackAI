@@ -57,9 +57,20 @@ public class DemoProfileReset
     /// resume-parse drafts. Returns false when there is no profile row to restore.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Drafts go too: an unapplied draft from a stranger would greet the next visitor with a
     /// "Resume analysis waiting for you" card for a review they never ran, which is a confusing
     /// first impression of the one screen this demo exists to show off.
+    /// </para>
+    /// <para>
+    /// <b>So do practice questions</b>, for the same reason and more strongly. The demo account is
+    /// shared, so without this a visitor opens <c>/Practice</c> to a stranger's answers, a progress
+    /// card reporting someone else's average and weakest topic, and their starred questions. Worse, the
+    /// questions were generated against whatever field the previous visitor's session had, so a
+    /// software visitor could land on a page of nursing questions. <see cref="DemoSeeder"/> seeds none,
+    /// so clearing them is the correct starting state rather than a lossy reset: the visitor generates
+    /// their own, which is the feature.
+    /// </para>
     /// </remarks>
     public async Task<bool> RestoreAsync(string userId, CancellationToken ct = default)
     {
@@ -72,6 +83,11 @@ public class DemoProfileReset
         if (drafts.Count > 0) _db.ParsedResumes.RemoveRange(drafts);
 
         await _db.SaveChangesAsync(ct);
+
+        // Separate from the save above: ExecuteDelete runs its own statement and does not participate
+        // in the change tracker, so mixing the two in one SaveChanges would be misleading.
+        await _db.PracticeQuestions.Where(q => q.UserId == userId).ExecuteDeleteAsync(ct);
+
         return true;
     }
 

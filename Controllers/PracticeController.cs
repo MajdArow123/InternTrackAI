@@ -70,7 +70,12 @@ public class PracticeController : Controller
             Category   = selectedCategory,
             SavedOnly    = saved,
             HideAnswered = hideAnswered,
-            TotalCount = await _db.PracticeQuestions.CountAsync(q => q.UserId == userId, HttpContext.RequestAborted)
+            TotalCount = await _db.PracticeQuestions.CountAsync(q => q.UserId == userId, HttpContext.RequestAborted),
+
+            // Counted with the same predicate the delete uses, so the button can never promise a
+            // number it will not remove.
+            ClearableCount = await _db.PracticeQuestions
+                .CountAsync(q => q.UserId == userId && q.AnsweredAt == null && !q.IsSaved, HttpContext.RequestAborted)
         });
     }
 
@@ -234,6 +239,62 @@ public class PracticeController : Controller
             progress = await this.RenderPartialAsync("_PracticeProgress",
                            await ProgressAsync(userId, HttpContext.RequestAborted))
         });
+    }
+
+    // ── POST /Practice/ClearUnanswered ───────────────────
+
+    /// <summary>
+    /// Deletes questions the user never answered. <b>Answers, scores and history are untouched.</b>
+    /// </summary>
+    /// <remarks>
+    /// No confirm dialog, deliberately: nothing of the user's own work is in an unanswered question —
+    /// it is generated text they have not engaged with — and it is regenerable. <b>Saved questions
+    /// survive</b> even when unanswered: a star is an explicit "come back to this", and silently
+    /// dropping one under a no-confirm button would be a nasty surprise. The page says so next to the
+    /// button rather than leaving it to be discovered.
+    /// </remarks>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> ClearUnanswered()
+    {
+        var userId = UserId();
+
+        var removed = await _db.PracticeQuestions
+            .Where(q => q.UserId == userId && q.AnsweredAt == null && !q.IsSaved)
+            .ExecuteDeleteAsync(HttpContext.RequestAborted);
+
+        TempData["Toast"] = removed == 0
+            ? "info|There were no unanswered questions to clear."
+            : $"success|Cleared {removed} unanswered question{(removed == 1 ? "" : "s")}. Your answers and saved questions are untouched.";
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    // ── POST /Practice/DeleteAll ─────────────────────────
+
+    /// <summary>
+    /// Deletes every practice question this user has, answers and scores included.
+    /// </summary>
+    /// <remarks>
+    /// The destructive one, and the only reason it is a separate action rather than a parameter on the
+    /// one above: a single button that sometimes keeps your history and sometimes does not is a button
+    /// nobody can trust. The view puts it behind the app's <c>data-confirm</c> dialog naming exactly
+    /// what goes, and both live in a collapsed section at the foot of the page so neither is a
+    /// mis-click away from "Get more questions".
+    /// </remarks>
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteAll()
+    {
+        var userId = UserId();
+
+        var removed = await _db.PracticeQuestions
+            .Where(q => q.UserId == userId)
+            .ExecuteDeleteAsync(HttpContext.RequestAborted);
+
+        TempData["Toast"] = removed == 0
+            ? "info|You had no practice questions to delete."
+            : $"success|Deleted all {removed} practice question{(removed == 1 ? "" : "s")}, with their answers and scores.";
+
+        return RedirectToAction(nameof(Index));
     }
 
     // ── GET /Practice/Progress ───────────────────────────

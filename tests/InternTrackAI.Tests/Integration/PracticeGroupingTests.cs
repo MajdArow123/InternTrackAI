@@ -424,6 +424,90 @@ public class PracticeGroupingTests
         Assert.Contains("You've answered everything that matches these filters.", html);
     }
 
+    // ── Managing practice data ───────────────────────────────────────────────
+
+    private static async Task<HttpResponseMessage> Post(HttpClient client, string action)
+    {
+        var token = await Http.GetAntiforgeryTokenAsync(client, "/Practice");
+        return await client.PostAsync($"/Practice/{action}",
+            new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token }));
+    }
+
+    [Fact]
+    public async Task Clearing_unanswered_keeps_every_answer_score_and_star()
+    {
+        // The whole point of splitting the two buttons: this one must never cost anything the user did.
+        using var h = new Harness();
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+
+        var answered = await h.SeedQuestion(userId, "Answered, keep me?", score: 4);
+        var savedUnanswered = await h.SeedQuestion(userId, "Starred but unanswered, keep me?", saved: true);
+        var plain = await h.SeedQuestion(userId, "Plain unanswered, clear me?");
+
+        Assert.Equal(HttpStatusCode.Redirect, (await Post(client, "ClearUnanswered")).StatusCode);
+
+        Assert.Equal(4, (await h.Reload(answered.Id)).Score);
+        Assert.True((await h.Reload(savedUnanswered.Id)).IsSaved);
+
+        using var scope = h.Factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Assert.Null(await db.PracticeQuestions.FirstOrDefaultAsync(q => q.Id == plain.Id));
+        Assert.Equal(2, await db.PracticeQuestions.CountAsync(q => q.UserId == userId));
+    }
+
+    [Fact]
+    public async Task Deleting_everything_removes_answers_and_scores_too()
+    {
+        using var h = new Harness();
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+
+        await h.SeedQuestion(userId, "Answered?", score: 5, saved: true);
+        await h.SeedQuestion(userId, "Unanswered?");
+
+        Assert.Equal(HttpStatusCode.Redirect, (await Post(client, "DeleteAll")).StatusCode);
+
+        using var scope = h.Factory.Services.CreateScope();
+        Assert.Equal(0, await scope.ServiceProvider.GetRequiredService<ApplicationDbContext>()
+            .PracticeQuestions.CountAsync(q => q.UserId == userId));
+    }
+
+    [Fact]
+    public async Task Neither_reset_touches_another_users_questions()
+    {
+        using var h = new Harness();
+
+        var bob = h.Client();
+        var bobsQuestion = await h.SeedQuestion(await h.UserIdOf(await Http.RegisterAsync(bob)), "Bob's question?");
+
+        var alice = h.Client();
+        var aliceId = await h.UserIdOf(await Http.RegisterAsync(alice));
+        await h.SeedQuestion(aliceId, "Alice's question?");
+
+        await Post(alice, "ClearUnanswered");
+        await Post(alice, "DeleteAll");
+
+        Assert.NotNull(await h.Reload(bobsQuestion.Id));
+    }
+
+    [Fact]
+    public async Task The_clear_button_counts_what_it_will_actually_remove()
+    {
+        // The count and the delete use the same predicate, so the button can't promise a number it
+        // won't deliver.
+        using var h = new Harness();
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+
+        await h.SeedQuestion(userId, "Answered?", score: 3);
+        await h.SeedQuestion(userId, "Saved?", saved: true);
+        await h.SeedQuestion(userId, "Clearable one?");
+        await h.SeedQuestion(userId, "Clearable two?");
+
+        Assert.Contains("Clear 2 unanswered questions", await Page(client));
+    }
+
     // ── Saved questions (§5.4) ───────────────────────────────────────────────
 
     private static async Task<HttpResponseMessage> Toggle(HttpClient client, int questionId)

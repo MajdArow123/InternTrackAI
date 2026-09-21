@@ -314,6 +314,43 @@ public class DemoProfileResetTests
     }
 
     [Fact]
+    public async Task A_new_demo_session_does_not_inherit_the_last_visitors_practice()
+    {
+        // The demo account is shared. Without this a visitor opens /Practice to a stranger's answers, a
+        // progress card reporting someone else's average and weakest topic, and their starred
+        // questions — and the questions were generated against whatever field that session had, so a
+        // software visitor could land on a page of nursing questions.
+        var h = await Ready();
+        using var _ = h;
+
+        using (var scope = h.Factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.PracticeQuestions.Add(new PracticeQuestion
+            {
+                UserId = h.UserIdCache,
+                Prompt = "A question the previous visitor generated and answered?",
+                Topic = "someone else's topic",
+                PromptHash = QuestionHash.Of("A question the previous visitor generated and answered?"),
+                CreatedAt = DateTime.UtcNow,
+                UserAnswer = "Their answer, which the next visitor must not see.",
+                Score = 5,
+                AnsweredAt = DateTime.UtcNow,
+                IsSaved = true
+            });
+            await db.SaveChangesAsync();
+        }
+
+        await h.SignIn();
+
+        using (var scope = h.Factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.Equal(0, await db.PracticeQuestions.CountAsync(q => q.UserId == h.UserIdCache));
+        }
+    }
+
+    [Fact]
     public async Task A_demo_profile_that_never_had_a_field_gets_one_on_sign_in()
     {
         // The production case. The field-awareness columns arrived in Phase 1 as nullable and nothing

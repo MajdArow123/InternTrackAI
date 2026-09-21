@@ -4626,6 +4626,17 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 
 .practice-group { display: flex; flex-direction: column; gap: .75rem; }
 
+.practice-manage { margin-top: 1.5rem; }
+.practice-manage-summary {
+  font-size: .8667rem;
+  font-weight: 500;
+  color: var(--text-2);
+  cursor: pointer;
+}
+.practice-manage-body { display: flex; flex-direction: column; gap: 1rem; margin-top: .9rem; }
+.practice-manage-action { padding-top: .9rem; border-top: 1px solid var(--border); }
+.practice-manage-action:first-child { padding-top: 0; border-top: 0; }
+
 .practice-batch-bar {
   position: sticky;
   bottom: 0;

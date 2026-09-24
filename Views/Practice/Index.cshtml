@@ -145,6 +145,13 @@
         {
             <p class="form-section-title form-section-title--sm mb-1">No questions yet</p>
             <p class="form-hint mb-0">Pick a difficulty and category, then get your first set. Questions you generate from an application's interview prep show up here too.</p>
+
+            @if (Model.Example is { } example)
+            {
+                <div class="practice-example">
+                    <partial name="_PracticeExample" model="example" />
+                </div>
+            }
         }
     </div>
 }

@@ -1,0 +1,57 @@
+{
+  "_comment": "One example question per field, shown muted on an empty /Practice page so a first-time visitor can see what they would get before spending a generation. Keyed by Models/Enums/FieldCategory; \"Default\" is the neutral behavioural fallback for a profile with no field (and for Other). Static text, never stored, never scored, never counted. Editable without a rebuild: the file is copied to the output directory. PracticeExampleTests pins every key.",
+
+  "Default": {
+    "difficulty": "Medium", "category": "Behavioral", "topic": "Learning under pressure",
+    "question": "Tell me about a time you had to learn something unfamiliar quickly to deliver a piece of work. What did you do first, and what would you do differently now?"
+  },
+
+  "Technology": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Query performance regression",
+    "question": "A query that used to return in 50 ms now takes 4 seconds after the table grew tenfold. Walk me through how you would find out why."
+  },
+  "Engineering": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Tolerance stack-up",
+    "question": "Two parts that each pass inspection will not fit together at assembly. How would you work out whether the problem is the drawings, the tolerances or the process?"
+  },
+  "Business": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Competing stakeholder priorities",
+    "question": "Two senior stakeholders each want their project done first and you can only staff one this quarter. How do you decide, and how do you tell the one who loses?"
+  },
+  "Finance": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Profit versus cash flow",
+    "question": "A company reports a profit for the year but is running out of cash. What are the likely explanations, and where in the statements would you look first?"
+  },
+  "Healthcare": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Escalating a deteriorating patient",
+    "question": "A post-operative patient's observations are all within range, but they tell you they feel something is wrong. What do you assess, and at what point do you escalate?"
+  },
+  "Education": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Differentiated instruction",
+    "question": "Half your class has mastered this week's material and a third is still struggling with last week's. How do you plan tomorrow's lesson?"
+  },
+  "Design": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Conflicting research signals",
+    "question": "Usability testing shows people missing a feature that analytics say is heavily used. How do you reconcile the two before recommending a change?"
+  },
+  "Science": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Irreproducible results",
+    "question": "An experiment that worked three times in a row now fails. How do you decide whether it is the reagents, the method or the original result?"
+  },
+  "Legal": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Conflict of interest checks",
+    "question": "You are asked to research a matter and realise the opposing party is a former client of the firm. What do you do before doing any work on it?"
+  },
+  "Trades": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Intermittent fault diagnosis",
+    "question": "A customer reports a fault that happens a few times a week but never while you are on site. How do you track down the cause?"
+  },
+  "Media": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Verifying user-generated footage",
+    "question": "A striking video is spreading fast and your editor wants it published within the hour. How do you verify it before it runs?"
+  },
+  "PublicSector": {
+    "difficulty": "Medium", "category": "Technical", "topic": "Rationing a fixed program budget",
+    "question": "A new program has a fixed budget and more eligible applicants than it can serve. How would you propose deciding who is served first, and how would you defend that choice publicly?"
+  }
+}

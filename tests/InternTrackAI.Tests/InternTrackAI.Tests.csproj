@@ -30,6 +30,7 @@
     <!-- TargetRoleSeedTests asserts on the file as it ships, so it has to sit next to the test binary
          at the same relative path the app reads it from. Linked, not copied: one source of truth. -->
     <Content Include="../../Data/Seeds/target-roles.json" Link="Data/Seeds/target-roles.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="../../Data/Seeds/practice-examples.json" Link="Data/Seeds/practice-examples.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

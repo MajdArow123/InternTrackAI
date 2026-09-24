@@ -1,0 +1,25 @@
+@model InternTrackAI.Services.PracticeExample
+@using InternTrackAI.Models.Enums
+@*
+    The example on an empty practice page. Deliberately NOT _PracticeQuestion with a flag: it has no id,
+    no star, no answer box and no data-question-id, so nothing on the page — practice.js included — can
+    mistake it for a question the user has. Muted and labelled "Example" so a visitor cannot either.
+*@
+<div class="practice-card practice-card--example" data-practice-example>
+    <div class="practice-card-meta">
+        <span class="practice-example-tag">Example</span>
+        <span class="practice-badge practice-badge--@Model.Difficulty.ToString().ToLowerInvariant()">@Model.Difficulty</span>
+        <span class="practice-badge practice-badge--category">@QuestionCategories.Display(Model.Category)</span>
+        @if (!string.IsNullOrWhiteSpace(Model.Topic))
+        {
+            <span class="practice-topic">@Model.Topic</span>
+        }
+    </div>
+
+    <p class="practice-prompt">@Model.Question</p>
+
+    <p class="practice-example-note">
+        Answer a question like this and you get a score out of 5, what worked, two specific things to
+        change, and a stronger opening line.
+    </p>
+</div>

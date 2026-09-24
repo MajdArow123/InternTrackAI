@@ -4735,6 +4735,27 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
 .practice-card--new { animation: practice-fade-in var(--duration) var(--ease) backwards; }
 @keyframes practice-fade-in { from { opacity: 0; transform: translateY(-6px); } }
 
+/* The empty page's example card. Dashed and quieter than a real card so it cannot be mistaken for
+   one of the user's questions; the "Example" tag says it in words for anyone who can't see the border. */
+.practice-example { margin-top: 1rem; }
+.practice-card--example {
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  box-shadow: none;
+}
+.practice-card--example .practice-prompt { color: var(--text-2); }
+.practice-example-tag {
+  padding: .15em .55em;
+  border-radius: var(--radius-pill);
+  font-size: .7333rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  background: var(--neutral-soft);
+  color: var(--neutral-text);
+}
+.practice-example-note { margin: .6rem 0 0; font-size: .8667rem; line-height: 1.45; color: var(--text-2); }
+
 .practice-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin-bottom: .5rem; }
 
 .practice-badge {

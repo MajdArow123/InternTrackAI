@@ -33,14 +33,17 @@ public class PracticeController : Controller
     private readonly PracticeQuestionService _questions;
     private readonly PracticeAnswerService _answers;
     private readonly IUserContextBuilder _userContext;
+    private readonly PracticeExamples _examples;
 
     public PracticeController(ApplicationDbContext db, PracticeQuestionService questions,
-                              PracticeAnswerService answers, IUserContextBuilder userContext)
+                              PracticeAnswerService answers, IUserContextBuilder userContext,
+                              PracticeExamples examples)
     {
         _db = db;
         _questions = questions;
         _answers = answers;
         _userContext = userContext;
+        _examples = examples;
     }
 
     private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
@@ -61,6 +64,7 @@ public class PracticeController : Controller
         if (hideAnswered)                query = query.Where(q => q.AnsweredAt == null);
 
         var questions = await query.OrderByDescending(q => q.Id).ToListAsync(HttpContext.RequestAborted);
+        var total = await _db.PracticeQuestions.CountAsync(q => q.UserId == userId, HttpContext.RequestAborted);
 
         return View(new PracticeViewModel
         {
@@ -70,7 +74,11 @@ public class PracticeController : Controller
             Category   = selectedCategory,
             SavedOnly    = saved,
             HideAnswered = hideAnswered,
-            TotalCount = await _db.PracticeQuestions.CountAsync(q => q.UserId == userId, HttpContext.RequestAborted),
+            TotalCount = total,
+
+            // Only for a user with no questions at all — never beside real ones, and never on a page
+            // that is merely filtered to nothing, where it would read as one of their own.
+            Example = total == 0 ? _examples.For(await FieldCategoryAsync(userId, HttpContext.RequestAborted)) : null,
 
             // Counted with the same predicate the delete uses, so the button can never promise a
             // number it will not remove.
@@ -78,6 +86,12 @@ public class PracticeController : Controller
                 .CountAsync(q => q.UserId == userId && q.AnsweredAt == null && !q.IsSaved, HttpContext.RequestAborted)
         });
     }
+
+    private Task<FieldCategory?> FieldCategoryAsync(string userId, CancellationToken ct) =>
+        _db.UserProfiles.AsNoTracking()
+            .Where(p => p.UserId == userId)
+            .Select(p => p.FieldCategory)
+            .FirstOrDefaultAsync(ct);
 
     /// <summary>
     /// Splits the questions into one group per application, newest group first, with general practice
@@ -144,8 +158,7 @@ public class PracticeController : Controller
     private async Task<PracticeProgress> ProgressAsync(string userId, CancellationToken ct)
     {
         var rows = await _db.PracticeQuestions.AsNoTracking()
-            .Where(q => q.UserId == userId)
-            .Select(q => new PracticeProgressRow(q.Id, q.Difficulty, q.Score, q.Topic, q.AnsweredAt))
+            .ProgressRowsFor(userId)
             .ToListAsync(ct);
 
         return PracticeProgress.Build(rows);

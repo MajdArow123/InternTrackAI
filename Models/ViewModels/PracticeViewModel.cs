@@ -56,6 +56,12 @@ public class PracticeViewModel
     /// <summary>Every question the user has, ignoring the filters — so an empty filtered list can say which case it is.</summary>
     public int TotalCount { get; set; }
 
+    /// <summary>
+    /// The muted example question for a user with no questions yet, chosen by their field. Null once they
+    /// have any question, and null if the seed file could not be read. Never stored and never counted.
+    /// </summary>
+    public PracticeExample? Example { get; set; }
+
     /// <summary>How many "Clear unanswered" would actually remove, so the button can say a number rather than a promise.</summary>
     public int ClearableCount { get; set; }
 

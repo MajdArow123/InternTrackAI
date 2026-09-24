@@ -88,6 +88,10 @@ public class HomeController : Controller
                     && a.DateApplied.Value.Month == m.Month)))
             .ToList();
 
+        // One query, the practice page's own, and Build does the arithmetic — see PracticeProgress for
+        // why that is C# over rows rather than SQL aggregates.
+        var practiceRows = await _context.PracticeQuestions.AsNoTracking().ProgressRowsFor(uid).ToListAsync();
+
         var vm = new DashboardViewModel
         {
             TotalApplications = total,
@@ -103,12 +107,24 @@ public class HomeController : Controller
             Attention            = attention.Take(DashboardViewModel.AttentionLimit).ToList(),
             AttentionTotal       = attention.Count,
             ResumeAnalytics      = ResumeAnalyticsService.Build(resumes, applications),
+            Practice             = PracticeProgress.Build(practiceRows, PracticeProgress.RecentActivityCutoffUtc(clock)),
             Suggestions          = await _suggestions.PendingAsync(uid),
             SkillGaps            = await _skillGaps.GetSkillGapsAsync(uid),
             HasProfileBasics     = profile != null && !string.IsNullOrWhiteSpace(profile.FullName)
                                     && !string.IsNullOrWhiteSpace(profile.SkillsJson) && profile.SkillsJson != "[]",
             HasResume            = hasResume
         };
+
+        // Interview-stage applications the Attention card is not showing (no date, or a date beyond its
+        // window). Shown-list based, so an interview cut by AttentionLimit is not silently dropped from both.
+        var onAttention = vm.Attention.Where(i => i.Kind == ReminderKind.Interview).Select(i => i.Application.Id).ToHashSet();
+        vm.InterviewsToPractise = applications
+            .Where(a => a.Status == ApplicationStatus.Interview
+                        && !onAttention.Contains(a.Id)
+                        && (a.InterviewAt is null || a.InterviewAt >= clock.NowUtc))
+            .OrderByDescending(a => a.Id)
+            .Take(DashboardViewModel.InterviewPromptLimit)
+            .ToList();
 
         return View(vm);
     }

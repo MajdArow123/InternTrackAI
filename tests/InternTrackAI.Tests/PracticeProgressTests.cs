@@ -287,4 +287,46 @@ public class PracticeProgressTests
 
         Assert.Equal(33, hard.Percent);      // 1 of 3
     }
+
+    // ── Answered recently (the dashboard's time-bound figure) ────────────────
+
+    [Fact]
+    public void Answered_recently_counts_answers_at_or_after_the_cutoff_and_nothing_unanswered()
+    {
+        var cutoff = Base.AddDays(-7);
+        var rows = new List<PracticeProgressRow>
+        {
+            new(1, PracticeDifficulty.Medium, 4, "a", Base.AddDays(-1)),
+            new(2, PracticeDifficulty.Medium, 3, "b", cutoff),               // on the boundary: counts
+            new(3, PracticeDifficulty.Medium, 2, "c", cutoff.AddTicks(-1)),  // a tick before: does not
+            new(4, PracticeDifficulty.Medium, null, "d", null),              // unanswered
+        };
+
+        var p = PracticeProgress.Build(rows, cutoff);
+
+        Assert.Equal(2, p.AnsweredRecently);
+        Assert.Equal(3, p.Answered);
+    }
+
+    [Fact]
+    public void Answered_recently_is_absent_without_a_cutoff_and_zero_with_one_when_nothing_is_answered()
+    {
+        Assert.Null(PracticeProgress.Build(Answers(4, 3)).AnsweredRecently);
+
+        var unanswered = new List<PracticeProgressRow> { Row(1) };
+        Assert.Equal(0, PracticeProgress.Build(unanswered, Base).AnsweredRecently);
+    }
+
+    [Fact]
+    public void The_recent_window_starts_at_local_midnight_six_days_before_today_in_the_users_zone()
+    {
+        // 03:00 UTC on Sep 21 is already Sep 21 at noon in Tokyo, and still Sep 20 in Toronto.
+        var now = new DateTime(2026, 9, 21, 3, 0, 0, DateTimeKind.Utc);
+
+        var tokyo   = PracticeProgress.RecentActivityCutoffUtc(UserClock.For("Asia/Tokyo", now));
+        var toronto = PracticeProgress.RecentActivityCutoffUtc(UserClock.For("America/Toronto", now));
+
+        Assert.Equal(new DateTime(2026, 9, 14, 15, 0, 0, DateTimeKind.Utc), tokyo);    // Sep 15 00:00 JST
+        Assert.Equal(new DateTime(2026, 9, 14, 4, 0, 0, DateTimeKind.Utc), toronto);   // Sep 14 00:00 EDT
+    }
 }

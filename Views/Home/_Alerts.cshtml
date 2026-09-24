@@ -30,6 +30,18 @@
                                 <button type="button" class="btn btn-sm btn-outline-secondary" data-reminder-action="snooze" data-app-id="@app.Id">Snooze 3 days</button>
                             </div>
                         }
+                        else if (item.Kind == ReminderKind.Interview)
+                        {
+                            @*
+                                The moment practice is most useful, surfaced where the interview already is.
+                                Links to the application's interview prep, which generates questions from
+                                this posting into the same store /Practice reads — no second generator.
+                            *@
+                            <div class="attention-actions">
+                                <a class="btn btn-sm btn-primary" asp-controller="InterviewPrep" asp-action="Prep" asp-route-appId="@app.Id"
+                                   data-practice-for-interview>Practice for this interview</a>
+                            </div>
+                        }
                     </li>
                 }
             </ul>

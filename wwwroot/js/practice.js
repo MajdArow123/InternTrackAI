@@ -155,8 +155,15 @@
                 // general practice. If that group is not on the page yet there is nowhere correct to
                 // put them, and building a group header here would be a second copy of markup the
                 // server already owns, so reload instead. Rare: the group button always has its group.
-                const target = list.querySelector(
-                    '.practice-group[data-group-id="' + (applicationId || '') + '"] .practice-group-list');
+                const group = list.querySelector('.practice-group[data-group-id="' + (applicationId || '') + '"]');
+
+                // General practice is split by day, and new questions are today's. The server always
+                // emits a Today block there (hidden while empty) so this never has to build one.
+                const today = group && group.querySelector('[data-practice-today]');
+                if (today) today.hidden = false;
+                const target = today
+                    ? today.querySelector('.practice-day-list')
+                    : group && group.querySelector('.practice-group-list');
 
                 if (!target) { window.location.reload(); return; }
 

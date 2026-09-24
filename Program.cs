@@ -144,6 +144,7 @@ builder.Services.AddScoped<SkillGapService>();          // "Skills you're missin
 builder.Services.AddScoped<KeywordCoverageService>();   // ATS keyword coverage (deterministic, no AI)
 builder.Services.AddScoped<IUserContextBuilder, UserContextBuilder>();  // the one place the field context in every AI prompt is built
 builder.Services.AddSingleton<TargetRoleSeeds>();       // field-keyed target-role suggestions (Data/Seeds/target-roles.json)
+builder.Services.AddSingleton<PracticeExamples>();      // empty-practice-page example question per field (Data/Seeds/practice-examples.json)
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<UserClockProvider>();
 

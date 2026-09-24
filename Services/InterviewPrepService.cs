@@ -37,6 +37,54 @@ public class InterviewPrepService
     }
 
     /// <summary>
+    /// The user prompt, pure so a test can read it without a model call. Unchanged from before topics
+    /// were added apart from two things: the JSON shape carries a <c>"topic"</c>, and the rules end with
+    /// <see cref="PracticePrompt.TopicRule"/> <b>verbatim</b>, so both generators at least ask for the same
+    /// thing when they say "topic".
+    /// </summary>
+    /// <remarks>
+    /// <b>Measured 2026-09-24: this prompt does not get topics at that rule's granularity, and the
+    /// topics are therefore descriptive only.</b> Three live calls across two postings (Shopify
+    /// Software Engineering, CIBC Cloud DevOps) returned 27 topics and every one failed the rule's own
+    /// "ten more questions" test — "Collaboration", "API design", "Docker and Kubernetes",
+    /// "Problem-solving". Moving <c>"topic"</c> after <c>"question"</c> in the reply shape (the practice
+    /// generator's order, where the rule held across six batches) changed nothing: 18 of 18 still broad.
+    /// The cause is the questions, not the field order — prep asks for broad coverage questions ("Describe
+    /// your experience with automated testing"), and an honest topic for one is broad too. So the topics
+    /// feed the progress card and are kept out of dedupe; see <see cref="Models.Enums.QuestionSource"/>.
+    /// Do not wire them into <see cref="TopicKey"/> without re-measuring.
+    /// </remarks>
+    public static string BuildUserPrompt(string company, string role, string jobDescription, string resumeText,
+                                         string skills, string? profileContext = null)
+    {
+        var jobDesc  = string.IsNullOrWhiteSpace(jobDescription) ? "(none provided)" : jobDescription;
+        var resume   = string.IsNullOrWhiteSpace(resumeText)     ? "(none provided)" : resumeText;
+        var skillStr = string.IsNullOrWhiteSpace(skills)         ? "(none provided)" : skills;
+
+        return
+            UserContextBuilder.Prefix(profileContext) +
+            $"Generate 8–10 interview questions for a candidate applying for {role} at {company}.\n\n" +
+            $"JOB DESCRIPTION:\n{jobDesc}\n\n" +
+            $"CANDIDATE RESUME:\n{resume}\n\n" +
+            $"CANDIDATE SKILLS: {skillStr}\n\n" +
+            "Return this JSON structure with NO other text:\n" +
+            "[\n" +
+            "  {\"category\": \"Technical\", \"question\": \"...\", \"topic\": \"...\", \"tip\": \"...\"},\n" +
+            "  {\"category\": \"Behavioral\", \"question\": \"...\", \"topic\": \"...\", \"tip\": \"...\"},\n" +
+            "  {\"category\": \"Company-Specific\", \"question\": \"...\", \"topic\": \"...\", \"tip\": \"...\"}\n" +
+            "]\n\n" +
+            "Rules:\n" +
+            $"- Category must be exactly \"Technical\", \"Behavioral\", or \"Company-Specific\"\n" +
+            "- \"Technical\" means role-specific knowledge in the candidate's own field, whatever that field is: " +
+            "clinical questions for a nurse, accounting standards for an accountant, code for a developer. " +
+            "Never default to software questions for a non-software role.\n" +
+            "- Include 3–4 Technical, 3–4 Behavioral, 2 Company-Specific questions\n" +
+            $"- Questions must be specific to {company} and this {role} role — not generic\n" +
+            "- Tips: 1–2 sentences on how to approach the question\n\n" +
+            PracticePrompt.TopicRule;
+    }
+
+    /// <summary>
     /// Asks GPT-4o-mini for 8-10 interview questions (3-4 Technical, 3-4 Behavioral, 2 Company-Specific)
     /// tailored to the given role/company/job description/resume, each with a short answering tip.
     /// The prompt instructs the model to return raw JSON; any markdown code-fence wrapping the model
@@ -62,30 +110,7 @@ public class InterviewPrepService
             "You are an expert interview coach. Return ONLY a valid JSON array — " +
             "no markdown, no code fences, no explanation before or after the JSON.";
 
-        var jobDesc = string.IsNullOrWhiteSpace(jobDescription) ? "(none provided)" : jobDescription;
-        var resume  = string.IsNullOrWhiteSpace(resumeText)   ? "(none provided)" : resumeText;
-        var skillStr = string.IsNullOrWhiteSpace(skills)      ? "(none provided)" : skills;
-
-        var userPrompt =
-            UserContextBuilder.Prefix(profileContext) +
-            $"Generate 8–10 interview questions for a candidate applying for {role} at {company}.\n\n" +
-            $"JOB DESCRIPTION:\n{jobDesc}\n\n" +
-            $"CANDIDATE RESUME:\n{resume}\n\n" +
-            $"CANDIDATE SKILLS: {skillStr}\n\n" +
-            "Return this JSON structure with NO other text:\n" +
-            "[\n" +
-            "  {\"category\": \"Technical\", \"question\": \"...\", \"tip\": \"...\"},\n" +
-            "  {\"category\": \"Behavioral\", \"question\": \"...\", \"tip\": \"...\"},\n" +
-            "  {\"category\": \"Company-Specific\", \"question\": \"...\", \"tip\": \"...\"}\n" +
-            "]\n\n" +
-            "Rules:\n" +
-            $"- Category must be exactly \"Technical\", \"Behavioral\", or \"Company-Specific\"\n" +
-            "- \"Technical\" means role-specific knowledge in the candidate's own field, whatever that field is: " +
-            "clinical questions for a nurse, accounting standards for an accountant, code for a developer. " +
-            "Never default to software questions for a non-software role.\n" +
-            "- Include 3–4 Technical, 3–4 Behavioral, 2 Company-Specific questions\n" +
-            $"- Questions must be specific to {company} and this {role} role — not generic\n" +
-            "- Tips: 1–2 sentences on how to approach the question";
+        var userPrompt = BuildUserPrompt(company, role, jobDescription, resumeText, skills, profileContext);
 
         var body = new
         {
@@ -145,7 +170,10 @@ public class InterviewPrepService
                 .Select(q => new GeneratedQuestion(
                     QuestionCategories.Parse(q.Category),
                     q.Question.Trim(),
-                    string.IsNullOrWhiteSpace(q.Tip) ? null : q.Tip.Trim()))
+                    string.IsNullOrWhiteSpace(q.Tip) ? null : q.Tip.Trim(),
+                    // Cleaned the way PracticeQuestionService.Parse cleans it. A missing topic is still
+                    // a usable question; it just contributes nothing to dedupe, as before.
+                    PromptData.OneLine(q.Topic)))
                 .ToList();
 
             return (true, questions, null);
@@ -164,7 +192,7 @@ public class InterviewPrepService
 /// Not an entity: <see cref="Controllers.InterviewPrepController"/> turns these into
 /// <see cref="Models.PracticeQuestion"/> rows, which is where the hash and the ownership live.
 /// </remarks>
-public sealed record GeneratedQuestion(Models.Enums.QuestionCategory Category, string Question, string? Tip);
+public sealed record GeneratedQuestion(Models.Enums.QuestionCategory Category, string Question, string? Tip, string Topic = "");
 
 /// <summary>The raw JSON shape the model replies in; <c>category</c> arrives as free text.</summary>
-internal sealed record QuestionReply(string? Category, string Question, string? Tip);
+internal sealed record QuestionReply(string? Category, string Question, string? Tip, string? Topic);

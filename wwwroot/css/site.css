@@ -2759,6 +2759,20 @@ html[data-theme="dark"] .kbd-modal-close { background: rgba(255,255,255,.08); }
 
 /* Resume performance card (dashboard) */
 .resume-perf-card { margin-bottom: 1.5rem; }
+.practice-stats-card { margin-bottom: 1.5rem; }
+.practice-interview-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.practice-interview-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: .25rem 1rem;
+  padding-top: .5rem;
+  border-top: 1px solid var(--border);
+  font-size: .9333rem;
+}
+.practice-interview-item:first-child { padding-top: 0; border-top: 0; }
+.practice-interview-name { min-width: 0; color: var(--text); }
 .resume-perf-takeaway { font-size: .9333rem; color: var(--text-2); margin: 0 0 .85rem; }
 .resume-perf-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .resume-perf-table th { font-size: .74rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -4702,6 +4716,23 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
   color: var(--text-2);
 }
 
+/* Day separators inside general practice. A label with a hairline running off it, quieter than a
+   group header: it divides one list, it does not start a new one. */
+.practice-day { display: flex; flex-direction: column; gap: .6rem; }
+.practice-day + .practice-day { margin-top: .6rem; }
+.practice-day-label {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin: 0;
+  padding: 0 .15rem;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.practice-day-label::after { content: ""; flex: 1; height: 1px; background: var(--border-strong); }
+.practice-day-list { display: flex; flex-direction: column; gap: .75rem; }
+
 /* ── Saved star ──────────────────────────────────────────────────────────── */
 
 .practice-star {
@@ -4734,6 +4765,27 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
    §8: a retained transform on an ancestor traps position:fixed children). */
 .practice-card--new { animation: practice-fade-in var(--duration) var(--ease) backwards; }
 @keyframes practice-fade-in { from { opacity: 0; transform: translateY(-6px); } }
+
+/* The empty page's example card. Dashed and quieter than a real card so it cannot be mistaken for
+   one of the user's questions; the "Example" tag says it in words for anyone who can't see the border. */
+.practice-example { margin-top: 1rem; }
+.practice-card--example {
+  background: var(--surface-2);
+  border: 1px dashed var(--border-strong);
+  box-shadow: none;
+}
+.practice-card--example .practice-prompt { color: var(--text-2); }
+.practice-example-tag {
+  padding: .15em .55em;
+  border-radius: var(--radius-pill);
+  font-size: .7333rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  background: var(--neutral-soft);
+  color: var(--neutral-text);
+}
+.practice-example-note { margin: .6rem 0 0; font-size: .8667rem; line-height: 1.45; color: var(--text-2); }
 
 .practice-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin-bottom: .5rem; }
 
@@ -4778,7 +4830,7 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
 .practice-score--mid  { background: var(--warning-soft); color: var(--warning-text); }
 .practice-score--high { background: var(--success-soft); color: var(--success-text); }
 .practice-score-max { font-weight: 500; opacity: .75; }
-.practice-elapsed { font-size: .8rem; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.practice-elapsed { font-size: .8rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
 
 .practice-answered { margin-top: .75rem; }
 
@@ -4855,7 +4907,7 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
   color: var(--text);
 }
 
-.practice-attempt-when { font-size: .8rem; color: var(--muted-2); margin: 0 0 .35rem; }
+.practice-attempt-when { font-size: .8rem; color: var(--text-2); margin: 0 0 .35rem; }
 
 /* Attempts side by side. A horizontal scroll rather than a stack at narrow widths on purpose: a
    stack is what this replaces, so collapsing to one on a phone would give back the same

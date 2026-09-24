@@ -47,6 +47,22 @@ public class DashboardViewModel
     public List<StatusSuggestion> Suggestions { get; set; } = new();
 
     // Onboarding checklist (shown only to brand-new users with zero applications).
+    /// <summary>
+    /// Interview practice, from the same computation as the practice page's progress card. Empty (and
+    /// the card hidden) when the user has no questions.
+    /// </summary>
+    public InternTrackAI.Services.PracticeProgress Practice { get; set; } = InternTrackAI.Services.PracticeProgress.None;
+
+    /// <summary>
+    /// Applications at the Interview stage that the Attention card is not already showing — usually
+    /// because no interview date is set, so ReminderService has nothing to count down to. These get a
+    /// "Practice for it" link on the practice card instead of a new reminder kind, which would ripple
+    /// into the list filter, the board chips and every attention count. Newest first, at most
+    /// <see cref="InterviewPromptLimit"/>.
+    /// </summary>
+    public List<JobApplication> InterviewsToPractise { get; set; } = new();
+    public const int InterviewPromptLimit = 3;
+
     public bool HasProfileBasics { get; set; }
     public bool HasResume { get; set; }
 }

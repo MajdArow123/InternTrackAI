@@ -4702,6 +4702,23 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
   color: var(--text-2);
 }
 
+/* Day separators inside general practice. A label with a hairline running off it, quieter than a
+   group header: it divides one list, it does not start a new one. */
+.practice-day { display: flex; flex-direction: column; gap: .6rem; }
+.practice-day + .practice-day { margin-top: .6rem; }
+.practice-day-label {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  margin: 0;
+  padding: 0 .15rem;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.practice-day-label::after { content: ""; flex: 1; height: 1px; background: var(--border-strong); }
+.practice-day-list { display: flex; flex-direction: column; gap: .75rem; }
+
 /* ── Saved star ──────────────────────────────────────────────────────────── */
 
 .practice-star {

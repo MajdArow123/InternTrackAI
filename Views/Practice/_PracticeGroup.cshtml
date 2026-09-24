@@ -36,6 +36,52 @@
     }
 
     <div class="practice-group-list">
-        <partial name="_PracticeQuestions" model="Model.Questions" />
+        @if (Model.IsGeneral)
+        {
+            @*
+                General practice is a record of sessions, so it is split by the day each question was
+                written — in the user's own zone, via UserClock, so "Today" in Toronto and in Berlin are
+                each that person's today. Application groups are not split: they are already grouped by
+                posting, and a second axis inside them would fight the first.
+
+                A "Today" block is always emitted, hidden when it has nothing in it, because that is where
+                "Get more" appends. Without it the first batch of a new day would land under "Yesterday",
+                and building the block in JS would be a second copy of this markup.
+            *@
+            var clock = await Clocks.GetAsync();
+            var today = clock.Today;
+            var days = Model.Questions
+                .GroupBy(q => clock.ToLocal(q.CreatedAt).Date)
+                .OrderByDescending(d => d.Key)
+                .ToList();
+
+            if (days.All(d => d.Key != today))
+            {
+                <div class="practice-day" data-practice-today hidden>
+                    <p class="practice-day-label">Today</p>
+                    <div class="practice-day-list"></div>
+                </div>
+            }
+
+            foreach (var day in days)
+            {
+                var label = day.Key == today ? "Today"
+                          : day.Key == today.AddDays(-1) ? "Yesterday"
+                          : day.Key.Year == today.Year
+                              ? day.Key.ToString("dddd, MMM d", System.Globalization.CultureInfo.InvariantCulture)
+                              : day.Key.ToString(UserClock.DateFormat, System.Globalization.CultureInfo.InvariantCulture);
+
+                <div class="practice-day" data-practice-day="@day.Key.ToString("yyyy-MM-dd")" @(day.Key == today ? "data-practice-today" : null)>
+                    <p class="practice-day-label">@label</p>
+                    <div class="practice-day-list">
+                        <partial name="_PracticeQuestions" model="day.ToList()" />
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <partial name="_PracticeQuestions" model="Model.Questions" />
+        }
     </div>
 </section>

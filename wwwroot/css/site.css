@@ -4830,7 +4830,7 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
 .practice-score--mid  { background: var(--warning-soft); color: var(--warning-text); }
 .practice-score--high { background: var(--success-soft); color: var(--success-text); }
 .practice-score-max { font-weight: 500; opacity: .75; }
-.practice-elapsed { font-size: .8rem; color: var(--muted-2); font-variant-numeric: tabular-nums; }
+.practice-elapsed { font-size: .8rem; color: var(--text-2); font-variant-numeric: tabular-nums; }
 
 .practice-answered { margin-top: .75rem; }
 
@@ -4907,7 +4907,7 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
   color: var(--text);
 }
 
-.practice-attempt-when { font-size: .8rem; color: var(--muted-2); margin: 0 0 .35rem; }
+.practice-attempt-when { font-size: .8rem; color: var(--text-2); margin: 0 0 .35rem; }
 
 /* Attempts side by side. A horizontal scroll rather than a stack at narrow widths on purpose: a
    stack is what this replaces, so collapsing to one on a phone would give back the same

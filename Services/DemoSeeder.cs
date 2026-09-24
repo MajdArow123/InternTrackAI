@@ -31,14 +31,16 @@ public class DemoSeeder
     private readonly ApplicationDbContext _db;
     private readonly UserManager<IdentityUser> _users;
     private readonly UserDataPurger _purger;
+    private readonly DemoProfileReset _demoProfile;
     private readonly UploadStorage _uploads;
     private readonly IConfiguration _config;
     private readonly ILogger<DemoSeeder> _logger;
 
     public DemoSeeder(ApplicationDbContext db, UserManager<IdentityUser> users, UserDataPurger purger,
-                      UploadStorage uploads, IConfiguration config, ILogger<DemoSeeder> logger)
+                      UploadStorage uploads, DemoProfileReset demoProfile, IConfiguration config, ILogger<DemoSeeder> logger)
     {
         _db = db;
+        _demoProfile = demoProfile;
         _users = users;
         _purger = purger;
         _uploads = uploads;
@@ -88,6 +90,10 @@ public class DemoSeeder
         _db.GeneratedCoverLetters.AddRange(letters);
         _db.StatusSuggestions.AddRange(suggestions);
         await _db.SaveChangesAsync(ct);
+
+        // The answered practice question and the pending resume draft come from the per-session reset
+        // itself rather than a second copy here, so the two resets cannot drift. DemoResetTests pins it.
+        await _demoProfile.RestoreAsync(user.Id, ct);
 
         sw.Stop();
         _logger.LogInformation("Demo reset finished for user {UserId}: {Apps} applications, {Notes} notes, {Letters} cover letter(s), {Suggestions} inbox suggestions, resumes {Primary}/{Secondary} in {Ms} ms.",
@@ -436,16 +442,25 @@ public class DemoSeeder
     /// an offer (Shopify, Interview) and a rejection (Cloudflare, Applied). Message ids are fixed so a
     /// reseed never trips the (UserId, GmailMessageId) unique index after the purge.
     /// </summary>
+    /// <summary>
+    /// The three applications the seeded inbox suggestions point at. <see cref="DemoProfileReset"/> restores
+    /// exactly these at the start of every demo session, so the list is named once, here.
+    /// </summary>
+    public static readonly string[] SuggestionCompanies = { "Airbnb", "Shopify", "Cloudflare" };
+
     public static List<StatusSuggestion> BuildSuggestions(string userId, List<JobApplication> apps, DateTime nowUtc)
     {
-        var airbnb     = apps.First(a => a.CompanyName == "Airbnb");
-        var shopify    = apps.First(a => a.CompanyName == "Shopify");
-        var cloudflare = apps.First(a => a.CompanyName == "Cloudflare");
+        // FirstOrDefault, not First: the demo account is shared and a visitor can delete an application.
+        // The per-session restore runs against whatever is there, and a missing application loses its
+        // suggestion until the nightly reseed rather than throwing on sign-in.
+        var airbnb     = apps.FirstOrDefault(a => a.CompanyName == "Airbnb");
+        var shopify    = apps.FirstOrDefault(a => a.CompanyName == "Shopify");
+        var cloudflare = apps.FirstOrDefault(a => a.CompanyName == "Cloudflare");
         var interviewAt = nowUtc.Date.AddDays(5).AddHours(15);   // 11:00 AM Toronto in September
 
-        return new List<StatusSuggestion>
+        var all = new List<StatusSuggestion?>
         {
-            new()
+            airbnb is null ? null : new()
             {
                 UserId = userId, ApplicationId = airbnb.Id, GmailMessageId = "demo-airbnb-interview",
                 SuggestedStatus = ApplicationStatus.Interview, Confidence = 0.92, InterviewAt = interviewAt,
@@ -453,7 +468,7 @@ public class DemoSeeder
                 EmailSubject = "Airbnb iOS Engineering Intern — phone screen invitation", EmailFrom = "Airbnb Recruiting <recruiting@airbnb.com>",
                 EmailDate = nowUtc.AddHours(-5), Status = SuggestionState.Pending, CreatedAt = nowUtc.AddHours(-4)
             },
-            new()
+            shopify is null ? null : new()
             {
                 UserId = userId, ApplicationId = shopify.Id, GmailMessageId = "demo-shopify-offer",
                 SuggestedStatus = ApplicationStatus.Offer, Confidence = 0.88,
@@ -461,7 +476,7 @@ public class DemoSeeder
                 EmailSubject = "Your offer from Shopify", EmailFrom = "Shopify Talent <talent@shopify.com>",
                 EmailDate = nowUtc.AddHours(-26), Status = SuggestionState.Pending, CreatedAt = nowUtc.AddHours(-4)
             },
-            new()
+            cloudflare is null ? null : new()
             {
                 UserId = userId, ApplicationId = cloudflare.Id, GmailMessageId = "demo-cloudflare-rejected",
                 SuggestedStatus = ApplicationStatus.Rejected, Confidence = 0.95,
@@ -469,6 +484,71 @@ public class DemoSeeder
                 EmailSubject = "Update on your Cloudflare application", EmailFrom = "Cloudflare Careers <no-reply@cloudflare.com>",
                 EmailDate = nowUtc.AddHours(-50), Status = SuggestionState.Pending, CreatedAt = nowUtc.AddHours(-4)
             }
+        };
+
+        return all.OfType<StatusSuggestion>().ToList();
+    }
+
+    // ── The answered practice question ───────────────────────────────────────
+
+    /// <summary>
+    /// The one practice question every demo session starts with: answered, scored and with feedback, so
+    /// the guided tour — and a recruiter — can see what an answered card looks like without spending a
+    /// model call. Written, not generated, and the same row for every visitor, so the "never a stranger's
+    /// answers" rule that <see cref="DemoProfileReset"/> exists for still holds.
+    /// </summary>
+    /// <remarks>
+    /// The feedback is written to what <c>AnswerFeedbackPrompt</c> actually produces for an answer like
+    /// this, not to flatter it: a specific, anchored answer is a 4, and the first missing point names the
+    /// concrete anchor, as <c>ConcreteAnchorRule</c> asks the model to. Stored in the model's reply shape
+    /// so it goes through <see cref="AnswerFeedback.FromJson"/> like any real answer.
+    /// </remarks>
+    public static PracticeQuestion BuildAnsweredPracticeQuestion(string userId, DateTime nowUtc)
+    {
+        const string prompt = "A checkout API gets slow at peak traffic, but only for some merchants. How would you find out why?";
+
+        var feedback = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            score = 4,
+            strengths = new[]
+            {
+                "You went to p99 and traces instead of averages, which is where this kind of problem hides.",
+                "You found what the slow requests had in common (stores over 20,000 products) before touching any code.",
+                "You named the fix and the number that showed it worked."
+            },
+            improvements = new[]
+            {
+                "Say how you would stop it coming back: an alert on p99 by store size, or a query-plan check before deploys.",
+                "Mention what you ruled out first (a bad deploy, the network, a noisy neighbour) so it sounds like a method, not a lucky guess."
+            },
+            missingPoints = new[]
+            {
+                "Concrete anchor found: p99 from about 300 ms to 4 s for roughly 5% of stores, fixed with a composite index.",
+                "How you rolled the index out safely on a large table that was taking writes."
+            },
+            revisedOpening = "During a sale on my co-op team, our order API's p99 jumped from 300 ms to 4 seconds, but only for about one store in twenty, which told me averages weren't going to find it."
+        });
+
+        return new PracticeQuestion
+        {
+            UserId     = userId,
+            Prompt     = prompt,
+            PromptHash = QuestionHash.Of(prompt),
+            Topic      = "latency that only affects some users",
+            Difficulty = PracticeDifficulty.Medium,
+            Category   = QuestionCategory.Technical,
+            ModelHint  = "Starts from percentiles and traces, not averages · Finds what the slow requests share · Says how the fix was confirmed",
+            Source     = QuestionSource.Practice,
+            UserAnswer =
+                "On my co-op team our order API's p99 went from about 300 ms to 4 seconds during a sale, but only for roughly 5% of stores. " +
+                "Averages looked fine, so I pulled traces for the slow requests and grouped them by store. Every slow one belonged to a store " +
+                "with more than 20,000 products, and the traces showed the time going into one query that filtered variants without an index " +
+                "on (store_id, updated_at). I added the composite index in a migration, and p99 for those stores dropped back under 400 ms.",
+            AiFeedback        = feedback,
+            Score             = 4,
+            AnsweredInSeconds = 186,
+            AnsweredAt        = nowUtc.AddDays(-1),
+            CreatedAt         = nowUtc.AddDays(-1).AddMinutes(-5)
         };
     }
 

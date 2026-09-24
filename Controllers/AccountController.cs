@@ -57,7 +57,7 @@ public class AccountController : Controller
             // Every demo session starts from the same profile, whatever the last visitor applied on
             // the resume review screen. Narrow — profile fields and parse drafts only, never a full
             // reseed: a visitor already browsing the board must not have it rebuilt underneath them.
-            await _demoProfile.RestoreAsync(user!.Id, HttpContext.RequestAborted);
+            await _demoProfile.StartSessionAsync(user!.Id, HttpContext.RequestAborted);
             DemoProfileReset.Forget(Response);
 
             return RedirectToAction("Dashboard", "Home");

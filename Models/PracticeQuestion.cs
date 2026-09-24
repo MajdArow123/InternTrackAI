@@ -98,4 +98,10 @@ public class PracticeQuestion
 
     public bool IsSaved { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// Which generator wrote this question; null for rows older than the column. Prep topics are
+    /// stored but deliberately excluded from practice topic dedupe — see <see cref="QuestionSource"/>.
+    /// </summary>
+    public QuestionSource? Source { get; set; }
 }

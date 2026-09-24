@@ -141,9 +141,21 @@ public class InterviewPrepController : Controller
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Two filters, because they catch different things: the batch is deduped against itself (a model
-    /// asked for ten questions will sometimes give the same one twice) and against the hashes already
-    /// stored for this user (regenerating on the same application used to produce the same set again).
+    /// <b>Deduped by hash only — the topic is stored but compared against nothing, deliberately.</b> Prep
+    /// topics were measured (2026-09-24, three live calls, two postings) to come back category-level:
+    /// "Collaboration", "Automated testing", "Docker and Kubernetes". <see cref="TopicKey"/> treats a
+    /// short topic as colliding with every longer topic containing its words, so comparing topics in
+    /// either direction over-blocks: a prep "automated testing" would suppress practice's "automated
+    /// testing for payment flows", and that narrow practice topic would in turn suppress the prep
+    /// question. The topic is still worth storing — the progress card's weakest-topic grouping reads it,
+    /// and breadth does no harm there — and the row is marked <see cref="QuestionSource.InterviewPrep"/>
+    /// so <see cref="PracticeQuestionService.ExclusionsAsync"/> can leave it out. See
+    /// <see cref="QuestionSource"/> for the full record.
+    /// </para>
+    /// <para>
+    /// The hash filter catches what it always did: the batch against itself (a model asked for ten
+    /// questions will sometimes give the same one twice) and against every hash the user already has,
+    /// from either page.
     /// </para>
     /// <para>
     /// The unique index is the real guarantee and it can still fire on a race between two generations.
@@ -160,11 +172,13 @@ public class InterviewPrepController : Controller
 
         var seen = new HashSet<string>(existing, StringComparer.Ordinal);
         var rows = new List<PracticeQuestion>();
+        int hashDrops = 0, blankDrops = 0;
 
         foreach (var g in generated)
         {
             var hash = QuestionHash.Of(g.Question);
-            if (hash.Length == 0 || !seen.Add(hash)) continue;
+            if (hash.Length == 0) { blankDrops++; continue; }
+            if (!seen.Add(hash)) { hashDrops++; continue; }
 
             rows.Add(new PracticeQuestion
             {
@@ -172,13 +186,33 @@ public class InterviewPrepController : Controller
                 ApplicationId = appId,
                 Prompt        = g.Question,
                 Category      = g.Category,
+                Topic         = g.Topic,
                 ModelHint     = g.Tip,
                 PromptHash    = hash,
+                // Written out rather than left to the column default: prep questions are first-round
+                // interview questions, which is PracticePrompt.DifficultyRule's definition of Medium.
+                Difficulty    = PracticeDifficulty.Medium,
+                Source        = QuestionSource.InterviewPrep,
                 CreatedAt     = DateTime.UtcNow
-                // Difficulty and Topic keep their defaults until the Step 2 generator supplies them.
             });
         }
 
+        var stored = await StoreAsync(rows);
+
+        // The same one-line summary practice generation writes, so "I regenerated and nothing new
+        // appeared" can be answered from the log: an exhausted application and a broken call look
+        // identical on the page.
+        _logger.LogInformation(
+            "Interview prep generation for application {AppId}: model returned {Returned}, "
+            + "dropped {HashDrops} same-question + {BlankDrops} blank, stored {Stored}.",
+            appId, generated.Count, hashDrops, blankDrops, stored.Count);
+
+        return stored;
+    }
+
+    /// <summary>Saves the batch, falling back to row by row if the unique index fires on a race.</summary>
+    private async Task<List<PracticeQuestion>> StoreAsync(List<PracticeQuestion> rows)
+    {
         if (rows.Count == 0) return rows;
 
         _db.PracticeQuestions.AddRange(rows);

@@ -187,6 +187,7 @@ public class PracticeQuestionService
                     Category      = category,
                     ModelHint     = g.ModelHint,
                     PromptHash    = hash,
+                    Source        = QuestionSource.Practice,
                     CreatedAt     = DateTime.UtcNow
                 });
             }
@@ -271,10 +272,21 @@ public class PracticeQuestionService
     /// openings of recent questions. Scoped to the pair because a topic covered at Easy is still worth
     /// a Hard question.
     /// </summary>
+    /// <remarks>
+    /// <b>Interview-prep questions are left out on purpose, not by oversight.</b> Their topics are stored
+    /// (the progress card groups by them) but were measured to be category-level — "Collaboration",
+    /// "Docker and Kubernetes" — and <see cref="TopicKey"/> treats a short topic as colliding with every
+    /// longer one containing its words, so letting them in would suppress narrow practice questions
+    /// wholesale. See <see cref="QuestionSource"/> for the measurement. The hash layer
+    /// (<c>KnownHashesAsync</c>) still covers every row, so the exact same question is never stored twice
+    /// whichever page wrote it first. Null <c>Source</c> is a row older than the column and counts as
+    /// practice — EF translates the <c>!=</c> with SQL null semantics, so those rows are kept.
+    /// </remarks>
     public async Task<PracticeExclusions> ExclusionsAsync(string userId, PracticeDifficulty difficulty, QuestionCategory category, CancellationToken ct = default)
     {
         var recent = await _db.PracticeQuestions.AsNoTracking()
             .Where(q => q.UserId == userId && q.Difficulty == difficulty && q.Category == category)
+            .Where(q => q.Source != QuestionSource.InterviewPrep)
             .OrderByDescending(q => q.Id)
             .Select(q => new { q.Topic, q.Prompt })
             .Take(MaxTopicsInPrompt * 2)      // room for duplicates before the distinct

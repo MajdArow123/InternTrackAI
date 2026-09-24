@@ -115,6 +115,17 @@ public class HomeController : Controller
             HasResume            = hasResume
         };
 
+        // Interview-stage applications the Attention card is not showing (no date, or a date beyond its
+        // window). Shown-list based, so an interview cut by AttentionLimit is not silently dropped from both.
+        var onAttention = vm.Attention.Where(i => i.Kind == ReminderKind.Interview).Select(i => i.Application.Id).ToHashSet();
+        vm.InterviewsToPractise = applications
+            .Where(a => a.Status == ApplicationStatus.Interview
+                        && !onAttention.Contains(a.Id)
+                        && (a.InterviewAt is null || a.InterviewAt >= clock.NowUtc))
+            .OrderByDescending(a => a.Id)
+            .Take(DashboardViewModel.InterviewPromptLimit)
+            .ToList();
+
         return View(vm);
     }
 

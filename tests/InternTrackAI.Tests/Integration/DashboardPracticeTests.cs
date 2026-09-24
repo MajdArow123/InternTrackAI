@@ -134,4 +134,67 @@ public class DashboardPracticeTests : IClassFixture<TestAppFactory>
 
         Assert.Equal("2", Stat(await Get(client, "/Home/Dashboard"), "recent"));
     }
+
+    // ── Connecting applications to practice ─────────────────────────────────
+
+    private async Task<int> SeedApplication(string userId, string company, ApplicationStatus status, DateTime? interviewAt)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var app = new JobApplication
+        {
+            UserId = userId, CompanyName = company, RoleTitle = "Backend Intern", Status = status, InterviewAt = interviewAt
+        };
+        db.JobApplications.Add(app);
+        await db.SaveChangesAsync();
+        return app.Id;
+    }
+
+    [Fact]
+    public async Task An_interview_on_the_attention_card_links_to_that_applications_interview_prep()
+    {
+        var client = Client();
+        var userId = await RegisterAndGetId(client);
+        var appId = await SeedApplication(userId, "Shopify", ApplicationStatus.Interview, TestClock.Instant(TestClock.Today.AddDays(3), 14));
+
+        var html = await Get(client, "/Home/Dashboard");
+
+        var item = Regex.Match(html, $"<li class=\"attention-item[^\"]*\" data-app-id=\"{appId}\" data-kind=\"Interview\">(.*?)</li>", RegexOptions.Singleline);
+        Assert.True(item.Success, "the interview should be on the attention card");
+        Assert.Contains($"href=\"/InterviewPrep/Prep?appId={appId}\"", item.Groups[1].Value);
+        Assert.Contains("Practice for this interview", item.Groups[1].Value);
+
+        // Already on the attention card, so not repeated on the practice card.
+        Assert.DoesNotContain("practiceInterviewPrompts", html);
+    }
+
+    [Fact]
+    public async Task An_interview_with_no_date_is_offered_on_the_practice_card_even_before_any_practice()
+    {
+        var client = Client();
+        var userId = await RegisterAndGetId(client);
+        var undated = await SeedApplication(userId, "CIBC", ApplicationStatus.Interview, interviewAt: null);
+        await SeedApplication(userId, "Applied Only Inc", ApplicationStatus.Applied, interviewAt: null);
+
+        var html = await Get(client, "/Home/Dashboard");
+
+        // The card appears for the prompt alone; its stats stay hidden at zero questions.
+        Assert.Contains("practiceStatsCard", html);
+        Assert.DoesNotContain("data-practice-stat=", html);
+
+        var prompts = Regex.Match(html, "id=\"practiceInterviewPrompts\">(.*?)</ul>", RegexOptions.Singleline).Groups[1].Value;
+        Assert.Contains("CIBC", prompts);
+        Assert.Contains($"/InterviewPrep/Prep?appId={undated}", prompts);
+        Assert.DoesNotContain("Applied Only Inc", prompts);
+    }
+
+    [Fact]
+    public async Task With_no_questions_and_no_interview_the_card_stays_hidden()
+    {
+        var client = Client();
+        var userId = await RegisterAndGetId(client);
+        await SeedApplication(userId, "Applied Only Inc", ApplicationStatus.Applied, interviewAt: null);
+
+        Assert.DoesNotContain("practiceStatsCard", await Get(client, "/Home/Dashboard"));
+    }
 }

@@ -1,0 +1,64 @@
+@model InternTrackAI.Models.ViewModels.DashboardViewModel
+@using InternTrackAI.Services
+@*
+    Interview practice on the dashboard. The numbers come from PracticeProgress.Build over the same
+    query the practice page's progress card uses (PracticeProgressRows), so the two cannot disagree —
+    and every floor that card honours (no weakest topic under three answers on it) is honoured here by
+    construction, because this view only renders what Build was willing to state.
+
+    Hidden entirely at zero questions: an empty stats card is worse than no card.
+*@
+@{
+    var p = Model.Practice;
+    string Score(double v) => v.ToString("0.#");
+    string Tone(double v) => v >= 4 ? "high" : v >= 3 ? "mid" : "low";
+}
+@if (!p.IsEmpty)
+{
+    <div class="analytics-card practice-stats-card anim-fade-up anim-d4" id="practiceStatsCard">
+        <div class="analytics-card-head">
+            <div>
+                <div class="analytics-card-label">Interview practice</div>
+                <div class="analytics-card-sub">Every question from Practice and from interview prep</div>
+            </div>
+            <a asp-controller="Practice" asp-action="Index" class="analytics-card-link">Practice &rarr;</a>
+        </div>
+
+        <div class="practice-progress-stats">
+            <div class="mini-stat">
+                <span class="mini-stat-num" data-practice-stat="answered">@p.Answered<span class="practice-progress-of">/@p.Total</span></span>
+                <span class="mini-stat-label">Answered</span>
+            </div>
+
+            @if (p.AverageScore is { } average)
+            {
+                <div class="mini-stat">
+                    <span class="mini-stat-num practice-progress-score practice-progress-score--@Tone(average)" data-practice-stat="average">@Score(average)<span class="practice-progress-of">/5</span></span>
+                    <span class="mini-stat-label">Average score</span>
+                </div>
+            }
+
+            @if (p.AnsweredRecently is { } recent)
+            {
+                <div class="mini-stat">
+                    <span class="mini-stat-num" data-practice-stat="recent">@recent</span>
+                    <span class="mini-stat-label">Answered in the last @PracticeProgress.RecentActivityDays days</span>
+                </div>
+            }
+        </div>
+
+        @if (p.Answered == 0)
+        {
+            <p class="practice-progress-weakest mb-0">
+                None answered yet. Each answer gets a score out of 5 and two specific things to change.
+            </p>
+        }
+        else if (p.WeakestTopic is { } weakest && p.WeakestTopicAverage is { } weakestAverage)
+        {
+            <p class="practice-progress-weakest mb-0">
+                Weakest topic so far: <strong>@weakest</strong>
+                <span class="practice-progress-of">averaging @Score(weakestAverage)/5</span>
+            </p>
+        }
+    </div>
+}

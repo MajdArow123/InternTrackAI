@@ -1,3 +1,4 @@
+using InternTrackAI.Models;
 using InternTrackAI.Models.Enums;
 
 namespace InternTrackAI.Services;
@@ -56,15 +57,35 @@ public sealed record PracticeProgress(
     /// <summary>Answers a topic needs before it can be called the weakest. One bad answer is not a weakness.</summary>
     public const int MinAnswersForWeakestTopic = 3;
 
+    /// <summary>
+    /// The window behind <see cref="AnsweredRecently"/>: the last seven of the user's local days,
+    /// today included. Rolling rather than "since Monday" so the figure does not drop to zero at the
+    /// start of every week and read as a slump.
+    /// </summary>
+    public const int RecentActivityDays = 7;
+
     /// <summary>True when there is nothing to show. The view skips the card entirely rather than render zeros.</summary>
     public bool IsEmpty => Total == 0;
+
+    /// <summary>
+    /// Answers given since the cutoff passed to <see cref="Build"/>; null when none was passed. The
+    /// cutoff is the caller's so the time-zone decision stays at the edge and this stays pure.
+    /// </summary>
+    public int? AnsweredRecently { get; init; }
+
+    /// <summary>
+    /// The UTC instant <see cref="RecentActivityDays"/> local days ago began, for the user's own zone —
+    /// so "the last 7 days" means their days, not UTC's.
+    /// </summary>
+    public static DateTime RecentActivityCutoffUtc(UserClock clock) =>
+        clock.StartOfLocalDayUtc(clock.Today.AddDays(-(RecentActivityDays - 1)));
 
     public static readonly PracticeProgress None =
         new(0, 0, null, null, null, null, null, Array.Empty<DifficultyCoverage>());
 
-    public static PracticeProgress Build(IReadOnlyList<PracticeProgressRow> rows)
+    public static PracticeProgress Build(IReadOnlyList<PracticeProgressRow> rows, DateTime? recentSinceUtc = null)
     {
-        if (rows.Count == 0) return None;
+        if (rows.Count == 0) return None with { AnsweredRecently = recentSinceUtc is null ? null : 0 };
 
         // An answer is one with both a timestamp and a score: a row can carry AnsweredAt with a null
         // Score only if something went wrong, and it must not drag an average toward zero.
@@ -82,7 +103,7 @@ public sealed record PracticeProgress(
             .ToList();
 
         if (answered.Count == 0)
-            return None with { Total = rows.Count, Coverage = coverage };
+            return None with { Total = rows.Count, Coverage = coverage, AnsweredRecently = recentSinceUtc is null ? null : 0 };
 
         var scores = answered.Select(r => r.Score!.Value).ToList();
         var recent = scores.Take(RecentWindow).ToList();
@@ -103,7 +124,10 @@ public sealed record PracticeProgress(
             TrendDelta: delta,
             WeakestTopic: weakest,
             WeakestTopicAverage: weakestAverage,
-            Coverage: coverage);
+            Coverage: coverage)
+        {
+            AnsweredRecently = recentSinceUtc is { } since ? answered.Count(r => r.AnsweredAt >= since) : null
+        };
     }
 
     /// <summary>
@@ -134,4 +158,17 @@ public sealed record PracticeProgress(
 
         return weakest is null ? (null, null) : (weakest.Label, weakest.Average);
     }
+}
+
+/// <summary>
+/// The one query behind every <see cref="PracticeProgress"/>: five narrow columns, every question the
+/// user has, unfiltered. Shared by the practice page and the dashboard so the two cards cannot count
+/// different things.
+/// </summary>
+public static class PracticeProgressRows
+{
+    public static IQueryable<PracticeProgressRow> ProgressRowsFor(this IQueryable<PracticeQuestion> questions, string userId) =>
+        questions
+            .Where(q => q.UserId == userId)
+            .Select(q => new PracticeProgressRow(q.Id, q.Difficulty, q.Score, q.Topic, q.AnsweredAt));
 }

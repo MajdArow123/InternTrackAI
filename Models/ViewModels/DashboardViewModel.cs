@@ -47,6 +47,12 @@ public class DashboardViewModel
     public List<StatusSuggestion> Suggestions { get; set; } = new();
 
     // Onboarding checklist (shown only to brand-new users with zero applications).
+    /// <summary>
+    /// Interview practice, from the same computation as the practice page's progress card. Empty (and
+    /// the card hidden) when the user has no questions.
+    /// </summary>
+    public InternTrackAI.Services.PracticeProgress Practice { get; set; } = InternTrackAI.Services.PracticeProgress.None;
+
     public bool HasProfileBasics { get; set; }
     public bool HasResume { get; set; }
 }

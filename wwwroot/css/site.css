@@ -2759,6 +2759,7 @@ html[data-theme="dark"] .kbd-modal-close { background: rgba(255,255,255,.08); }
 
 /* Resume performance card (dashboard) */
 .resume-perf-card { margin-bottom: 1.5rem; }
+.practice-stats-card { margin-bottom: 1.5rem; }
 .resume-perf-takeaway { font-size: .9333rem; color: var(--text-2); margin: 0 0 .85rem; }
 .resume-perf-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .resume-perf-table th { font-size: .74rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--muted); text-align: left; padding: .35rem .5rem; border-bottom: 1px solid var(--border); white-space: nowrap; }

@@ -158,8 +158,7 @@ public class PracticeController : Controller
     private async Task<PracticeProgress> ProgressAsync(string userId, CancellationToken ct)
     {
         var rows = await _db.PracticeQuestions.AsNoTracking()
-            .Where(q => q.UserId == userId)
-            .Select(q => new PracticeProgressRow(q.Id, q.Difficulty, q.Score, q.Topic, q.AnsweredAt))
+            .ProgressRowsFor(userId)
             .ToListAsync(ct);
 
         return PracticeProgress.Build(rows);

@@ -88,6 +88,10 @@ public class HomeController : Controller
                     && a.DateApplied.Value.Month == m.Month)))
             .ToList();
 
+        // One query, the practice page's own, and Build does the arithmetic — see PracticeProgress for
+        // why that is C# over rows rather than SQL aggregates.
+        var practiceRows = await _context.PracticeQuestions.AsNoTracking().ProgressRowsFor(uid).ToListAsync();
+
         var vm = new DashboardViewModel
         {
             TotalApplications = total,
@@ -103,6 +107,7 @@ public class HomeController : Controller
             Attention            = attention.Take(DashboardViewModel.AttentionLimit).ToList(),
             AttentionTotal       = attention.Count,
             ResumeAnalytics      = ResumeAnalyticsService.Build(resumes, applications),
+            Practice             = PracticeProgress.Build(practiceRows, PracticeProgress.RecentActivityCutoffUtc(clock)),
             Suggestions          = await _suggestions.PendingAsync(uid),
             SkillGaps            = await _skillGaps.GetSkillGapsAsync(uid),
             HasProfileBasics     = profile != null && !string.IsNullOrWhiteSpace(profile.FullName)

@@ -1,0 +1,19 @@
+@model InternTrackAI.Models.ViewModels.ProfileViewModel
+    <!-- ── Your data: the direct route to deletion, rather than two clicks through Account settings ── -->
+    <div class="form-card mb-3" id="yourDataCard">
+        <p class="form-section-title mb-1">Your data</p>
+        <p class="form-hint mb-3">
+            What InternTrackAI stores, why, and who else sees it is in the
+            <a asp-controller="Home" asp-action="Privacy">privacy policy</a>.
+            Deleting your account removes all of it, including your uploaded files, and disconnects Gmail.
+        </p>
+        @if (Model.IsDemoAccount)
+        {
+            <p class="form-hint mb-3" data-demo-guard="delete">@InternTrackAI.Services.ConfiguredAccounts.DemoUnavailableMessage</p>
+            <button type="button" class="btn btn-outline-danger" disabled>Delete my account and data</button>
+        }
+        else
+        {
+            <a asp-area="Identity" asp-page="/Account/Manage/DeletePersonalData" class="btn btn-outline-danger">Delete my account and data</a>
+        }
+    </div>

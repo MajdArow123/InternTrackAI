@@ -188,6 +188,8 @@
         <div>
             <a href="@repoUrl" target="_blank" rel="noopener">GitHub</a>
             <a href="@linkedInUrl" target="_blank" rel="noopener">LinkedIn</a>
+            <a asp-controller="Home" asp-action="Privacy">Privacy</a>
+            <a asp-controller="Home" asp-action="Terms">Terms</a>
             @if (signedIn)
             {
                 <a asp-controller="Home" asp-action="Dashboard">Dashboard</a>

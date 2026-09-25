@@ -1,21 +1,28 @@
 using System.ComponentModel.DataAnnotations;
+using InternTrackAI.Data;
 using InternTrackAI.Services;
+using InternTrackAI.Services.Gmail;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.EntityFrameworkCore;
 
 namespace InternTrackAI.Areas.Identity.Pages.Account.Manage;
 
 /// <summary>
 /// Permanently deletes the signed-in user's account after a password confirmation. All app data
 /// (applications, notes, letters, uploads, profile) is purged via <see cref="UserDataPurger"/>
-/// before the Identity user row is removed, so nothing is orphaned.
+/// before the Identity user row is removed, so nothing is orphaned. A connected Gmail grant is revoked
+/// with Google first (best effort, as Disconnect does): deleting only the local row would leave the app
+/// listed under the user's Google account with read access to an inbox whose owner has left.
 /// </summary>
 public class DeletePersonalDataModel : PageModel
 {
     private readonly UserManager<IdentityUser> _userManager;
     private readonly SignInManager<IdentityUser> _signInManager;
     private readonly UserDataPurger _purger;
+    private readonly ApplicationDbContext _db;
+    private readonly GmailGrantRevoker _revoker;
     private readonly ILogger<DeletePersonalDataModel> _logger;
     private readonly IConfiguration _config;
 
@@ -23,6 +30,8 @@ public class DeletePersonalDataModel : PageModel
         UserManager<IdentityUser> userManager,
         SignInManager<IdentityUser> signInManager,
         UserDataPurger purger,
+        ApplicationDbContext db,
+        GmailGrantRevoker revoker,
         ILogger<DeletePersonalDataModel> logger,
         IConfiguration config)
     {
@@ -30,6 +39,8 @@ public class DeletePersonalDataModel : PageModel
         _userManager = userManager;
         _signInManager = signInManager;
         _purger = purger;
+        _db = db;
+        _revoker = revoker;
         _logger = logger;
     }
 
@@ -73,6 +84,11 @@ public class DeletePersonalDataModel : PageModel
         }
 
         var userId = user.Id;
+
+        // Not the request's token: a closed tab must not stop a deletion halfway. The revoker caps itself.
+        var gmail = await _db.GmailConnections.AsNoTracking().FirstOrDefaultAsync(c => c.UserId == userId);
+        if (gmail is not null) await _revoker.RevokeAsync(gmail);
+
         await _purger.PurgeAsync(userId);
 
         var result = await _userManager.DeleteAsync(user);

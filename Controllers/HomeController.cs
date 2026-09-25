@@ -136,6 +136,9 @@ public class HomeController : Controller
         return View();
     }
 
+    /// <summary>Renders the one-paragraph terms page (mostly: the demo account is shared and public).</summary>
+    public IActionResult Terms() => View();
+
     /// <summary>
     /// Custom 404 page, wired up as the status-code-pages re-execute target for unmatched routes
     /// (and for actions that return a 404, e.g. antiforgery failures). Replaces the default ASP.NET

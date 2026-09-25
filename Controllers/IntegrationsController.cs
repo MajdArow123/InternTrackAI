@@ -35,10 +35,12 @@ public class IntegrationsController : Controller
     private readonly GmailSyncService _sync;
     private readonly GmailTokenProtector _tokens;
     private readonly IDataProtector _stateProtector;
+    private readonly GmailGrantRevoker _revoker;
     private readonly ILogger<IntegrationsController> _logger;
 
     public IntegrationsController(ApplicationDbContext db, IConfiguration config, IGoogleOAuthClient oauth, IGmailClient gmail, GmailSyncService sync,
-                                  GmailTokenProtector tokens, IDataProtectionProvider dataProtection, ILogger<IntegrationsController> logger)
+                                  GmailTokenProtector tokens, IDataProtectionProvider dataProtection, GmailGrantRevoker revoker,
+                                  ILogger<IntegrationsController> logger)
     {
         _db = db;
         _config = config;
@@ -47,6 +49,7 @@ public class IntegrationsController : Controller
         _sync = sync;
         _tokens = tokens;
         _stateProtector = dataProtection.CreateProtector("InternTrackAI.GmailOAuthState.v1");
+        _revoker = revoker;
         _logger = logger;
     }
 
@@ -201,16 +204,8 @@ public class IntegrationsController : Controller
         if (connection is null)
             return BackToProfile("info", "No Gmail account is connected.");
 
-        var token = _tokens.Unprotect(connection.RefreshToken) ?? _tokens.Unprotect(connection.AccessToken);
-        if (token is not null)
-        {
-            try { await _oauth.RevokeAsync(token, HttpContext.RequestAborted); }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                // Already revoked from the Google account page, or Google unreachable: the local copy goes either way.
-                _logger.LogWarning(ex, "Gmail token revocation failed for user {UserId}; removing the connection anyway.", userId);
-            }
-        }
+        // Best effort: already revoked from the Google account page, or Google unreachable — the local copy goes either way.
+        await _revoker.RevokeAsync(connection, HttpContext.RequestAborted);
 
         // Pending proposals from that inbox go too; accepted/dismissed ones stay as history on the application.
         await _db.StatusSuggestions.Where(s => s.UserId == userId && s.Status == Models.Enums.SuggestionState.Pending).ExecuteDeleteAsync();

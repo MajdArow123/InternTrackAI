@@ -26,12 +26,16 @@
             <h5>What gets deleted</h5>
         </div>
         <div class="p-4">
+            @* data-purges names the tables each line covers. DeletePersonalDataTests reads them and fails if a
+               table UserDataPurger clears is missing here, or if one is listed that the purge leaves behind. *@
             <ul class="mb-0 kv-list ps-3">
                 <li>Your login and account settings</li>
-                <li>Every tracked application and its notes</li>
-                <li>Generated cover letters and interview prep sessions</li>
-                <li>Uploaded resumes and your profile photo</li>
-                <li>Your profile, skills, and target roles</li>
+                <li data-purges="UserProfiles">Your profile, photo, skills, and target roles</li>
+                <li data-purges="JobApplications,ApplicationNotes">Every tracked application and its notes</li>
+                <li data-purges="ResumeVersions,ParsedResumes">Uploaded resumes, their extracted text, and any AI analysis of them</li>
+                <li data-purges="GeneratedCoverLetters">Generated cover letters</li>
+                <li data-purges="PracticeQuestions">Practice and interview prep questions, your answers, and their scores</li>
+                <li data-purges="GmailConnections,StatusSuggestions">Your Gmail connection (access is revoked with Google) and the suggestions made from your inbox</li>
             </ul>
         </div>
     </div>

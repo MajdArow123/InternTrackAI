@@ -61,8 +61,9 @@
     }
     function samePath(a, b) { return normPath(a) === normPath(b); }
 
-    // The tour the nav button runs here: a page tour if one claims this path,
-    // otherwise the overview.
+    // The tour the nav button runs here: whichever tour claims this path (the
+    // overview claims the dashboard), or null. Null gets the offer card, never
+    // a tour that navigates away from a page someone may be working on.
     function forPage() {
         var here = normPath(window.location.pathname);
         var all  = tours();
@@ -73,7 +74,7 @@
                 if (normPath(match[i]) === here && available(id)) return id;
             }
         }
-        return 'overview';
+        return null;
     }
 
     function reducedMotion() {
@@ -246,13 +247,78 @@
                 c = cands[i];
                 if (!c.view || samePath(here, c.view) || tried.indexOf(normPath(c.view)) >= 0) continue;
                 persist(index, c.view);
-                window.location.assign(c.view);
+                leave(c.view);
                 return;
             }
             index += dir;
         }
         if (dir < 0) { render(); return; }  // nothing earlier is reachable
         exit();
+    }
+
+    // The tour is about to navigate. Anything typed and unsaved on this page would be lost, so ask
+    // first with the app's own confirm dialog. The tour's card comes down before the dialog goes up:
+    // the tour traps Tab and takes Escape at the capture phase, which would steal the dialog's keys.
+    // Leave → the tour resumes on the next page from the state persist() saved; stay → it ends.
+    function leave(path) {
+        if (!hasUnsavedInput() || typeof appConfirm !== 'function') { window.location.assign(path); return; }
+        teardown();
+        appConfirm({
+            title: 'Leave this page?',
+            text: 'You have unsaved changes here. The tour continues on another page, and they would be lost.',
+            okLabel: 'Leave for the tour'
+        }).then(function (ok) {
+            if (ok) window.location.assign(path);
+            else if (state) exit();
+            else clearStore('sessionStorage', STATE_KEY);
+        });
+    }
+
+    // What counts as unsaved: a field in a form that posts, changed from the value it loaded with,
+    // plus anything outside a form marked data-tour-unsaved (the Add Application page's analyzer paste
+    // box). Deliberately not search and filter boxes, which are GET forms, and not practice answers,
+    // which autosave their drafts and restore them.
+    function hasUnsavedInput() {
+        var fields = document.querySelectorAll(
+            'form[method="post" i] input, form[method="post" i] textarea, form[method="post" i] select, [data-tour-unsaved]');
+        for (var i = 0; i < fields.length; i++) {
+            var f = fields[i], type = (f.type || '').toLowerCase();
+            if (f.disabled || type === 'hidden' || type === 'submit' || type === 'button' || type === 'reset') continue;
+            if (type === 'checkbox' || type === 'radio') { if (f.checked !== f.defaultChecked) return true; continue; }
+            if (type === 'file') { if (f.files && f.files.length) return true; continue; }
+            if (f.tagName === 'SELECT') {
+                for (var o = 0; o < f.options.length; o++) if (f.options[o].selected !== f.options[o].defaultSelected) return true;
+                continue;
+            }
+            if (f.value !== f.defaultValue) return true;
+        }
+        return false;
+    }
+
+    // The nav Tour button on a page no tour claims: say so, and offer the app tour rather than
+    // navigating to it. Nothing leaves the page unless the person presses the button.
+    function offer() {
+        if (state) exit();
+        state = { id: null, offer: true, steps: [], index: 0, cand: null, nav: -1, tried: [], ctx: {}, prevFocus: document.activeElement };
+        build();
+        els.title.textContent = 'No tour for this page';
+        els.body.textContent  = 'The app tour starts with your resume, then the dashboard and practice. It takes about a minute.';
+        els.count.textContent = '';
+        els.back.disabled     = false;
+        els.back.textContent  = 'Not now';
+        els.next.textContent  = 'Take the app tour';
+        position();
+        try { els.tip.focus({ preventScroll: true }); } catch (e) { els.tip.focus(); }
+    }
+
+    // The overview is the dashboard's tour, and the dashboard is the one page that knows what the tour
+    // needs before it sets off (#tourContextData: is a resume review waiting?). So the offer takes you
+    // there first and the tour starts from it — through leave(), so unsaved typing is asked about.
+    function takeOffer() {
+        markSeen();
+        if (samePath(window.location.pathname, '/Home/Dashboard')) { start('overview'); return; }
+        writeStore('sessionStorage', STATE_KEY, JSON.stringify({ id: 'overview', index: 0, nav: -1, tried: [], ctx: {} }));
+        leave('/Home/Dashboard');
     }
 
     function render() {
@@ -371,6 +437,7 @@
         var act = btn.getAttribute('data-tour-act');
         guard(function () {
             if (act === 'exit') exit();
+            else if (state.offer) { if (act === 'back') exit(); else takeOffer(); }
             else if (act === 'back') go(state.index - 1, -1);
             else go(state.index + 1, 1);
         })();
@@ -382,13 +449,14 @@
 
         if (k === 'Escape')    { e.preventDefault(); e.stopPropagation(); guard(exit)(); return; }
         if (k === 'Tab')       { e.stopPropagation(); trap(e); return; }
+        if (state.offer && (k === 'ArrowRight' || k === 'ArrowLeft')) { e.preventDefault(); e.stopPropagation(); return; }
         if (k === 'ArrowRight'){ e.preventDefault(); e.stopPropagation(); guard(function () { go(state.index + 1, 1); })(); return; }
         if (k === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); guard(function () { go(state.index - 1, -1); })(); return; }
 
         if (k === 'Enter' || k === ' ') {
             // A focused button handles its own Enter/Space; don't advance twice.
             if (e.target && els.tip.contains(e.target) && e.target.tagName === 'BUTTON') { e.stopPropagation(); return; }
-            if (k === 'Enter') { e.preventDefault(); e.stopPropagation(); guard(function () { go(state.index + 1, 1); })(); }
+            if (k === 'Enter') { e.preventDefault(); e.stopPropagation(); guard(function () { if (state.offer) takeOffer(); else go(state.index + 1, 1); })(); }
             return;
         }
 
@@ -496,7 +564,12 @@
 
     function init() {
         var btn = document.getElementById('tour-btn');
-        if (btn) btn.addEventListener('click', function () { markSeen(); closeMenuThen(function () { start(forPage()); }); });
+        if (btn) btn.addEventListener('click', function () {
+            closeMenuThen(function () {
+                var id = forPage();
+                if (id) { markSeen(); start(id); } else offer();
+            });
+        });
 
         wireInvitation();
 

@@ -11,7 +11,8 @@
 //
 // Tour shape:
 //   match:  exact paths (lower-cased on compare) where the nav "Tour" button
-//           runs this tour. Empty for "overview", which is the fallback.
+//           runs this tour. A page no tour claims gets an offer card instead —
+//           the Tour button never navigates away on its own.
 //   steps:  either one target —
 //             { view, target, pad, title, body, placement }
 //           or an ordered list of fallbacks, best first —
@@ -31,7 +32,7 @@
 {
   "overview": {
     "label": "App overview",
-    "match": [],
+    "match": ["/Home/Dashboard"],
     "steps": [
       {
         "pad": 8,
@@ -160,6 +161,59 @@
         "pad": 8,
         "title": "Find anything fast",
         "body": "Search by company or role, narrow by work mode, and sort. Needs attention pulls out the ones with a deadline, an interview, or an overdue follow-up.",
+        "placement": "auto"
+      }
+    ]
+  },
+
+  "practice": {
+    "label": "Practice tour",
+    "match": ["/Practice"],
+    "steps": [
+      {
+        "view": null,
+        "target": "[data-tour=\"practice-filters\"]",
+        "pad": 8,
+        "title": "Pick a level and a kind of question",
+        "body": "These do two jobs: they filter the list below, and they decide what Get more questions writes next.",
+        "placement": "auto"
+      },
+      {
+        "view": null,
+        "target": "#practiceGenerateBtn",
+        "pad": 8,
+        "title": "Five questions at a time",
+        "body": "Written for your field and level. Each batch is checked against the questions you already have, so repeats are dropped.",
+        "placement": "auto"
+      },
+      {
+        "view": null,
+        "pad": 8,
+        "placement": "auto",
+        "targets": [
+          {
+            "target": "[data-tour=\"practice-answered\"]",
+            "title": "Every answer, scored",
+            "body": "A score out of 5, what worked, exactly two things to change and a stronger opening line. Retry, and your attempts sit side by side."
+          },
+          {
+            "target": "[data-tour=\"practice-question\"]",
+            "title": "Answer in your own words",
+            "body": "Type an answer and it comes back scored out of 5, with what worked and exactly two things to change. Type into several and a bar appears to score them all at once."
+          },
+          {
+            "target": "[data-tour=\"practice-example\"]",
+            "title": "What you would practise",
+            "body": "An example question for your field. Get your own set and every answer you type comes back scored out of 5, with exactly two things to change."
+          }
+        ]
+      },
+      {
+        "view": null,
+        "target": "#practiceProgress",
+        "pad": 8,
+        "title": "Your progress",
+        "body": "How many you have answered and your average, your weakest topic once it has three answers, and how much of each difficulty you have covered.",
         "placement": "auto"
       }
     ]

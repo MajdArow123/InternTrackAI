@@ -171,8 +171,8 @@
     "steps": [
       {
         "view": null,
-        "target": "#resumeHeroCard",
-        "pad": 10,
+        "target": "[data-tour=\"resume-upload\"]",
+        "pad": 8,
         "title": "Start with your resume",
         "body": "Drop a PDF or Word file here and the app reads it once. Everything downstream — match scores, cover letters, interview prep, follow-ups — works from the resume marked active.",
         "placement": "auto"

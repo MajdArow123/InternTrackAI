@@ -263,21 +263,40 @@
         els.back.disabled     = state.index === 0;
         els.next.textContent  = state.index === state.steps.length - 1 ? 'Done' : 'Next';
 
-        reveal(findVisible(step.target));
+        // Position first, then scroll. Where the card ends up (docked at the bottom of a phone, pinned
+        // beside a tall target) decides how much of the screen the target has to fit into, so the
+        // scroll has to know it. Scrolling first is how the stats target ended up under the docked
+        // sheet. position() runs again on every scroll frame, so the spotlight follows the scroll.
         position();
+        reveal(findVisible(step.target));
 
         // Focus the dialog itself, not a control: screen readers then announce
         // the title and body before the buttons.
         try { els.tip.focus({ preventScroll: true }); } catch (e) { els.tip.focus(); }
     }
 
+    function navHeight() {
+        return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--site-nav-h'), 10) || 53;
+    }
+
+    // Scrolls the target into the part of the screen the card leaves free: below the sticky nav and,
+    // on a phone, above the docked sheet. Centred there when it fits; top-aligned under the nav when
+    // it is taller than that space, so its beginning is what shows. Nothing moves if it is already
+    // wholly inside.
     function reveal(el) {
-        if (!el) return;
+        if (!el || !els) return;
+        var top = navHeight() + 8;
+        var bottom = window.innerHeight - 8;
+        if (els.tip.classList.contains('tour-tip--docked')) bottom = els.tip.getBoundingClientRect().top - 8;
+
         var r = el.getBoundingClientRect();
-        var navH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--site-nav-h'), 10) || 53;
-        if (r.top >= navH + 8 && r.bottom <= window.innerHeight - 8) return;
-        try { el.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' }); }
-        catch (e) { el.scrollIntoView(); }
+        if (r.top >= top && r.bottom <= bottom) return;
+
+        var room = bottom - top;
+        var offset = r.height <= room ? (room - r.height) / 2 : 0;
+        var y = Math.max(0, window.scrollY + r.top - top - offset);
+        try { window.scrollTo({ top: y, behavior: reducedMotion() ? 'auto' : 'smooth' }); }
+        catch (e) { window.scrollTo(0, y); }
     }
 
     function position() {
@@ -292,6 +311,7 @@
             els.spot.hidden = true;
             els.overlay.classList.add('tour-overlay--plain');
             els.tip.classList.add('tour-tip--center');
+            els.tip.classList.remove('tour-tip--pinned');
             els.tip.style.top = els.tip.style.left = '';
             return;
         }
@@ -310,10 +330,17 @@
         els.spot.style.width  = w + 'px';
         els.spot.style.height = h + 'px';
 
-        if (dock) { els.tip.style.top = els.tip.style.left = ''; return; }
+        if (dock) { els.tip.classList.remove('tour-tip--pinned'); els.tip.style.top = els.tip.style.left = ''; return; }
 
         var tip = els.tip.getBoundingClientRect();
         var vh  = window.innerHeight, vw = window.innerWidth;
+
+        // A target too tall to ever have the card above or below it, however the page is scrolled:
+        // pin the card to the corner instead of centring it on top of what it describes. Decided on
+        // sizes alone, never on the current scroll, so it cannot flip back and forth mid-scroll.
+        var pinned = h + GAP + tip.height > vh - navHeight() - EDGE * 2;
+        els.tip.classList.toggle('tour-tip--pinned', pinned);
+        if (pinned) { els.tip.style.top = els.tip.style.left = ''; return; }
         var below = top + h + GAP;
         var above = top - GAP - tip.height;
         var want  = step.placement === 'top' || step.placement === 'bottom' ? step.placement : 'auto';
@@ -444,6 +471,22 @@
         });
     }
 
+    // On a phone the Tour button lives inside the collapsed nav menu, so pressing it leaves that menu
+    // open behind the overlay: a tall sticky header that every step then measures against, and a
+    // target it can push under the docked card. Close the menu first and start once it has finished
+    // closing. Bootstrap's own Collapse does the hiding, so its idea of the menu's state stays true.
+    function closeMenuThen(fn) {
+        var open = document.querySelector('.navbar-collapse.show');
+        if (!open) { fn(); return; }
+        var Collapse = window.bootstrap && window.bootstrap.Collapse;
+        if (!Collapse) { open.classList.remove('show'); fn(); return; }
+        open.addEventListener('hidden.bs.collapse', function once() {
+            open.removeEventListener('hidden.bs.collapse', once);
+            fn();
+        });
+        Collapse.getOrCreateInstance(open, { toggle: false }).hide();
+    }
+
     // Taking the tour by any route counts: the invitation should not linger.
     function markSeen() {
         writeStore('localStorage', SEEN_KEY, '1');
@@ -453,7 +496,7 @@
 
     function init() {
         var btn = document.getElementById('tour-btn');
-        if (btn) btn.addEventListener('click', function () { markSeen(); start(forPage()); });
+        if (btn) btn.addEventListener('click', function () { markSeen(); closeMenuThen(function () { start(forPage()); }); });
 
         wireInvitation();
 

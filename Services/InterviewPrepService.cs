@@ -15,6 +15,7 @@ public class InterviewPrepService
 {
     private readonly HttpClient _http;
     private readonly string _apiKey;
+    private readonly string _endpoint;   // OpenAiEndpoint: honours OpenAI:BaseUrl so local verification can stub it
     private readonly ILogger<InterviewPrepService> _logger;
 
     private static readonly JsonSerializerOptions _camel = new()
@@ -33,6 +34,7 @@ public class InterviewPrepService
     {
         _http   = http;
         _apiKey = config["OpenAI:ApiKey"] ?? string.Empty;
+        _endpoint = OpenAiEndpoint.ChatCompletions(config);
         _logger = logger;
     }
 
@@ -125,8 +127,7 @@ public class InterviewPrepService
         };
 
         var json = JsonSerializer.Serialize(body, _camel);
-        using var request = new HttpRequestMessage(HttpMethod.Post,
-            "https://api.openai.com/v1/chat/completions");
+        using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 

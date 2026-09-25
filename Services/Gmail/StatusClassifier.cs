@@ -56,7 +56,7 @@ public class OpenAiStatusClassifier : IStatusClassifier
     {
         _http     = http;
         _apiKey   = config["OpenAI:ApiKey"] ?? string.Empty;
-        _endpoint = (config["OpenAI:BaseUrl"]?.TrimEnd('/') ?? "https://api.openai.com") + "/v1/chat/completions";
+        _endpoint = OpenAiEndpoint.ChatCompletions(config);
         _logger   = logger;
     }
 

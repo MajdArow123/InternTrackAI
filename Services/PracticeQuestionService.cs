@@ -85,7 +85,7 @@ public class PracticeQuestionService
         _apiKey = config["OpenAI:ApiKey"] ?? string.Empty;
         // Honours OpenAI:BaseUrl so the whole generation loop can be exercised against a stub locally
         // without spending anything — the only way to watch the dedupe layers work over many rounds.
-        _endpoint = (config["OpenAI:BaseUrl"]?.TrimEnd('/') ?? "https://api.openai.com") + "/v1/chat/completions";
+        _endpoint = OpenAiEndpoint.ChatCompletions(config);
         _logger = logger;
     }
 

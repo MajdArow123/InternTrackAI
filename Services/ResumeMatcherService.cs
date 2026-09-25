@@ -16,6 +16,7 @@ public class ResumeMatcherService
 {
     private readonly HttpClient _http;
     private readonly string _apiKey;
+    private readonly string _endpoint;   // OpenAiEndpoint: honours OpenAI:BaseUrl so local verification can stub it
     private readonly ILogger<ResumeMatcherService> _logger;
 
     private static readonly JsonSerializerOptions _camel = new()
@@ -27,6 +28,7 @@ public class ResumeMatcherService
     {
         _http = http;
         _apiKey = config["OpenAI:ApiKey"] ?? string.Empty;
+        _endpoint = OpenAiEndpoint.ChatCompletions(config);
         _logger = logger;
     }
 
@@ -108,7 +110,7 @@ public class ResumeMatcherService
         };
 
         var json = JsonSerializer.Serialize(body, _camel);
-        using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
+        using var request = new HttpRequestMessage(HttpMethod.Post, _endpoint);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _apiKey);
         request.Content = new StringContent(json, Encoding.UTF8, "application/json");
 

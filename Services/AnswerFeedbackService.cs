@@ -30,7 +30,7 @@ public class AnswerFeedbackService
         _apiKey = config["OpenAI:ApiKey"] ?? string.Empty;
         // Honours OpenAI:BaseUrl, like the generator, so the whole submit path can be driven against a
         // stub locally without spending anything.
-        _endpoint = (config["OpenAI:BaseUrl"]?.TrimEnd('/') ?? "https://api.openai.com") + "/v1/chat/completions";
+        _endpoint = OpenAiEndpoint.ChatCompletions(config);
         _logger = logger;
     }
 

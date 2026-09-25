@@ -153,7 +153,7 @@ public class FollowUpService
         _resumeText = resumeText;
         _logger   = logger;
         _apiKey   = config["OpenAI:ApiKey"] ?? string.Empty;
-        _endpoint = (config["OpenAI:BaseUrl"]?.TrimEnd('/') ?? "https://api.openai.com") + "/v1/chat/completions";
+        _endpoint = OpenAiEndpoint.ChatCompletions(config);
     }
 
     // ── Context assembly ─────────────────────────────────────────────────────

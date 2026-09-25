@@ -30,7 +30,7 @@
     var GAP       = 12;                    // tooltip ↔ spotlight
     var EDGE      = 12;                    // tooltip ↔ viewport edge
 
-    var state = null;   // { id, steps, index, cand, nav, tried, ctx, prevFocus } while running
+    var state = null;   // { id, steps, index, cand, nav, tried, ctx, skip, prevFocus } while running
     var els   = null;   // { overlay, spot, tip, title, body, count, back, next }
     var frame = 0;      // rAF handle for the throttled reposition
 
@@ -149,7 +149,7 @@
         var tried = state.nav === index ? state.tried.slice() : [];
         if (tried.indexOf(normPath(path)) < 0) tried.push(normPath(path));
         writeStore('sessionStorage', STATE_KEY, JSON.stringify({
-            id: state.id, index: index, nav: index, tried: tried, ctx: state.ctx
+            id: state.id, index: index, nav: index, tried: tried, ctx: state.ctx, skip: state.skip
         }));
     }
 
@@ -205,6 +205,24 @@
         return out;
     }
 
+    // Steps with nothing to show on the page the tour is on right now: every entry lives here and none
+    // is visible (an empty inbox on a new account, say). They leave the count, so "1 of 5" does not
+    // jump to "3 of 5". Steps on other pages are assumed reachable until visited; each of them has a
+    // fallback that always exists. The list travels with the tour between pages.
+    function markUnreachable() {
+        var here = window.location.pathname;
+        for (var i = 0; i < state.steps.length; i++) {
+            if (state.skip.indexOf(i) >= 0) continue;
+            var cands = candidatesOf(state.steps[i] || {}), elsewhere = false, found = false;
+            for (var j = 0; j < cands.length && !found; j++) {
+                var c = cands[j];
+                if (c.view && !samePath(here, c.view)) { elsewhere = true; continue; }
+                if (!c.target || findVisible(c.target)) found = true;
+            }
+            if (!found && !elsewhere) state.skip.push(i);
+        }
+    }
+
     function exit() {
         var focus = state ? state.prevFocus : null;
         clearStore('sessionStorage', STATE_KEY);
@@ -250,6 +268,7 @@
                 leave(c.view);
                 return;
             }
+            if (state.skip.indexOf(index) < 0) state.skip.push(index);   // found out late: stop counting it
             index += dir;
         }
         if (dir < 0) { render(); return; }  // nothing earlier is reachable
@@ -299,7 +318,7 @@
     // navigating to it. Nothing leaves the page unless the person presses the button.
     function offer() {
         if (state) exit();
-        state = { id: null, offer: true, steps: [], index: 0, cand: null, nav: -1, tried: [], ctx: {}, prevFocus: document.activeElement };
+        state = { id: null, offer: true, steps: [], index: 0, cand: null, nav: -1, tried: [], ctx: {}, skip: [], prevFocus: document.activeElement };
         build();
         els.title.textContent = 'No tour for this page';
         els.body.textContent  = 'The app tour starts with your resume, then the dashboard and practice. It takes about a minute.';
@@ -325,9 +344,12 @@
         var step = state.cand || {};
         els.title.textContent = step.title || '';
         els.body.textContent  = step.body || '';
-        els.count.textContent = (state.index + 1) + ' of ' + state.steps.length;
-        els.back.disabled     = state.index === 0;
-        els.next.textContent  = state.index === state.steps.length - 1 ? 'Done' : 'Next';
+        var reachable = [];
+        for (var i = 0; i < state.steps.length; i++) if (i === state.index || state.skip.indexOf(i) < 0) reachable.push(i);
+        var pos = reachable.indexOf(state.index) + 1;
+        els.count.textContent = pos + ' of ' + reachable.length;
+        els.back.disabled     = pos === 1;
+        els.next.textContent  = pos === reachable.length ? 'Done' : 'Next';
 
         // Position first, then scroll. Where the card ends up (docked at the bottom of a phone, pinned
         // beside a tall target) decides how much of the screen the target has to fit into, so the
@@ -491,7 +513,7 @@
         };
     }
 
-    function start(id, index, nav, tried, ctx) {
+    function start(id, index, nav, tried, ctx, skip) {
         try {
             var tour = tourOf(id);
             if (!tour) return false;
@@ -505,9 +527,11 @@
                 nav: typeof nav === 'number' ? nav : -1,
                 tried: tried && tried.length ? tried : [],
                 ctx: ctx && typeof ctx === 'object' ? ctx : {},
+                skip: skip && skip.length ? skip.slice() : [],
                 prevFocus: document.activeElement
             };
             readContext();
+            markUnreachable();
             build();
             go(typeof index === 'number' && index > 0 ? index : 0, 1);
             return true;
@@ -578,7 +602,7 @@
             clearStore('sessionStorage', STATE_KEY);
             var saved = null;
             try { saved = JSON.parse(raw); } catch (e) { rethrowIfBug(e); saved = null; }
-            if (saved && available(saved.id)) start(saved.id, saved.index, saved.nav, saved.tried, saved.ctx);
+            if (saved && available(saved.id)) start(saved.id, saved.index, saved.nav, saved.tried, saved.ctx, saved.skip);
         }
     }
 

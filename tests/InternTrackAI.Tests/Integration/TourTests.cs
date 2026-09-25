@@ -212,6 +212,25 @@ public class TourTests : IClassFixture<TestAppFactory>
     }
 
     [Fact]
+    public void The_overview_tells_the_apps_story_set_up_then_track_then_prepare()
+    {
+        // Ordered by what a user does, not by page: the resume first (it fills the profile every other AI
+        // feature reads), then the dashboard, then practice — ending on the scored answer rather than an
+        // upload box. It costs one more page change than page order would (dashboard → resume → back),
+        // measured at ~0.7 s; that trade was made on purpose, so a tidy-up back into page order should
+        // fail here, not pass quietly.
+        var steps = Tours().Single(t => t.Id == "overview").Steps;
+
+        Assert.All(steps[0].Candidates, c => Assert.StartsWith("/Profile", c.View ?? "", StringComparison.OrdinalIgnoreCase));
+        Assert.All(steps[^1].Candidates, c => Assert.Equal("/Practice", c.View));
+
+        // "That's the tour" belongs to the last step and only there.
+        const string closing = "That's the tour";
+        Assert.All(steps[^1].Candidates, c => Assert.Contains(closing, c.Body));
+        Assert.All(steps.Take(steps.Length - 1).SelectMany(s => s.Candidates), c => Assert.DoesNotContain(closing, c.Body));
+    }
+
+    [Fact]
     public void The_overview_is_five_steps_at_most()
     {
         // The recruiter-facing tour. Longer, and it stops being the first two minutes.

@@ -100,7 +100,13 @@ public class DemoProfileReset
         // in the change tracker, so mixing the two in one SaveChanges would be misleading.
         await _db.PracticeQuestions.Where(q => q.UserId == userId).ExecuteDeleteAsync(ct);
 
-        _db.PracticeQuestions.Add(DemoSeeder.BuildAnsweredPracticeQuestion(userId, DateTime.UtcNow));
+        // Attached to the seeded interview it was written for, so /Practice shows it under that posting.
+        // Null (general practice) if a visitor deleted that application; the nightly reseed restores it.
+        var interviewId = await _db.JobApplications.AsNoTracking()
+            .Where(a => a.UserId == userId && a.CompanyName == DemoSeeder.PracticeInterviewCompany)
+            .Select(a => (int?)a.Id)
+            .FirstOrDefaultAsync(ct);
+        _db.PracticeQuestions.Add(DemoSeeder.BuildAnsweredPracticeQuestion(userId, DateTime.UtcNow, interviewId));
         await _db.SaveChangesAsync(ct);
 
         // The pending draft is the real canned parse the demo's Analyze button produces — no model call,

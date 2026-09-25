@@ -11,9 +11,9 @@ namespace InternTrackAI.Services;
 /// <remarks>
 /// Replaces <c>InterviewPrepService.CritiqueAnswerAsync</c>, which returned three loose paragraphs of
 /// plain text and persisted nothing. One prompt rather than two is the same principle that merged the
-/// question stores in Phase 3: a second, drifting copy of "how we judge an answer" is worse than the
-/// small cost of flattening this result back to text for the one caller that still wants text
-/// (<see cref="AnswerFeedback.ToPlainText"/>).
+/// question stores in Phase 3: a second, drifting copy of "how we judge an answer" is worse than none.
+/// Since 2026-09-25 the prep page answers through <c>/Practice/SubmitAnswer</c> too, so every caller
+/// gets the structured verdict and nothing flattens it to text.
 /// </remarks>
 public class AnswerFeedbackService
 {

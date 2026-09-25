@@ -198,7 +198,9 @@
     // One set of listeners on the list, not one per card: cards arrive from "Get more" and are replaced
     // wholesale after a submission, and delegation means neither case needs rebinding.
     function wireAnswering(list) {
-        const token = document.querySelector('#practiceGenerateForm [name="__RequestVerificationToken"]');
+        // Any page that hosts practice cards marks where its token lives: /Practice's generate form, the
+        // interview prep page's generate card.
+        const token = document.querySelector('[data-practice-token] [name="__RequestVerificationToken"]');
 
         // Enables the button once there is something to grade, and keeps the counter honest. The server
         // enforces the same minimum — this is so the user is not told off after waiting for a round trip.

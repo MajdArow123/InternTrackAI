@@ -202,7 +202,7 @@ public class PrepQuestionTopicTests
 
         // The narrow practice topic contains every word of the broad prep one — exactly the shape
         // TopicKey would call a collision. It must not be one here.
-        Assert.Single(body.GetProperty("questions").EnumerateArray());
+        Assert.Equal(1, body.GetProperty("added").GetInt32());
         Assert.Contains(await h.Stored(userId), q => q.Topic == "automated testing" && q.Source == QuestionSource.InterviewPrep);
     }
 

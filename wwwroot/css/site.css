@@ -2330,7 +2330,6 @@ html[data-theme="dark"] .bulk-bar { background: rgba(44,44,46,.9); }
 .prep-company { font-weight: 600; font-size: 1rem; color: var(--text); letter-spacing: -.01em; }
 .prep-role { color: var(--muted); font-size: .8667rem; }
 
-.prep-category-section { }
 .prep-category-header { display: flex; align-items: center; gap: .6rem; margin-bottom: .75rem; }
 .prep-category-badge {
   display: inline-flex;
@@ -2348,49 +2347,6 @@ html[data-theme="dark"] .bulk-bar { background: rgba(44,44,46,.9); }
 .prep-cat-behavioral { background: var(--purple-soft);  color: var(--purple-text); }
 .prep-cat-company    { background: var(--success-soft); color: var(--success-text); }
 
-.prep-question-card {
-  background: var(--card);
-  border: 0;
-  border-radius: var(--radius);
-  padding: 1.1rem 1.25rem;
-  margin-bottom: .6rem;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
-}
-.prep-question-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
-.prep-question-text { font-size: 1rem; font-weight: 500; color: var(--text); line-height: 1.5; margin-bottom: .5rem; }
-.prep-tip { font-size: .8667rem; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--border); padding-top: .5rem; }
-.prep-tip-label { font-size: .76rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; color: var(--accent-text); margin-right: .45rem; }
-
-/* ── Interview answer AI coach ───────────────────────── */
-.prep-practice-box { margin-top: .75rem; border-top: 1px solid var(--border); padding-top: .75rem; }
-.prep-answer-input {
-  width: 100%;
-  resize: vertical;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: .6rem .8rem;
-  font-size: .9333rem;
-  color: var(--text);
-  background: var(--card);
-  font-family: inherit;
-  line-height: 1.5;
-  transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
-}
-.prep-answer-input::placeholder { color: var(--muted-2); }
-.prep-answer-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
-html[data-theme="dark"] .prep-answer-input { background: var(--surface-3); }
-.prep-feedback-result {
-  margin-top: .65rem;
-  font-size: .9333rem;
-  color: var(--text);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  background: var(--surface-2);
-  border: 0;
-  border-radius: var(--radius-sm);
-  padding: .8rem .9rem;
-}
 
 /* ── Salary insight card ──────────────────────────────── */
 .salary-insight-card {
@@ -3227,8 +3183,6 @@ html[data-theme="dark"] .form-control::placeholder { color: var(--text-2); }
 
 /* stat card number colors — too dark/wrong in dark mode */
 
-/* prep question card hover border: rgba(10,132,255,.35) */
-html[data-theme="dark"] .prep-question-card:hover { border-color: rgba(10,132,255,.4); }
 
 /* ── Semantic color classes (replace inline styles) ─── */
 
@@ -4962,7 +4916,6 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
 
 .practice-answer-form { margin-top: .85rem; }
 
-/* Same treatment as .prep-answer-input, whose tokens and dark-theme override are already tuned. */
 .practice-answer-input {
   width: 100%;
   resize: vertical;

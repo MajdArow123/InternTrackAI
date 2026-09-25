@@ -191,7 +191,6 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
     // ── InterviewPrep ──
     [Fact] public async Task InterviewPrep_Prep_GET()          => await Assert404(await _f.Alice.GetAsync($"/InterviewPrep/Prep?appId={_f.BobAppId}"));
     [Fact] public async Task InterviewPrep_Generate_POST()     => await Assert404(await _f.Alice.SendAsync(_f.JsonPost("/InterviewPrep/Generate", new { appId = _f.BobAppId })));
-    [Fact] public async Task InterviewPrep_Critique_POST()     => await Assert404(await _f.Alice.SendAsync(_f.JsonPost("/InterviewPrep/CritiqueAnswer", new { appId = _f.BobAppId, question = "Q?", answer = LongEnoughAnswer })));
 
     // ── Practice ──
     // The answer clears PracticeAnswerService.MinAnswerChars on purpose: the length rule is checked

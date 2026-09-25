@@ -1,4 +1,3 @@
-using System.Text;
 using System.Text.Json;
 
 namespace InternTrackAI.Services;
@@ -140,32 +139,6 @@ public sealed record AnswerFeedback(
             .Select(s => s!)
             .Take(max)
             .ToList();
-    }
-
-    /// <summary>
-    /// The three-part plain-text rendering the interview prep page has always shown. Kept so
-    /// <c>InterviewPrepController.CritiqueAnswer</c> can go through this one service without its
-    /// inline script — deferred to its own change — needing to learn a new response shape.
-    /// </summary>
-    public string ToPlainText()
-    {
-        var sb = new StringBuilder();
-
-        if (Strengths.Count > 0)
-            sb.Append("What works: ").Append(string.Join(" ", Strengths)).Append("\n\n");
-
-        var real = Improvements.Where(i => i.Length > 0).ToList();
-        if (real.Count > 0)
-            sb.Append("What to change: ").Append(string.Join(" ", real)).Append("\n\n");
-
-        if (MissingPoints.Count > 0)
-            sb.Append("What's missing: ").Append(string.Join(" ", MissingPoints)).Append("\n\n");
-
-        if (!string.IsNullOrWhiteSpace(RevisedOpening))
-            sb.Append("A stronger opening: ").Append(RevisedOpening);
-
-        var text = sb.ToString().TrimEnd();
-        return text.Length > 0 ? $"Score: {Score}/{MaxScore}\n\n{text}" : $"Score: {Score}/{MaxScore}";
     }
 
     private static string? Truncate(string? value, int max)

@@ -150,36 +150,4 @@ public class AnswerFeedbackTests
 
         Assert.Equal("Line one. Line two.", f.Strengths[0]);
     }
-
-    // ── The plain-text flattening the prep page still renders ────────────────
-
-    [Fact]
-    public void ToPlainText_carries_the_score_and_every_section()
-    {
-        var text = AnswerFeedback.FromJson(Full).ToPlainText();
-
-        Assert.Contains("Score: 4/5", text);
-        Assert.Contains("What works:", text);
-        Assert.Contains("What to change:", text);
-        Assert.Contains("What's missing:", text);
-        Assert.Contains("A stronger opening:", text);
-        Assert.Contains("Say what the outcome was.", text);
-    }
-
-    [Fact]
-    public void ToPlainText_omits_a_padded_improvement_rather_than_printing_an_empty_bullet()
-    {
-        var text = AnswerFeedback.FromJson("""{"score":2,"improvements":["Give a number."]}""").ToPlainText();
-
-        Assert.Contains("What to change: Give a number.", text);
-        Assert.DoesNotContain("What's missing:", text);
-    }
-
-    [Fact]
-    public void ToPlainText_of_an_empty_reply_is_still_something_to_show()
-    {
-        var text = AnswerFeedback.FromJson("garbage").ToPlainText();
-
-        Assert.Equal("Score: 1/5", text);
-    }
 }

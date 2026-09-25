@@ -245,7 +245,6 @@ public class RateLimitTests
             "CoverLetterController.ImproveAjax",
             "FollowUpController.Generate",
             "FollowUpController.Improve",
-            "InterviewPrepController.CritiqueAnswer",
             "InterviewPrepController.Generate",
             "ProfileController.AutoMatch",
             "ProfileController.ReparseResume",

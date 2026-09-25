@@ -60,11 +60,20 @@
       },
       {
         "view": "/Home/Dashboard",
-        "target": "[data-tour=\"nav\"]",
         "pad": 8,
         "placement": "bottom",
-        "title": "Getting around",
-        "body": "Dashboard for the overview, Applications for the list and the board, Practice for interview questions scored as you answer, Cover Letter and Profile for your documents."
+        "targets": [
+          {
+            "target": "[data-tour=\"nav\"]",
+            "title": "Getting around",
+            "body": "Dashboard for the overview, Applications for the list and the board, Practice for interview questions scored as you answer, Cover Letter and Profile for your documents."
+          },
+          {
+            "target": "[data-tour=\"nav-toggle\"]",
+            "title": "Getting around",
+            "body": "Everything lives in this menu: the Dashboard, Applications as a list or a board, Practice for interview questions scored as you answer, Cover Letter and Profile."
+          }
+        ]
       },
       {
         "view": "/Home/Dashboard",

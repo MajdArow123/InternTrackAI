@@ -231,6 +231,16 @@ public class TourTests : IClassFixture<TestAppFactory>
     }
 
     [Fact]
+    public void Every_overview_step_names_the_page_it_lives_on()
+    {
+        // The overview spans pages. A step with no page of its own inherits whichever page the tour
+        // happens to be on, which is how Back from Applications used to land on "2 of 7" on the wrong
+        // page. Every entry of every step says where it lives, so Back always returns to it.
+        foreach (var (step, i) in Tours().Single(t => t.Id == "overview").Steps.Select((s, i) => (s, i)))
+            Assert.All(step.Candidates, c => Assert.False(string.IsNullOrEmpty(c.View), $"overview[{i}] has an entry with no page"));
+    }
+
+    [Fact]
     public void The_overview_is_five_steps_at_most()
     {
         // The recruiter-facing tour. Longer, and it stops being the first two minutes.

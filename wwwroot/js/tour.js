@@ -19,8 +19,8 @@
 //  * Every storage call can throw (private mode, blocked site data). All of
 //    them go through readStore/writeStore, which swallow it: an unreadable
 //    "seen" flag counts as not-yet-seen, never as a crash.
-//  * A step whose target matches nothing is skipped in the direction of
-//    travel rather than dimming the page around nothing.
+//  * A step whose target matches nothing visible is skipped in the direction
+//    of travel rather than dimming the page around nothing.
 (function () {
     'use strict';
 
@@ -152,6 +152,25 @@
         }));
     }
 
+    /* ── targets ─────────────────────────────────────────── */
+    // A target counts only if it is actually on screen to point at. Existing is
+    // not enough: at phone width the nav links sit inside a collapsed menu with
+    // display:none, and spotlighting them drew a 16x16 speck in the corner
+    // around nothing. The first *visible* match wins, so a selector that
+    // matches several rows (an attention list) skips any that are hidden.
+    function visible(el) {
+        if (!el || !el.getClientRects().length) return false;
+        var r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1) return false;
+        return getComputedStyle(el).visibility !== 'hidden';
+    }
+    function findVisible(selector) {
+        if (!selector) return null;
+        var all = document.querySelectorAll(selector);
+        for (var i = 0; i < all.length; i++) if (visible(all[i])) return all[i];
+        return null;
+    }
+
     /* ── candidates ──────────────────────────────────────── */
     // What the current page knows that the tour needs before it leaves it —
     // today only whether a resume draft is waiting (the dashboard's
@@ -214,7 +233,7 @@
             for (i = 0; i < cands.length && !hit; i++) {
                 c = cands[i];
                 if (c.view && !samePath(here, c.view)) continue;
-                if (!c.target || document.querySelector(c.target)) hit = c;
+                if (!c.target || findVisible(c.target)) hit = c;
             }
             if (hit) {
                 state.index = index;
@@ -244,7 +263,7 @@
         els.back.disabled     = state.index === 0;
         els.next.textContent  = state.index === state.steps.length - 1 ? 'Done' : 'Next';
 
-        reveal(step.target ? document.querySelector(step.target) : null);
+        reveal(findVisible(step.target));
         position();
 
         // Focus the dialog itself, not a control: screen readers then announce
@@ -264,7 +283,7 @@
     function position() {
         if (!state || !els) return;
         var step = state.cand || {};
-        var el   = step.target ? document.querySelector(step.target) : null;
+        var el   = findVisible(step.target);
         var dock = docked();
 
         els.tip.classList.toggle('tour-tip--docked', dock);

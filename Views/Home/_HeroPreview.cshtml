@@ -1,6 +1,8 @@
 @*
-    Landing hero preview: a fake app frame whose mini navbar swaps between four static mocks
-    (Dashboard, Applications board, Cover Letter generator, Profile). Sample data is fictional
+    Landing hero preview: a fake app frame whose mini navbar swaps between five static mocks
+    (Dashboard, Applications board, Cover Letter generator, Practice, Profile) — the same order as
+    the real nav. Every tab needs its panel: landing-preview.js disables the whole preview if one is
+    missing. Sample data is fictional
     and shared across the tabs. Tab behaviour lives in wwwroot/js/landing-preview.js.
 *@
 <div class="lp-shot" id="lp-preview">
@@ -9,6 +11,7 @@
         <button type="button" role="tab" id="lp-tab-dashboard"    class="on" aria-selected="true"  aria-controls="lp-panel-dashboard"    tabindex="0">Dashboard</button>
         <button type="button" role="tab" id="lp-tab-applications" aria-selected="false" aria-controls="lp-panel-applications" tabindex="-1">Applications</button>
         <button type="button" role="tab" id="lp-tab-cover"        aria-selected="false" aria-controls="lp-panel-cover"        tabindex="-1">Cover Letter</button>
+        <button type="button" role="tab" id="lp-tab-practice"     aria-selected="false" aria-controls="lp-panel-practice"     tabindex="-1">Practice</button>
         <button type="button" role="tab" id="lp-tab-profile"      aria-selected="false" aria-controls="lp-panel-profile"      tabindex="-1">Profile</button>
     </div>
     <div class="lp-shot-panels">
@@ -228,6 +231,41 @@
                         <span class="btn btn-primary btn-sm">Improve letter</span>
                         <span class="btn lp-ghost btn-sm">Save to profile</span>
                         <span class="btn lp-ghost btn-sm">Download PDF</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Practice (a scored answer) ────────────────────────── -->
+        <div class="lp-shot-body lp-shot-panel" role="tabpanel" id="lp-panel-practice" aria-labelledby="lp-tab-practice" aria-hidden="true">
+            <div class="lp-shot-head"><p class="lp-shot-title">Practice</p><span>Interview questions in your field, scored as you answer</span></div>
+            <div class="lp-shot-row lp-shot-row--cl">
+                <div class="lp-mini-card">
+                    <div class="lp-help lp-help--meta">Shopify &middot; Backend Developer Intern</div>
+                    <div class="lp-practice-meta">
+                        <span class="practice-badge practice-badge--medium">Medium</span>
+                        <span class="practice-badge practice-badge--category">Technical</span>
+                        <span class="practice-score practice-score--high">4<span class="practice-score-max">/5</span></span>
+                    </div>
+                    <p class="lp-practice-q">A checkout API slows down at peak traffic, but only for some merchants. How would you find out why?</p>
+                    <div class="lp-label">Your answer</div>
+                    <div class="lp-input lp-textarea">On my co-op team our order API's p99 went from 300&nbsp;ms to 4&nbsp;s during a sale, but only for about 5% of stores. I grouped the slow traces by store&hellip;</div>
+                </div>
+                <div class="lp-mini-card">
+                    <div class="lp-card-top"><p class="lp-card-title">Feedback</p><span class="word-count">answered in 3m 06s</span></div>
+                    <div class="lp-label">What worked</div>
+                    <ul class="lp-practice-list">
+                        <li>You went to p99 and traces instead of averages.</li>
+                        <li>You found what the slow requests had in common before touching any code.</li>
+                    </ul>
+                    <div class="lp-label">Two things to change</div>
+                    <ul class="lp-practice-list">
+                        <li>Say how you would stop it coming back, such as an alert on p99 by store size.</li>
+                        <li>Mention what you ruled out first, so it sounds like a method rather than luck.</li>
+                    </ul>
+                    <div class="lp-aibox lp-practice-opening">
+                        <b><i></i>A stronger opening</b>
+                        <p>During a sale on my co-op team, our order API's p99 jumped from 300&nbsp;ms to 4 seconds, but only for one store in twenty.</p>
                     </div>
                 </div>
             </div>

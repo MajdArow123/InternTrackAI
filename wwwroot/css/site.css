@@ -4243,6 +4243,15 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .lp-aibox p { margin: 0 0 .55rem; line-height: 1.55; }
 .lp-aibox p:last-child { margin: 0; }
 .lp-shot-panel .lp-frag-actions { margin-top: .8rem; }
+/* Practice: the question and answer on the left, the scored feedback on the right. Reuses the real
+   practice badge and score chip so the preview shows what the page actually looks like. */
+.lp-practice-meta { display: flex; align-items: center; gap: .35rem; margin-bottom: .6rem; }
+.lp-practice-meta .practice-score { margin-left: auto; }
+.lp-shot-panel .practice-badge, .lp-shot-panel .practice-score { font-size: .6667rem; }
+.lp-practice-q { margin: 0; font-size: .8667rem; line-height: 1.5; color: var(--text); }
+.lp-practice-list { margin: 0; padding-left: 1.1rem; font-size: .8rem; line-height: 1.5; color: var(--text-2); }
+.lp-practice-list li + li { margin-top: .2rem; }
+.lp-practice-opening { margin-top: .8rem; }
 /* Profile: identity + skills on the left, resume card on the right */
 .lp-shot-row--profile { grid-template-columns: 1fr 1.3fr; }
 .lp-profile-left { display: flex; flex-direction: column; gap: .75rem; }

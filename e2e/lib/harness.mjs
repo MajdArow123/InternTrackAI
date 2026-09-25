@@ -106,18 +106,22 @@ export function syntheticClient() {
   return { 'X-Forwarded-For': `198.18.${(clientCounter >> 8) & 0xff}.${clientCounter & 0xff}` };
 }
 
-/** Registers a throwaway account through the real Register page (never touches the DB). */
-export async function registerThroughUi(context, email, displayName = 'QA Audit') {
+/**
+ * Registers a throwaway account through the real Register page (never touches the DB).
+ * `base` and `password` default to the suite-wide ones; the throwaway servers in app-server.mjs pass
+ * their own.
+ */
+export async function registerThroughUi(context, email, displayName = 'QA Audit', { base = BASE, password = PASSWORD } = {}) {
   const page = await context.newPage();
   // Each throwaway account is its own visitor, so one spec's registrations never spend another's
   // registration allowance. Set on the page, not the context: everything after registration goes on
   // being plain localhost traffic.
   await page.setExtraHTTPHeaders(syntheticClient());
-  await page.goto(`${BASE}/Identity/Account/Register`, { waitUntil: 'domcontentloaded' });
+  await page.goto(`${base}/Identity/Account/Register`, { waitUntil: 'domcontentloaded' });
   await page.fill('#Input_DisplayName', displayName).catch(() => {});
   await page.fill('#Input_Email', email);
-  await page.fill('#Input_Password', PASSWORD);
-  await page.fill('#Input_ConfirmPassword', PASSWORD);
+  await page.fill('#Input_Password', password);
+  await page.fill('#Input_ConfirmPassword', password);
   await Promise.all([
     page.waitForLoadState('networkidle'),
     page.click('button[type=submit]'),
@@ -128,10 +132,10 @@ export async function registerThroughUi(context, email, displayName = 'QA Audit'
   return url;
 }
 
-export async function newSignedInContext(browser, tag = 'main') {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+export async function newSignedInContext(browser, tag = 'main', { base = BASE, viewport = { width: 1440, height: 900 } } = {}) {
+  const context = await browser.newContext({ viewport });
   const email = uniqueEmail(tag);
-  await registerThroughUi(context, email);
+  await registerThroughUi(context, email, 'QA Audit', { base });
   return { context, email };
 }
 
@@ -186,8 +190,8 @@ export async function postJson(page, url, payload, token) {
 }
 
 /** Creates an application through the Create form and returns its id. */
-export async function createApplication(page, fields) {
-  await page.goto(`${BASE}/JobApplications/Create`, { waitUntil: 'domcontentloaded' });
+export async function createApplication(page, fields, { base = BASE } = {}) {
+  await page.goto(`${base}/JobApplications/Create`, { waitUntil: 'domcontentloaded' });
   await page.fill('#CompanyName', fields.CompanyName);
   await page.fill('#RoleTitle', fields.RoleTitle);
   if (fields.Location) await page.fill('#Location', fields.Location);

@@ -1,8 +1,8 @@
 // Entry point for the dd-web-full-test audit.
 //   NODE_PATH=$HOME/.claude/skills/gstack/node_modules \
 //   AXE_PATH=<path to axe.min.js> \
-//   node e2e/run-all.mjs [functional visual a11y security compat perf applications-clickthrough]
-// No arguments runs all seven; an unrecognised name is an error rather than a silent full run.
+//   node e2e/run-all.mjs [functional visual a11y security compat perf applications-clickthrough practice tour]
+// No arguments runs all nine; an unrecognised name is an error rather than a silent full run.
 import { flush, summary, ARTIFACTS } from './lib/harness.mjs';
 import path from 'node:path';
 
@@ -12,6 +12,12 @@ const ALL = ['functional', 'visual', 'a11y', 'security', 'compat', 'perf'];
 // gets forgotten; 25 checks and ~45 s is a cheap way to make that rule self-enforcing. It stays a
 // separate dimension so it can still be run on its own while working on those views.
 ALL.push('applications-clickthrough');
+// Practice and tour run on a throwaway server of their own (lib/app-server.mjs): practice needs a model,
+// which the in-process stub provides, and tour needs the seeded demo account. Both are in the default set
+// for the same reason as the click-through — three bug classes in one week were invisible to everything
+// else: two stale progress cards, an autosave ReferenceError that a catch swallowed, and every finding of
+// the tour audit.
+ALL.push('practice', 'tour');
 // An unrecognised name is a usage error, not a reason to run everything. Filtering the arguments
 // against ALL and falling back on an empty result meant a typo ("complat") silently ran the whole
 // suite instead of the one dimension that was asked for — slow, and easy to mistake for a clean run

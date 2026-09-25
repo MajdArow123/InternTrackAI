@@ -6,9 +6,9 @@ namespace InternTrackAI.Services;
 /// Three are enforced and safe to enforce: this app never frames itself, never relies on
 /// content-type sniffing, and never needs to leak a full URL to another origin. The Content
 /// Security Policy ships <b>report-only</b> on purpose — <c>_Layout.cshtml</c> carries the theme
-/// pre-paint, toast and keyboard-shortcut scripts inline, and <c>Views/InterviewPrep/Prep.cshtml</c>
-/// still holds ~170 inline lines (section 12), so an enforced <c>script-src 'self'</c> would break
-/// the app today. Note the policy deliberately does <i>not</i> grant <c>'unsafe-inline'</c> for
+/// pre-paint, toast and keyboard-shortcut scripts inline (and <c>_AuthLayout.cshtml</c> its own
+/// theme pre-paint), so an enforced <c>script-src 'self'</c> would break the app today. The prep
+/// page's ~170 inline lines went on 2026-09-25. Note the policy deliberately does <i>not</i> grant <c>'unsafe-inline'</c> for
 /// scripts: report-only plus a strict directive is what surfaces each remaining inline block in the
 /// browser console, which is the list to work through before this can be enforced. Grant it and the
 /// report goes quiet while the exposure stays.

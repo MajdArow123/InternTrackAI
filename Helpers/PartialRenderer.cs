@@ -12,8 +12,8 @@ namespace InternTrackAI.Helpers;
 /// <remarks>
 /// This is how the app does dynamic content (CLAUDE.md §8): the server returns rendered HTML and the
 /// client appends it, instead of the client holding a second copy of the markup in a template string.
-/// The Prep page's inline script is the counter-example — it re-implements the question card in
-/// JavaScript, so the two can drift, which is exactly what this avoids for the practice page.
+/// The interview prep page used to be the counter-example — its inline script re-implemented the question
+/// card in JavaScript — until 2026-09-25, when it moved onto the practice card and this renderer too.
 /// </remarks>
 public static class PartialRenderer
 {

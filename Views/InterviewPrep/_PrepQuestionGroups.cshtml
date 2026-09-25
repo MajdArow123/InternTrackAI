@@ -1,0 +1,35 @@
+@model List<InternTrackAI.Models.PracticeQuestion>
+@using InternTrackAI.Models.Enums
+@*
+    The prep page's questions, one section per category, each card rendered by the practice page's own
+    _PracticeQuestion — so a prep question looks, answers, scores and retries exactly as it does on
+    /Practice, and there is no second copy of the card anywhere. Rendered on page load with every
+    question, and by /InterviewPrep/Generate with only the new ones; interview-prep.js merges the latter
+    into the sections already on the page by data-prep-category.
+*@
+@{
+    var css = new Dictionary<QuestionCategory, string>
+    {
+        [QuestionCategory.Technical]       = "prep-cat-technical",
+        [QuestionCategory.Behavioral]      = "prep-cat-behavioral",
+        [QuestionCategory.CompanySpecific] = "prep-cat-company"
+    };
+    var grouped = Model.GroupBy(q => q.Category).ToDictionary(g => g.Key, g => g.OrderBy(q => q.Id).ToList());
+}
+@foreach (var category in QuestionCategories.InOrder)
+{
+    if (!grouped.TryGetValue(category, out var questions)) continue;
+
+    <section class="mb-4" data-prep-category="@category">
+        <div class="prep-category-header">
+            <span class="prep-category-badge @css.GetValueOrDefault(category, "prep-cat-technical")">@QuestionCategories.Display(category)</span>
+            <span class="form-hint mt-0" data-prep-count>@questions.Count question@(questions.Count == 1 ? "" : "s")</span>
+        </div>
+        <div class="practice-list" data-prep-list>
+            @foreach (var q in questions)
+            {
+                <partial name="~/Views/Practice/_PracticeQuestion.cshtml" model="q" />
+            }
+        </div>
+    </section>
+}

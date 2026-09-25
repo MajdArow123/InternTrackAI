@@ -76,7 +76,7 @@
             <button type="button" class="practice-filter" data-practice-toggle-all="expand">Expand all</button>
         </div>
 
-        <form id="practiceGenerateForm" class="mt-3">
+        <form id="practiceGenerateForm" class="mt-3" data-practice-token>
             @Html.AntiForgeryToken()
             <input type="hidden" name="difficulty" value="@Model.NextDifficulty" />
             <input type="hidden" name="category" value="@Model.NextCategory" />

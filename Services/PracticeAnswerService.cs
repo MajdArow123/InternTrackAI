@@ -18,9 +18,9 @@ public sealed record AnswerSubmissionResult(bool Success, AnswerFeedback? Feedba
 /// </summary>
 /// <remarks>
 /// <para>
-/// Both <c>PracticeController.SubmitAnswer</c> and <c>InterviewPrepController.CritiqueAnswer</c> come
-/// through here, which is the point of it existing: two pages offering the same thing is fine, two
-/// implementations of what "answering a question" means is not.
+/// Reached through <c>PracticeController.SubmitAnswer</c>, which both the practice page and the interview
+/// prep page post to — the prep page's own <c>CritiqueAnswer</c> endpoint was retired on 2026-09-25. Two
+/// pages offering the same thing is fine; two implementations of what "answering a question" means is not.
 /// </para>
 /// <para>
 /// <b><see cref="MinAnswerChars"/> is enforced here, not in the browser.</b> The client disables its
@@ -121,31 +121,6 @@ public class PracticeAnswerService
         await _db.SaveChangesAsync(ct);
 
         return AnswerSubmissionResult.Ok(feedback);
-    }
-
-    /// <summary>
-    /// Scores an answer with nowhere to store it: a question that no longer matches a stored row, which
-    /// a stale page can still submit. The user gets coached rather than an error over bookkeeping.
-    /// </summary>
-    /// <remarks>
-    /// Category and difficulty are unknowable here, so the prompt is told Technical/Medium. That is a
-    /// worse grading context than <see cref="SubmitAsync"/> gets, which is the honest reason this is the
-    /// fallback and not the main path.
-    /// </remarks>
-    public async Task<AnswerSubmissionResult> EvaluateWithoutStoringAsync(
-        string userId, string question, string answer, string? company, string? role, CancellationToken ct = default)
-    {
-        if (Validate(answer) is { } invalid) return AnswerSubmissionResult.Failed(invalid);
-
-        var context = new AnswerContext(
-            question, Normalize(answer), QuestionCategory.Technical, PracticeDifficulty.Medium, null, company, role);
-
-        var (ok, feedback, _, error) = await _feedback.EvaluateAsync(
-            context, await _userContext.BuildAsync(userId, ct), ct);
-
-        return ok && feedback is not null
-            ? AnswerSubmissionResult.Ok(feedback)
-            : AnswerSubmissionResult.Failed(error ?? "Could not get feedback. Try again.");
     }
 
     /// <summary>The posting a question was generated from, for the prompt's "practising for X at Y" line.</summary>

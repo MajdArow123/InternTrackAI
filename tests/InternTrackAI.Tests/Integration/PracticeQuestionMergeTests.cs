@@ -162,26 +162,30 @@ public class PracticeQuestionMergeTests
     }
 
     [Fact]
-    public async Task The_generate_response_keeps_the_exact_shape_the_pages_script_reads()
+    public async Task The_generate_response_is_the_new_questions_rendered_as_practice_cards()
     {
-        // Prep.cshtml's inline script renders from this JSON and was left untouched on purpose.
+        // Since the prep page's inline script was retired (2026-09-25) there is no client-side card to
+        // feed: Generate returns the stored questions rendered by _PrepQuestionGroups, grouped by category,
+        // and interview-prep.js merges them into the sections already on the page.
         using var h = new Harness(ThreeQuestions);
         var client = h.Client();
-        var appId = await h.SeedApplication(await h.UserIdOf(await Http.RegisterAsync(client)));
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+        var appId = await h.SeedApplication(userId);
 
         var body = await Generate(client, appId);
 
         Assert.True(body.GetProperty("success").GetBoolean());
-        var first = body.GetProperty("questions").EnumerateArray().First();
+        Assert.Equal(3, body.GetProperty("added").GetInt32());
+        Assert.False(body.TryGetProperty("questions", out _));
 
-        Assert.Equal("Technical", first.GetProperty("category").GetString());
-        Assert.Equal("What is a hash map?", first.GetProperty("question").GetString());
-        Assert.Equal("Mention average-case lookup.", first.GetProperty("tip").GetString());
-
-        // The hyphenated spelling the script groups on.
-        var categories = body.GetProperty("questions").EnumerateArray()
-            .Select(q => q.GetProperty("category").GetString()).ToList();
-        Assert.Contains("Company-Specific", categories);
+        var html = WebUtility.HtmlDecode(body.GetProperty("html").GetString()!);
+        foreach (var q in await h.QuestionsOf(userId))
+            Assert.Contains($"data-question-id=\"{q.Id}\"", html);
+        Assert.Contains("data-prep-category=\"Technical\"", html);
+        Assert.Contains("data-prep-category=\"CompanySpecific\"", html);
+        Assert.Contains("Company-Specific", html);                 // the badge keeps its display spelling
+        Assert.Contains("Mention average-case lookup.", html);     // the tip, now the card's hint
+        Assert.Contains("data-practice-answer-form", html);
     }
 
     // ── What the row-per-question store buys immediately ─────────────────────
@@ -200,7 +204,10 @@ public class PracticeQuestionMergeTests
         var second = await Generate(client, appId);
 
         Assert.Equal(3, (await h.QuestionsOf(userId)).Count);
-        Assert.Empty(second.GetProperty("questions").EnumerateArray());   // nothing new to report
+        // Nothing new to report — and "nothing new" is its own answer, not an empty list the page could
+        // mistake for "no questions" and blank itself with, which the old client did.
+        Assert.Equal(0, second.GetProperty("added").GetInt32());
+        Assert.Equal("", second.GetProperty("html").GetString());
         Assert.Equal(2, h.Prep.Calls);
     }
 

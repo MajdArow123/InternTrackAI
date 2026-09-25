@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.Json;
 using InternTrackAI.Data;
+using InternTrackAI.Helpers;
 using InternTrackAI.Models;
 using InternTrackAI.Models.Enums;
 using InternTrackAI.Models.ViewModels;
@@ -13,27 +14,25 @@ using Microsoft.EntityFrameworkCore;
 namespace InternTrackAI.Controllers;
 
 /// <summary>
-/// Generates and stores AI interview-prep question sets for a specific job application —
-/// one session per application, regenerable on demand from the job description, the user's
-/// active resume, and their profile skills.
+/// The interview prep page for one application: generates posting-grounded questions and stores them as
+/// <see cref="PracticeQuestion"/> rows. The page renders them with the practice page's own card, so
+/// answering goes through <c>/Practice/SubmitAnswer</c> by question id — there is no answer endpoint here.
 /// </summary>
 [Authorize]
 public class InterviewPrepController : Controller
 {
     private readonly ApplicationDbContext _db;
     private readonly InterviewPrepService _service;
-    private readonly PracticeAnswerService _answers;
     private readonly ResumeTextService _resumeText;
     private readonly IUserContextBuilder _userContext;
     private readonly ILogger<InterviewPrepController> _logger;
 
-    public InterviewPrepController(ApplicationDbContext db, InterviewPrepService service, PracticeAnswerService answers,
+    public InterviewPrepController(ApplicationDbContext db, InterviewPrepService service,
                                    ResumeTextService resumeText, IUserContextBuilder userContext,
                                    ILogger<InterviewPrepController> logger)
     {
         _db      = db;
         _service = service;
-        _answers = answers;
         _resumeText = resumeText;
         _userContext = userContext;
         _logger = logger;
@@ -41,12 +40,6 @@ public class InterviewPrepController : Controller
 
     /// <summary>Resolves the current signed-in user's id from the auth claims.</summary>
     private string UserId() => User.FindFirstValue(ClaimTypes.NameIdentifier)!;
-
-    // Tolerates property-name casing mismatches when re-reading previously stored question JSON.
-    private static readonly JsonSerializerOptions _readOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
 
     /// <summary>
     /// Renders the interview prep page for a job application, loading any previously generated
@@ -80,8 +73,9 @@ public class InterviewPrepController : Controller
     /// </summary>
     /// <param name="req">The application id to generate questions for.</param>
     /// <returns>
-    /// JSON <c>{ success, questions }</c> on success, or <c>{ success: false, error }</c> if the
-    /// application can't be found or the AI call fails.
+    /// JSON <c>{ success, added, html }</c> — the newly stored questions rendered by
+    /// <c>_PrepQuestionGroups</c> (empty when nothing new was stored) — or <c>{ success: false, error }</c>
+    /// if the application can't be found or the AI call fails.
     /// </returns>
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -121,17 +115,14 @@ public class InterviewPrepController : Controller
 
         var stored = await SaveNewAsync(uid, req.AppId, questions);
 
-        // The wire shape is unchanged — category as its display string, question, tip — because the
-        // Prep page's script renders straight from it. Storing rows changed nothing the client sees.
+        // Only what was stored, rendered with the practice card and grouped by category. The page merges
+        // it into the sections it already shows; an empty result means "nothing new", not "no questions",
+        // which is the distinction the old JSON-and-replace client could not make.
         return Json(new
         {
-            success   = true,
-            questions = stored.Select(q => new
-            {
-                category = QuestionCategories.Display(q.Category),
-                question = q.Prompt,
-                tip      = q.ModelHint
-            })
+            success = true,
+            added   = stored.Count,
+            html    = stored.Count == 0 ? "" : await this.RenderPartialAsync("_PrepQuestionGroups", stored)
         });
     }
 
@@ -244,60 +235,7 @@ public class InterviewPrepController : Controller
 
         return saved;
     }
-
-    /// <summary>
-    /// Scores the candidate's typed answer to one interview question on this page.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>The URL and the response shape are unchanged</b> — <c>{ success, feedback }</c> with feedback as
-    /// plain text — because <c>Prep.cshtml</c>'s inline script renders straight from it and moving that
-    /// script to <c>wwwroot/js</c> is deliberately a separate change. Underneath, this now goes through
-    /// <see cref="PracticeAnswerService"/>, the same path the practice page uses, and
-    /// <see cref="AnswerFeedback.ToPlainText"/> flattens the result back to the shape the page expects.
-    /// </para>
-    /// <para>
-    /// <b>The attempt is persisted now.</b> The row is found by hashing the submitted question text: this
-    /// page renders from <see cref="PracticeQuestion"/> rows and the unique index is
-    /// <c>(UserId, PromptHash)</c>, so the lookup is exact and indexed. When nothing matches — a page
-    /// left open across a regenerate — the answer is still scored, just not stored. Until the inline
-    /// script is rewritten, a stored answer is only <em>visible</em> on <c>/Practice</c>.
-    /// </para>
-    /// </remarks>
-    [HttpPost]
-    [ValidateAntiForgeryToken]
-    [EnableRateLimiting(AiRateLimiting.PolicyName)]
-    public async Task<IActionResult> CritiqueAnswer([FromBody] CritiqueAnswerRequest req)
-    {
-        var uid = UserId();
-
-        // Checked before the application is loaded so a too-short answer costs nothing.
-        if (PracticeAnswerService.Validate(req.Answer) is { } invalid)
-            return Json(new { success = false, error = invalid });
-
-        var app = await _db.JobApplications
-            .FirstOrDefaultAsync(a => a.Id == req.AppId && a.UserId == uid);
-        if (app is null)
-            return NotFound(new { success = false, error = "Application not found." });
-
-        var hash = QuestionHash.Of(req.Question);
-        var row = hash.Length == 0 ? null : await _db.PracticeQuestions
-            .FirstOrDefaultAsync(q => q.UserId == uid && q.PromptHash == hash);
-
-        var result = row is not null
-            // No timing from the prep page: its inline script does not measure one, and inventing a
-            // value would be worse than leaving the column null.
-            ? await _answers.SubmitAsync(uid, row, req.Answer, elapsedSeconds: null, HttpContext.RequestAborted)
-            : await _answers.EvaluateWithoutStoringAsync(
-                  uid, req.Question, req.Answer, app.CompanyName, app.RoleTitle, HttpContext.RequestAborted);
-
-        if (!result.Success)
-            return Json(new { success = false, error = result.Error });
-
-        return Json(new { success = true, feedback = result.Feedback!.ToPlainText() });
-    }
 }
 
 public record GeneratePrepRequest(int AppId);
 
-public record CritiqueAnswerRequest(int AppId, string Question, string Answer);

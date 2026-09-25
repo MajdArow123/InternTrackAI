@@ -21,6 +21,7 @@ public class OwnershipFixture : TestAppFactory, IAsyncLifetime
     public HttpClient Alice { get; private set; } = null!;
     public string AliceToken { get; private set; } = "";
     public string BobId { get; private set; } = "";
+    public string BobEmail { get; private set; } = "";
     public int BobAppId, BobNoteId, BobLetterId, BobResumeId, BobPrepId;
 
     public async Task InitializeAsync()
@@ -28,7 +29,7 @@ public class OwnershipFixture : TestAppFactory, IAsyncLifetime
         var options = new WebApplicationFactoryClientOptions { AllowAutoRedirect = false };
 
         var bob = CreateClient(options);
-        var bobEmail = await Http.RegisterAsync(bob);
+        var bobEmail = BobEmail = await Http.RegisterAsync(bob);
 
         Alice = CreateClient(options);
         await Http.RegisterAsync(Alice);
@@ -75,12 +76,32 @@ public class OwnershipTests : IClassFixture<OwnershipFixture>
     private readonly OwnershipFixture _f;
     public OwnershipTests(OwnershipFixture f) => _f = f;
 
-    private static async Task Assert404(HttpResponseMessage res)
+    /// <summary>
+    /// 404, and nothing Bob owns appears in the response: every value the fixture seeded for him, his email
+    /// and his user id, checked on the decoded body so an HTML-encoded apostrophe cannot hide a leak.
+    /// </summary>
+    /// <remarks>
+    /// This used to be <c>DoesNotContain("Bob", body)</c>, and it failed on main (2026-09-25) with no leak at
+    /// all: the page's logout form carries a ~200-character base64url antiforgery token, new on every
+    /// request, and one happened to contain "Bob". The odds are roughly 1 in 1,300 per response, and 27
+    /// checks here make that about a 2% chance of a red suite on any run. Every marker below contains a
+    /// space, an apostrophe, a dot or an "@", none of which base64url can produce, so a token can no longer
+    /// match — only real data can. Bob's id is the exception (hex and hyphens) and is 36 characters long.
+    /// </remarks>
+    private async Task Assert404(HttpResponseMessage res)
     {
         Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
-        var body = await res.Content.ReadAsStringAsync();
-        Assert.DoesNotContain("Bob", body);    // nothing of Bob's leaks into the 404 page/body
+        var body = WebUtility.HtmlDecode(await res.Content.ReadAsStringAsync());
+        foreach (var marker in BobsData)
+            Assert.DoesNotContain(marker, body);
     }
+
+    /// <summary>Everything the fixture stored for Bob that a leak would put on the page.</summary>
+    private IEnumerable<string> BobsData => new[]
+    {
+        "Bob Corp", "Bob Role", "Bob's private posting text.", "Bob's private note",
+        "Bob's letter", "Bob's question?", "bob.pdf", _f.BobEmail, _f.BobId
+    };
 
     // ── JobApplications ──
     [Fact] public async Task JobApplications_Edit_GET()   => await Assert404(await _f.Alice.GetAsync($"/JobApplications/Edit/{_f.BobAppId}"));

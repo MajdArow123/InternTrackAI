@@ -40,7 +40,7 @@
             These filter what's listed below <strong>and</strong> decide what &ldquo;Get more questions&rdquo; writes next.
         </p>
 
-        <div class="practice-filters">
+        <div class="practice-filters" data-tour="practice-filters">
             <div class="practice-filter-group" role="group" aria-label="Difficulty">
                 <a class="practice-filter @(Model.Difficulty is null ? "is-active" : "")" href="@FilterUrl(null, Model.Category, Model.SavedOnly, Model.HideAnswered)">Any</a>
                 @foreach (var d in Enum.GetValues<PracticeDifficulty>())

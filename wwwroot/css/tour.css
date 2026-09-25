@@ -73,6 +73,9 @@ html[data-theme="dark"] { --tour-scrim: rgba(0,0,0,.62); }
 
 .tour-tip--center { top: 50%; left: 50%; transform: translate(-50%, -50%); }
 
+/* A target taller than the room beside it: the card sits in the corner rather than over the target. */
+.tour-tip--pinned { top: auto; left: auto; right: 16px; bottom: 16px; }
+
 .tour-tip-title {
   margin: 0 1.6rem .4rem 0;
   font-size: 1.02rem;

@@ -202,9 +202,12 @@ public class TourTests : IClassFixture<TestAppFactory>
         var tours = Tours();
         Assert.All(tours, t => Assert.False(t.HasAutoKey, $"{t.Id} declares \"auto\"; nothing auto-runs"));
 
-        var overview = tours.Single(t => t.Id == "overview");
-        Assert.Empty(overview.Match);                                   // the fallback claims no page
-        Assert.All(tours.Where(t => t.Id != "overview"), t => Assert.NotEmpty(t.Match));
+        // Every tour claims the pages its Tour button runs on, the overview included (the dashboard).
+        // There is no fallback tour any more: a page nobody claims gets tour.js's offer card, which
+        // asks before going anywhere, instead of a tour that navigates off a page someone is using.
+        Assert.All(tours, t => Assert.NotEmpty(t.Match));
+        Assert.Contains("/Home/Dashboard", tours.Single(t => t.Id == "overview").Match);
+        Assert.Contains("/Practice", tours.Single(t => t.Id == "practice").Match);
 
         // No two tours claim the same page, or the nav button's choice would be arbitrary.
         var claimed = tours.SelectMany(t => t.Match.Select(m => m.ToLowerInvariant())).ToList();
@@ -228,6 +231,30 @@ public class TourTests : IClassFixture<TestAppFactory>
         const string closing = "That's the tour";
         Assert.All(steps[^1].Candidates, c => Assert.Contains(closing, c.Body));
         Assert.All(steps.Take(steps.Length - 1).SelectMany(s => s.Candidates), c => Assert.DoesNotContain(closing, c.Body));
+    }
+
+    [Fact]
+    public void Every_overview_step_names_the_page_it_lives_on()
+    {
+        // The overview spans pages. A step with no page of its own inherits whichever page the tour
+        // happens to be on, which is how Back from Applications used to land on "2 of 7" on the wrong
+        // page. Every entry of every step says where it lives, so Back always returns to it.
+        foreach (var (step, i) in Tours().Single(t => t.Id == "overview").Steps.Select((s, i) => (s, i)))
+            Assert.All(step.Candidates, c => Assert.False(string.IsNullOrEmpty(c.View), $"overview[{i}] has an entry with no page"));
+    }
+
+    [Fact]
+    public async Task The_analyzer_paste_box_counts_as_unsaved_input()
+    {
+        // tour.js asks before navigating away from unsaved typing: fields in forms that post, plus
+        // anything marked data-tour-unsaved. The analyzer's paste box sits outside the Create form,
+        // so without the marker a pasted posting would be lost without a question.
+        var client = NewClient();
+        await Http.RegisterAsync(client);
+        var html = await (await client.GetAsync("/JobApplications/Create")).Content.ReadAsStringAsync();
+
+        Assert.Matches("<textarea class=\"analyzer-textarea\" id=\"analyzerTextarea\" data-tour-unsaved", html);
+        Assert.Contains("method=\"post\" id=\"appForm\"", html);
     }
 
     [Fact]

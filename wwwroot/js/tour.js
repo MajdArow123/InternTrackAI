@@ -19,8 +19,8 @@
 //  * Every storage call can throw (private mode, blocked site data). All of
 //    them go through readStore/writeStore, which swallow it: an unreadable
 //    "seen" flag counts as not-yet-seen, never as a crash.
-//  * A step whose target matches nothing is skipped in the direction of
-//    travel rather than dimming the page around nothing.
+//  * A step whose target matches nothing visible is skipped in the direction
+//    of travel rather than dimming the page around nothing.
 (function () {
     'use strict';
 
@@ -30,7 +30,7 @@
     var GAP       = 12;                    // tooltip ↔ spotlight
     var EDGE      = 12;                    // tooltip ↔ viewport edge
 
-    var state = null;   // { id, steps, index, cand, nav, tried, ctx, prevFocus } while running
+    var state = null;   // { id, steps, index, cand, nav, tried, ctx, skip, prevFocus } while running
     var els   = null;   // { overlay, spot, tip, title, body, count, back, next }
     var frame = 0;      // rAF handle for the throttled reposition
 
@@ -61,8 +61,9 @@
     }
     function samePath(a, b) { return normPath(a) === normPath(b); }
 
-    // The tour the nav button runs here: a page tour if one claims this path,
-    // otherwise the overview.
+    // The tour the nav button runs here: whichever tour claims this path (the
+    // overview claims the dashboard), or null. Null gets the offer card, never
+    // a tour that navigates away from a page someone may be working on.
     function forPage() {
         var here = normPath(window.location.pathname);
         var all  = tours();
@@ -73,7 +74,7 @@
                 if (normPath(match[i]) === here && available(id)) return id;
             }
         }
-        return 'overview';
+        return null;
     }
 
     function reducedMotion() {
@@ -148,8 +149,27 @@
         var tried = state.nav === index ? state.tried.slice() : [];
         if (tried.indexOf(normPath(path)) < 0) tried.push(normPath(path));
         writeStore('sessionStorage', STATE_KEY, JSON.stringify({
-            id: state.id, index: index, nav: index, tried: tried, ctx: state.ctx
+            id: state.id, index: index, nav: index, tried: tried, ctx: state.ctx, skip: state.skip
         }));
+    }
+
+    /* ── targets ─────────────────────────────────────────── */
+    // A target counts only if it is actually on screen to point at. Existing is
+    // not enough: at phone width the nav links sit inside a collapsed menu with
+    // display:none, and spotlighting them drew a 16x16 speck in the corner
+    // around nothing. The first *visible* match wins, so a selector that
+    // matches several rows (an attention list) skips any that are hidden.
+    function visible(el) {
+        if (!el || !el.getClientRects().length) return false;
+        var r = el.getBoundingClientRect();
+        if (r.width < 1 || r.height < 1) return false;
+        return getComputedStyle(el).visibility !== 'hidden';
+    }
+    function findVisible(selector) {
+        if (!selector) return null;
+        var all = document.querySelectorAll(selector);
+        for (var i = 0; i < all.length; i++) if (visible(all[i])) return all[i];
+        return null;
     }
 
     /* ── candidates ──────────────────────────────────────── */
@@ -185,6 +205,24 @@
         return out;
     }
 
+    // Steps with nothing to show on the page the tour is on right now: every entry lives here and none
+    // is visible (an empty inbox on a new account, say). They leave the count, so "1 of 5" does not
+    // jump to "3 of 5". Steps on other pages are assumed reachable until visited; each of them has a
+    // fallback that always exists. The list travels with the tour between pages.
+    function markUnreachable() {
+        var here = window.location.pathname;
+        for (var i = 0; i < state.steps.length; i++) {
+            if (state.skip.indexOf(i) >= 0) continue;
+            var cands = candidatesOf(state.steps[i] || {}), elsewhere = false, found = false;
+            for (var j = 0; j < cands.length && !found; j++) {
+                var c = cands[j];
+                if (c.view && !samePath(here, c.view)) { elsewhere = true; continue; }
+                if (!c.target || findVisible(c.target)) found = true;
+            }
+            if (!found && !elsewhere) state.skip.push(i);
+        }
+    }
+
     function exit() {
         var focus = state ? state.prevFocus : null;
         clearStore('sessionStorage', STATE_KEY);
@@ -214,7 +252,7 @@
             for (i = 0; i < cands.length && !hit; i++) {
                 c = cands[i];
                 if (c.view && !samePath(here, c.view)) continue;
-                if (!c.target || document.querySelector(c.target)) hit = c;
+                if (!c.target || findVisible(c.target)) hit = c;
             }
             if (hit) {
                 state.index = index;
@@ -227,44 +265,132 @@
                 c = cands[i];
                 if (!c.view || samePath(here, c.view) || tried.indexOf(normPath(c.view)) >= 0) continue;
                 persist(index, c.view);
-                window.location.assign(c.view);
+                leave(c.view);
                 return;
             }
+            if (state.skip.indexOf(index) < 0) state.skip.push(index);   // found out late: stop counting it
             index += dir;
         }
         if (dir < 0) { render(); return; }  // nothing earlier is reachable
         exit();
     }
 
+    // The tour is about to navigate. Anything typed and unsaved on this page would be lost, so ask
+    // first with the app's own confirm dialog. The tour's card comes down before the dialog goes up:
+    // the tour traps Tab and takes Escape at the capture phase, which would steal the dialog's keys.
+    // Leave → the tour resumes on the next page from the state persist() saved; stay → it ends.
+    function leave(path) {
+        if (!hasUnsavedInput() || typeof appConfirm !== 'function') { window.location.assign(path); return; }
+        teardown();
+        appConfirm({
+            title: 'Leave this page?',
+            text: 'You have unsaved changes here. The tour continues on another page, and they would be lost.',
+            okLabel: 'Leave for the tour'
+        }).then(function (ok) {
+            if (ok) window.location.assign(path);
+            else if (state) exit();
+            else clearStore('sessionStorage', STATE_KEY);
+        });
+    }
+
+    // What counts as unsaved: a field in a form that posts, changed from the value it loaded with,
+    // plus anything outside a form marked data-tour-unsaved (the Add Application page's analyzer paste
+    // box). Deliberately not search and filter boxes, which are GET forms, and not practice answers,
+    // which autosave their drafts and restore them.
+    function hasUnsavedInput() {
+        var fields = document.querySelectorAll(
+            'form[method="post" i] input, form[method="post" i] textarea, form[method="post" i] select, [data-tour-unsaved]');
+        for (var i = 0; i < fields.length; i++) {
+            var f = fields[i], type = (f.type || '').toLowerCase();
+            if (f.disabled || type === 'hidden' || type === 'submit' || type === 'button' || type === 'reset') continue;
+            if (type === 'checkbox' || type === 'radio') { if (f.checked !== f.defaultChecked) return true; continue; }
+            if (type === 'file') { if (f.files && f.files.length) return true; continue; }
+            if (f.tagName === 'SELECT') {
+                for (var o = 0; o < f.options.length; o++) if (f.options[o].selected !== f.options[o].defaultSelected) return true;
+                continue;
+            }
+            if (f.value !== f.defaultValue) return true;
+        }
+        return false;
+    }
+
+    // The nav Tour button on a page no tour claims: say so, and offer the app tour rather than
+    // navigating to it. Nothing leaves the page unless the person presses the button.
+    function offer() {
+        if (state) exit();
+        state = { id: null, offer: true, steps: [], index: 0, cand: null, nav: -1, tried: [], ctx: {}, skip: [], prevFocus: document.activeElement };
+        build();
+        els.title.textContent = 'No tour for this page';
+        els.body.textContent  = 'The app tour starts with your resume, then the dashboard and practice. It takes about a minute.';
+        els.count.textContent = '';
+        els.back.disabled     = false;
+        els.back.textContent  = 'Not now';
+        els.next.textContent  = 'Take the app tour';
+        position();
+        try { els.tip.focus({ preventScroll: true }); } catch (e) { els.tip.focus(); }
+    }
+
+    // The overview is the dashboard's tour, and the dashboard is the one page that knows what the tour
+    // needs before it sets off (#tourContextData: is a resume review waiting?). So the offer takes you
+    // there first and the tour starts from it — through leave(), so unsaved typing is asked about.
+    function takeOffer() {
+        markSeen();
+        if (samePath(window.location.pathname, '/Home/Dashboard')) { start('overview'); return; }
+        writeStore('sessionStorage', STATE_KEY, JSON.stringify({ id: 'overview', index: 0, nav: -1, tried: [], ctx: {} }));
+        leave('/Home/Dashboard');
+    }
+
     function render() {
         var step = state.cand || {};
         els.title.textContent = step.title || '';
         els.body.textContent  = step.body || '';
-        els.count.textContent = (state.index + 1) + ' of ' + state.steps.length;
-        els.back.disabled     = state.index === 0;
-        els.next.textContent  = state.index === state.steps.length - 1 ? 'Done' : 'Next';
+        var reachable = [];
+        for (var i = 0; i < state.steps.length; i++) if (i === state.index || state.skip.indexOf(i) < 0) reachable.push(i);
+        var pos = reachable.indexOf(state.index) + 1;
+        els.count.textContent = pos + ' of ' + reachable.length;
+        els.back.disabled     = pos === 1;
+        els.next.textContent  = pos === reachable.length ? 'Done' : 'Next';
 
-        reveal(step.target ? document.querySelector(step.target) : null);
+        // Position first, then scroll. Where the card ends up (docked at the bottom of a phone, pinned
+        // beside a tall target) decides how much of the screen the target has to fit into, so the
+        // scroll has to know it. Scrolling first is how the stats target ended up under the docked
+        // sheet. position() runs again on every scroll frame, so the spotlight follows the scroll.
         position();
+        reveal(findVisible(step.target));
 
         // Focus the dialog itself, not a control: screen readers then announce
         // the title and body before the buttons.
         try { els.tip.focus({ preventScroll: true }); } catch (e) { els.tip.focus(); }
     }
 
+    function navHeight() {
+        return parseInt(getComputedStyle(document.documentElement).getPropertyValue('--site-nav-h'), 10) || 53;
+    }
+
+    // Scrolls the target into the part of the screen the card leaves free: below the sticky nav and,
+    // on a phone, above the docked sheet. Centred there when it fits; top-aligned under the nav when
+    // it is taller than that space, so its beginning is what shows. Nothing moves if it is already
+    // wholly inside.
     function reveal(el) {
-        if (!el) return;
+        if (!el || !els) return;
+        var top = navHeight() + 8;
+        var bottom = window.innerHeight - 8;
+        if (els.tip.classList.contains('tour-tip--docked')) bottom = els.tip.getBoundingClientRect().top - 8;
+
         var r = el.getBoundingClientRect();
-        var navH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--site-nav-h'), 10) || 53;
-        if (r.top >= navH + 8 && r.bottom <= window.innerHeight - 8) return;
-        try { el.scrollIntoView({ block: 'center', behavior: reducedMotion() ? 'auto' : 'smooth' }); }
-        catch (e) { el.scrollIntoView(); }
+        if (r.top >= top && r.bottom <= bottom) return;
+
+        var room = bottom - top;
+        var offset = r.height <= room ? (room - r.height) / 2 : 0;
+        var y = Math.max(0, window.scrollY + r.top - top - offset);
+        try { window.scrollTo({ top: y, behavior: reducedMotion() ? 'auto' : 'smooth' }); }
+        catch (e) { window.scrollTo(0, y); }
     }
 
     function position() {
         if (!state || !els) return;
         var step = state.cand || {};
-        var el   = step.target ? document.querySelector(step.target) : null;
+        var el   = findVisible(step.target);
         var dock = docked();
 
         els.tip.classList.toggle('tour-tip--docked', dock);
@@ -273,6 +399,7 @@
             els.spot.hidden = true;
             els.overlay.classList.add('tour-overlay--plain');
             els.tip.classList.add('tour-tip--center');
+            els.tip.classList.remove('tour-tip--pinned');
             els.tip.style.top = els.tip.style.left = '';
             return;
         }
@@ -291,10 +418,17 @@
         els.spot.style.width  = w + 'px';
         els.spot.style.height = h + 'px';
 
-        if (dock) { els.tip.style.top = els.tip.style.left = ''; return; }
+        if (dock) { els.tip.classList.remove('tour-tip--pinned'); els.tip.style.top = els.tip.style.left = ''; return; }
 
         var tip = els.tip.getBoundingClientRect();
         var vh  = window.innerHeight, vw = window.innerWidth;
+
+        // A target too tall to ever have the card above or below it, however the page is scrolled:
+        // pin the card to the corner instead of centring it on top of what it describes. Decided on
+        // sizes alone, never on the current scroll, so it cannot flip back and forth mid-scroll.
+        var pinned = h + GAP + tip.height > vh - navHeight() - EDGE * 2;
+        els.tip.classList.toggle('tour-tip--pinned', pinned);
+        if (pinned) { els.tip.style.top = els.tip.style.left = ''; return; }
         var below = top + h + GAP;
         var above = top - GAP - tip.height;
         var want  = step.placement === 'top' || step.placement === 'bottom' ? step.placement : 'auto';
@@ -325,6 +459,7 @@
         var act = btn.getAttribute('data-tour-act');
         guard(function () {
             if (act === 'exit') exit();
+            else if (state.offer) { if (act === 'back') exit(); else takeOffer(); }
             else if (act === 'back') go(state.index - 1, -1);
             else go(state.index + 1, 1);
         })();
@@ -336,13 +471,14 @@
 
         if (k === 'Escape')    { e.preventDefault(); e.stopPropagation(); guard(exit)(); return; }
         if (k === 'Tab')       { e.stopPropagation(); trap(e); return; }
+        if (state.offer && (k === 'ArrowRight' || k === 'ArrowLeft')) { e.preventDefault(); e.stopPropagation(); return; }
         if (k === 'ArrowRight'){ e.preventDefault(); e.stopPropagation(); guard(function () { go(state.index + 1, 1); })(); return; }
         if (k === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); guard(function () { go(state.index - 1, -1); })(); return; }
 
         if (k === 'Enter' || k === ' ') {
             // A focused button handles its own Enter/Space; don't advance twice.
             if (e.target && els.tip.contains(e.target) && e.target.tagName === 'BUTTON') { e.stopPropagation(); return; }
-            if (k === 'Enter') { e.preventDefault(); e.stopPropagation(); guard(function () { go(state.index + 1, 1); })(); }
+            if (k === 'Enter') { e.preventDefault(); e.stopPropagation(); guard(function () { if (state.offer) takeOffer(); else go(state.index + 1, 1); })(); }
             return;
         }
 
@@ -377,7 +513,7 @@
         };
     }
 
-    function start(id, index, nav, tried, ctx) {
+    function start(id, index, nav, tried, ctx, skip) {
         try {
             var tour = tourOf(id);
             if (!tour) return false;
@@ -391,9 +527,11 @@
                 nav: typeof nav === 'number' ? nav : -1,
                 tried: tried && tried.length ? tried : [],
                 ctx: ctx && typeof ctx === 'object' ? ctx : {},
+                skip: skip && skip.length ? skip.slice() : [],
                 prevFocus: document.activeElement
             };
             readContext();
+            markUnreachable();
             build();
             go(typeof index === 'number' && index > 0 ? index : 0, 1);
             return true;
@@ -425,6 +563,22 @@
         });
     }
 
+    // On a phone the Tour button lives inside the collapsed nav menu, so pressing it leaves that menu
+    // open behind the overlay: a tall sticky header that every step then measures against, and a
+    // target it can push under the docked card. Close the menu first and start once it has finished
+    // closing. Bootstrap's own Collapse does the hiding, so its idea of the menu's state stays true.
+    function closeMenuThen(fn) {
+        var open = document.querySelector('.navbar-collapse.show');
+        if (!open) { fn(); return; }
+        var Collapse = window.bootstrap && window.bootstrap.Collapse;
+        if (!Collapse) { open.classList.remove('show'); fn(); return; }
+        open.addEventListener('hidden.bs.collapse', function once() {
+            open.removeEventListener('hidden.bs.collapse', once);
+            fn();
+        });
+        Collapse.getOrCreateInstance(open, { toggle: false }).hide();
+    }
+
     // Taking the tour by any route counts: the invitation should not linger.
     function markSeen() {
         writeStore('localStorage', SEEN_KEY, '1');
@@ -434,7 +588,12 @@
 
     function init() {
         var btn = document.getElementById('tour-btn');
-        if (btn) btn.addEventListener('click', function () { markSeen(); start(forPage()); });
+        if (btn) btn.addEventListener('click', function () {
+            closeMenuThen(function () {
+                var id = forPage();
+                if (id) { markSeen(); start(id); } else offer();
+            });
+        });
 
         wireInvitation();
 
@@ -443,7 +602,7 @@
             clearStore('sessionStorage', STATE_KEY);
             var saved = null;
             try { saved = JSON.parse(raw); } catch (e) { rethrowIfBug(e); saved = null; }
-            if (saved && available(saved.id)) start(saved.id, saved.index, saved.nav, saved.tried, saved.ctx);
+            if (saved && available(saved.id)) start(saved.id, saved.index, saved.nav, saved.tried, saved.ctx, saved.skip);
         }
     }
 

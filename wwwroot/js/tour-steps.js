@@ -34,12 +34,37 @@
     "match": [],
     "steps": [
       {
+        "pad": 8,
+        "placement": "auto",
+        "targets": [
+          {
+            "when": "pendingDraft",
+            "view": "/Profile/ReviewResume",
+            "target": "[data-tour=\"review-skill\"]",
+            "title": "Start with your resume",
+            "body": "The AI reads your resume and shows what it found, each skill beside the line it came from. Nothing reaches your profile until you press Apply — and every other AI feature works from what you keep."
+          },
+          {
+            "view": "/Profile",
+            "target": "#resumeAiRow",
+            "title": "Start with your resume",
+            "body": "Analyze with AI reads your active resume and shows what it found, each skill beside the line it came from. You choose what to keep, and every other AI feature works from it."
+          },
+          {
+            "view": "/Profile",
+            "target": "[data-tour=\"resume-upload\"]",
+            "title": "Start with your resume",
+            "body": "Upload a PDF or Word resume and the AI shows you what it found before anything is saved. Match scores, cover letters and interview prep all work from it."
+          }
+        ]
+      },
+      {
         "view": "/Home/Dashboard",
         "target": "[data-tour=\"nav\"]",
         "pad": 8,
+        "placement": "bottom",
         "title": "Getting around",
-        "body": "Dashboard for the overview, Applications for the list and the board, Practice for interview questions scored as you answer, Cover Letter and Profile for your documents.",
-        "placement": "bottom"
+        "body": "Dashboard for the overview, Applications for the list and the board, Practice for interview questions scored as you answer, Cover Letter and Profile for your documents."
       },
       {
         "view": "/Home/Dashboard",
@@ -59,14 +84,9 @@
         "placement": "auto",
         "targets": [
           {
-            "target": "[data-tour=\"attention-practice\"]",
-            "title": "Practice for the interview you have",
-            "body": "Interviews in the next two weeks land on this card with a button that writes practice questions from that posting. Deadlines and overdue follow-ups show up here too."
-          },
-          {
             "target": "[data-tour=\"attention-item\"]",
             "title": "What needs you today",
-            "body": "Deadlines about to pass, interviews coming up, and applications that have gone quiet long enough to chase. Draft a follow-up, mark it contacted or snooze it without leaving the page."
+            "body": "Deadlines about to pass, interviews coming up, and applications that have gone quiet long enough to chase. Draft a follow-up, mark it contacted or snooze it here — and an upcoming interview gets a Practice for this interview button."
           },
           {
             "target": "[data-tour=\"onboarding-add\"]",
@@ -82,48 +102,23 @@
         "targets": [
           {
             "target": "[data-tour=\"practice-answered\"]",
-            "title": "Every answer, scored",
-            "body": "Each answer gets a score out of 5, what worked, exactly two things to change and a stronger opening line. Show feedback opens it; retry and your attempts sit side by side."
+            "title": "Practice for the interview you have",
+            "body": "Practice for this interview writes questions from that posting. Every answer comes back scored out of 5, with what worked, exactly two things to change and a stronger opening line. That's the tour — run it again any time from Tour on the dashboard."
           },
           {
             "target": "[data-tour=\"practice-question\"]",
-            "title": "Interview questions in your field",
-            "body": "Questions written for your field and level. Type an answer and it comes back scored out of 5, with what worked and exactly two things to change."
+            "title": "Practice for the interview you have",
+            "body": "Questions written for your field and level, or from a posting when you have an interview coming. Type an answer and it comes back scored out of 5, with what worked and exactly two things to change. That's the tour — run it again any time from Tour on the dashboard."
           },
           {
             "target": "[data-tour=\"practice-example\"]",
-            "title": "What you would practise",
-            "body": "An example question for your field. Get your own set and every answer you type comes back scored out of 5, with what worked and exactly two things to change."
+            "title": "Practise before the interview",
+            "body": "An example question for your field. Get your own set, or questions from a posting once you have an interview, and every answer comes back scored out of 5 with exactly two things to change. That's the tour — run it again any time from Tour on the dashboard."
           },
           {
             "target": "#practiceGenerateBtn",
-            "title": "Interview questions in your field",
-            "body": "Press this for five questions in your field, at the difficulty you pick. Every answer comes back scored out of 5, with what worked and exactly two things to change."
-          }
-        ]
-      },
-      {
-        "pad": 8,
-        "placement": "auto",
-        "targets": [
-          {
-            "when": "pendingDraft",
-            "view": "/Profile/ReviewResume",
-            "target": "[data-tour=\"review-skill\"]",
-            "title": "You choose what the AI keeps",
-            "body": "The AI read the resume and found these, each beside the line it came from. Nothing reaches your profile until you press Apply. That's the tour — run it again any time from Tour on the dashboard."
-          },
-          {
-            "view": "/Profile",
-            "target": "#resumeAiRow",
-            "title": "Your resume, read for you",
-            "body": "Analyze with AI reads the active resume and shows you each skill beside the line it came from. Nothing is saved until you choose what to keep. That's the tour — run it again any time from Tour on the dashboard."
-          },
-          {
-            "view": "/Profile",
-            "target": "[data-tour=\"resume-upload\"]",
-            "title": "Start with your resume",
-            "body": "Upload a PDF or Word resume and the AI shows you what it found before anything is saved. Every other AI feature works from it. That's the tour — run it again any time from Tour on the dashboard."
+            "title": "Practise before the interview",
+            "body": "Press this for five questions in your field, at the difficulty you pick. Every answer comes back scored out of 5, with what worked and exactly two things to change. That's the tour — run it again any time from Tour on the dashboard."
           }
         ]
       }

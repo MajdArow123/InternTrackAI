@@ -411,6 +411,13 @@ public class DemoProfileResetTests
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
             Assert.Equal(3, await db.StatusSuggestions.CountAsync(x => x.UserId == h.UserIdCache && x.Status == SuggestionState.Pending));
+
+            // The tour ends on "Practice for this interview → the scored answer", so the answer belongs to
+            // the seeded interview, not to general practice.
+            var interview = await db.JobApplications.SingleAsync(a => a.UserId == h.UserIdCache && a.CompanyName == DemoSeeder.PracticeInterviewCompany);
+            Assert.Equal(ApplicationStatus.Interview, interview.Status);
+            var answered = await db.PracticeQuestions.SingleAsync(q => q.UserId == h.UserIdCache && q.AnsweredAt != null);
+            Assert.Equal(interview.Id, answered.ApplicationId);
             var shopify = await db.JobApplications.SingleAsync(a => a.UserId == h.UserIdCache && a.CompanyName == "Shopify");
             Assert.Equal(ApplicationStatus.Interview, shopify.Status);      // its seeded stage, not Offer
             Assert.DoesNotContain(await db.ApplicationNotes.Where(n => n.JobApplicationId == shopify.Id).Select(n => n.Text).ToListAsync(),

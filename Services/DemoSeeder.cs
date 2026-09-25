@@ -503,7 +503,14 @@ public class DemoSeeder
     /// concrete anchor, as <c>ConcreteAnchorRule</c> asks the model to. Stored in the model's reply shape
     /// so it goes through <see cref="AnswerFeedback.FromJson"/> like any real answer.
     /// </remarks>
-    public static PracticeQuestion BuildAnsweredPracticeQuestion(string userId, DateTime nowUtc)
+    /// <summary>
+    /// The seeded interview the answered practice question belongs to. The tour ends on "Practice for this
+    /// interview → the scored answer", so the answer sits under that posting on <c>/Practice</c> rather than
+    /// in general practice — a checkout-latency question for a payments-infrastructure backend role.
+    /// </summary>
+    public const string PracticeInterviewCompany = "Stripe";
+
+    public static PracticeQuestion BuildAnsweredPracticeQuestion(string userId, DateTime nowUtc, int? applicationId = null)
     {
         const string prompt = "A checkout API gets slow at peak traffic, but only for some merchants. How would you find out why?";
 
@@ -531,7 +538,8 @@ public class DemoSeeder
 
         return new PracticeQuestion
         {
-            UserId     = userId,
+            UserId        = userId,
+            ApplicationId = applicationId,
             Prompt     = prompt,
             PromptHash = QuestionHash.Of(prompt),
             Topic      = "latency that only affects some users",

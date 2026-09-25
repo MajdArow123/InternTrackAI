@@ -925,6 +925,11 @@ textarea.form-control { min-height: 100px; resize: vertical; }
   padding: 2.25rem 2rem 2rem;
 }
 .auth-footnote { font-size: .8rem; color: var(--text-2); margin: 0; }
+.auth-footnote a { color: inherit; text-decoration: underline; }
+.auth-footnote a:hover { color: var(--text); }
+/* Under the Register form: the one line a new account should read before it uploads a resume. */
+.auth-legal { text-align: center; font-size: .8rem; color: var(--text-2); margin: 1rem 0 .85rem; }
+.auth-legal a { color: var(--accent-text); }
 
 /* Auth form elements */
 .auth-header { margin-bottom: 1.5rem; text-align: center; }
@@ -3258,6 +3263,12 @@ html[data-theme="dark"] .mini-stat-rejected  { color: var(--danger); }
 
 /* Narrow page containers (forms, confirm pages) */
 .container-narrow  { max-width: 780px; }
+
+/* Privacy / Terms: prose in the app's cards, readable line length from .container-narrow. */
+.legal-page .form-card p, .legal-page .form-card li { line-height: 1.6; }
+.legal-page .form-card ul { padding-left: 1.2rem; }
+.legal-page .form-card li + li { margin-top: .45rem; }
+.legal-page code { color: var(--text); background: var(--surface-2); padding: .05rem .3rem; border-radius: 4px; font-size: .9em; }
 .container-xnarrow { max-width: 560px; }
 .form-actions { flex-wrap: wrap; }
 @media (max-width: 575.98px) {

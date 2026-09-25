@@ -5,8 +5,10 @@ namespace InternTrackAI.Services;
 
 /// <summary>
 /// Deletes everything the app stores for a user: applications, notes, generated cover letters,
-/// interview prep sessions, uploaded resume versions (rows and files), and optionally
-/// the profile row and photo. The Identity user row itself is left alone so callers decide whether
+/// practice and interview-prep questions with their answers, resume-parse drafts, inbox suggestions,
+/// uploaded resume versions (rows and files), and optionally the profile row, photo and Gmail connection.
+/// The delete-account page lists these per table, and <c>DeletePersonalDataTests</c> pins that list
+/// against what this actually clears — add a table here and the page must say so. The Identity user row itself is left alone so callers decide whether
 /// to delete the account (account deletion) or keep it (demo reset).
 /// </summary>
 public class UserDataPurger

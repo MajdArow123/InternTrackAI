@@ -156,6 +156,7 @@ builder.Services.Configure<GoogleOptions>(builder.Configuration.GetSection(Googl
 builder.Services.Configure<GmailOptions>(builder.Configuration.GetSection(GmailOptions.SectionName));
 builder.Services.AddSingleton<GmailTokenProtector>();
 builder.Services.AddSingleton<IGoogleOAuthClient, GoogleOAuthClient>();
+builder.Services.AddSingleton<GmailGrantRevoker>();   // Disconnect and account deletion
 builder.Services.AddSingleton<IGmailClient, GmailApiClient>();
 builder.Services.AddHttpClient<IStatusClassifier, OpenAiStatusClassifier>().AiTimeout();
 builder.Services.AddScoped<GmailSyncService>();

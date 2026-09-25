@@ -1,6 +1,61 @@
-﻿@{
+@{
     ViewData["Title"] = "Privacy Policy";
+    const string repoUrl = "https://github.com/MajdArow123/InternTrackAI";
 }
-<h1>@ViewData["Title"]</h1>
 
-<p>Use this page to detail your site's privacy policy.</p>
+<div class="container py-4 container-narrow legal-page">
+
+    <div class="page-header">
+        <div>
+            <h1>Privacy policy</h1>
+            <p class="sub">What InternTrackAI stores, why, who else sees it, and how to delete it. Last updated 25 September 2026.</p>
+        </div>
+    </div>
+
+    <section class="form-card mb-3" aria-labelledby="privacy-what">
+        <h2 class="form-section-title" id="privacy-what">What is stored, and why</h2>
+        <p>InternTrackAI is a portfolio project that tracks an internship search. It stores only what you give it, each item for the feature it belongs to:</p>
+        <ul>
+            <li><strong>Your account:</strong> email address and a hashed password, to sign you in.</li>
+            <li><strong>Your profile:</strong> name, photo, field, skills, target roles, time zone and GitHub username, so the AI tools can write for your field rather than a generic one.</li>
+            <li><strong>Resumes:</strong> the files you upload and the text extracted from them, used for match scores, cover letters, interview prep and follow-up drafts. An AI reading of a resume is kept as a draft (at most three) until you review it; nothing reaches your profile unless you confirm it.</li>
+            <li><strong>Applications:</strong> the postings, notes, dates and statuses you enter, plus generated cover letters.</li>
+            <li><strong>Practice answers:</strong> interview questions, the answers you type with their scores and feedback, and up to three earlier attempts at each question.</li>
+            <li><strong>Gmail, only if you connect it:</strong> read-only access to find messages from the companies you have applied to. For a message that matches, the app keeps its subject, sender, date and a one-line summary as a status suggestion. <strong>Message bodies are never stored.</strong> Access tokens are encrypted at rest.</li>
+        </ul>
+        <p class="mb-0">Nothing is sold, shared for advertising or used to profile you. There is no analytics or tracking script on this site.</p>
+    </section>
+
+    <section class="form-card mb-3" aria-labelledby="privacy-who">
+        <h2 class="form-section-title" id="privacy-who">Who else sees it</h2>
+        <ul class="mb-0">
+            <li><strong>OpenAI</strong> processes text when you use an AI feature: resume text, job postings, your notes and cover letters for an application, your profile's field and skills, your practice answers, and the subject, sender and text of a matched email. Requests go through OpenAI's API (model gpt-4o-mini) and are governed by <a href="https://platform.openai.com/docs/guides/your-data" target="_blank" rel="noopener">OpenAI's API data policy</a>.</li>
+            <li><strong>Google</strong> provides Gmail access when you connect it. The app requests the single <code>gmail.readonly</code> scope, the narrowest that allows searching your inbox and reading a matched message's text; it cannot send, delete or change mail. InternTrackAI's use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements. Separately, the site's font (Inter) loads from Google Fonts, which means your browser sends your IP address to Google when a page loads.</li>
+            <li><strong>Resend</strong> delivers password-reset emails and receives only your email address and the reset link.</li>
+            <li><strong>Railway</strong> hosts the app, its database and uploaded files, in its EU West region.</li>
+            <li><strong>GitHub</strong> is asked for your public repositories only if you enter a GitHub username.</li>
+        </ul>
+    </section>
+
+    <section class="form-card mb-3" aria-labelledby="privacy-cookies">
+        <h2 class="form-section-title" id="privacy-cookies">Cookies</h2>
+        <p class="mb-0">Only functional ones: the sign-in cookie, form-security tokens, a short-lived cookie during the Gmail connection, and a preference for list or board view. Your theme, the guided tour's state and unsent practice-answer drafts are kept in your browser's local storage and never leave your device.</p>
+    </section>
+
+    <section class="form-card mb-3" aria-labelledby="privacy-keep">
+        <h2 class="form-section-title" id="privacy-keep">How long it is kept</h2>
+        <p class="mb-0">Until you delete it. There is no automatic expiry, apart from resume-analysis drafts, which are pruned to your three most recent. Deleting an application deletes its notes, cover letters and practice questions. Disconnecting Gmail revokes the app's access with Google and deletes the connection and any pending suggestions. Server logs record account IDs and events, not the contents of your resumes, answers or emails.</p>
+    </section>
+
+    <section class="form-card mb-3" aria-labelledby="privacy-delete">
+        <h2 class="form-section-title" id="privacy-delete">Deleting your data</h2>
+        <p><a asp-area="Identity" asp-page="/Account/Manage/DeletePersonalData">Delete your account</a> (also under Profile &rarr; Your data) and everything above goes at once: every row and every uploaded file. If Gmail is connected, the app's access is revoked with Google as part of the deletion. You can also remove the app's Gmail access yourself at any time from your <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google account's third-party access page</a>.</p>
+        <p class="mb-0">The shared demo account cannot be deleted. It is public: its profile and practice data are reset at the start of every session, everything is reseeded nightly, and it should never hold real personal data. See the <a asp-controller="Home" asp-action="Terms">terms</a>.</p>
+    </section>
+
+    <section class="form-card mb-3" aria-labelledby="privacy-contact">
+        <h2 class="form-section-title" id="privacy-contact">Contact</h2>
+        <p class="mb-0">Questions about this policy or your data: open an issue on the project's <a href="@repoUrl/issues" target="_blank" rel="noopener">GitHub repository</a>.</p>
+    </section>
+
+</div>

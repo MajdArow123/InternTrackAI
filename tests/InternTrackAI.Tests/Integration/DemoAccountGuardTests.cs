@@ -89,6 +89,16 @@ public class DemoAccountGuardTests : IClassFixture<DemoAccountGuardFixture>
     }
 
     [Fact]
+    public async Task The_profile_data_card_shows_the_demo_notice_and_no_route_to_deletion()
+    {
+        var html = await (await _f.Demo.GetAsync("/Profile")).Content.ReadAsStringAsync();
+        var card = System.Text.RegularExpressions.Regex.Match(html, "id=\"yourDataCard\">(.*?)</div>",
+            System.Text.RegularExpressions.RegexOptions.Singleline).Groups[1].Value;
+        Assert.Contains("data-demo-guard=\"delete\">Not available on the demo account.", card);
+        Assert.DoesNotContain("href=\"/Identity/Account/Manage/DeletePersonalData\"", html);
+    }
+
+    [Fact]
     public async Task Regular_accounts_see_no_notice_and_keep_every_action()
     {
         var client = _f.NewClient();

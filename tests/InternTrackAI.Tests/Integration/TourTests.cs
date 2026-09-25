@@ -31,8 +31,10 @@ public class TourTests : IClassFixture<TestAppFactory>
 
     // ── The definitions file ──────────────────────────────────────────────
 
-    private record Step(string? View, string? Target, string Title, string Body, string Placement);
-    private record Tour(string Id, string[] Match, string? Auto, Step[] Steps);
+    /// <summary>One thing a step can spotlight. A single-target step is a list of one.</summary>
+    private record Candidate(string? View, string? Target, string Title, string Body, string? When);
+    private record Step(string? View, string Placement, Candidate[] Candidates);
+    private record Tour(string Id, string[] Match, bool HasAutoKey, Step[] Steps);
 
     private static string StepsFilePath()
     {
@@ -79,19 +81,28 @@ public class TourTests : IClassFixture<TestAppFactory>
     {
         using var doc = JsonDocument.Parse(StepsJson());
         var tours = new List<Tour>();
+        static string? Str(JsonElement e, string name) =>
+            e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+
         foreach (var tour in doc.RootElement.EnumerateObject())
         {
-            var steps = tour.Value.GetProperty("steps").EnumerateArray().Select(s => new Step(
-                s.GetProperty("view").ValueKind   == JsonValueKind.Null ? null : s.GetProperty("view").GetString(),
-                s.GetProperty("target").ValueKind == JsonValueKind.Null ? null : s.GetProperty("target").GetString(),
-                s.GetProperty("title").GetString() ?? "",
-                s.GetProperty("body").GetString() ?? "",
-                s.GetProperty("placement").GetString() ?? "")).ToArray();
+            var steps = tour.Value.GetProperty("steps").EnumerateArray().Select(s =>
+            {
+                var stepView = Str(s, "view");
+                var entries  = s.TryGetProperty("targets", out var list) ? list.EnumerateArray().ToArray() : new[] { s };
+                var candidates = entries.Select(c => new Candidate(
+                    c.TryGetProperty("view", out _) ? Str(c, "view") : stepView,
+                    Str(c, "target"),
+                    Str(c, "title") ?? Str(s, "title") ?? "",
+                    Str(c, "body") ?? Str(s, "body") ?? "",
+                    Str(c, "when"))).ToArray();
+                return new Step(stepView, Str(s, "placement") ?? "", candidates);
+            }).ToArray();
 
             tours.Add(new Tour(
                 tour.Name,
                 tour.Value.GetProperty("match").EnumerateArray().Select(m => m.GetString()!).ToArray(),
-                tour.Value.GetProperty("auto").ValueKind == JsonValueKind.Null ? null : tour.Value.GetProperty("auto").GetString(),
+                tour.Value.TryGetProperty("auto", out _),
                 steps));
         }
         return tours;
@@ -148,10 +159,14 @@ public class TourTests : IClassFixture<TestAppFactory>
             Assert.NotEmpty(tour.Steps);
             for (var i = 0; i < tour.Steps.Length; i++)
             {
-                var where = $"{tour.Id}[{i}]";
-                Assert.False(string.IsNullOrWhiteSpace(tour.Steps[i].Title), $"{where} has no title");
-                Assert.False(string.IsNullOrWhiteSpace(tour.Steps[i].Body),  $"{where} has no body");
+                Assert.NotEmpty(tour.Steps[i].Candidates);
                 Assert.Contains(tour.Steps[i].Placement, new[] { "auto", "top", "bottom" });
+                foreach (var (c, j) in tour.Steps[i].Candidates.Select((c, j) => (c, j)))
+                {
+                    var where = $"{tour.Id}[{i}].{j}";
+                    Assert.False(string.IsNullOrWhiteSpace(c.Title), $"{where} has no title");
+                    Assert.False(string.IsNullOrWhiteSpace(c.Body),  $"{where} has no body");
+                }
             }
         }
     }
@@ -173,35 +188,45 @@ public class TourTests : IClassFixture<TestAppFactory>
         var allowed = new Regex("^(#[A-Za-z][-A-Za-z0-9_]*|\\[data-tour=\"[-A-Za-z0-9_]+\"\\])$");
 
         foreach (var tour in Tours())
-            foreach (var step in tour.Steps.Where(s => s.Target is not null))
-                Assert.True(allowed.IsMatch(step.Target!),
-                    $"{tour.Id}: target \"{step.Target}\" must be #id or [data-tour=\"hook\"]");
+            foreach (var c in tour.Steps.SelectMany(s => s.Candidates).Where(c => c.Target is not null))
+                Assert.True(allowed.IsMatch(c.Target!),
+                    $"{tour.Id}: target \"{c.Target}\" must be #id or [data-tour=\"hook\"]");
     }
 
     [Fact]
-    public void Overview_auto_runs_and_page_tours_do_not()
+    public void Nothing_auto_runs_and_page_tours_claim_their_pages()
     {
+        // The overview used to auto-run on the first dashboard visit, dimming the page a recruiter had just
+        // arrived on. It is an invitation now; an "auto" key coming back would mean the engine grew the
+        // behaviour back, so any tour declaring one fails.
         var tours = Tours();
-        var overview = tours.Single(t => t.Id == "overview");
+        Assert.All(tours, t => Assert.False(t.HasAutoKey, $"{t.Id} declares \"auto\"; nothing auto-runs"));
 
-        Assert.Equal("/Home/Dashboard", overview.Auto);
+        var overview = tours.Single(t => t.Id == "overview");
         Assert.Empty(overview.Match);                                   // the fallback claims no page
-        Assert.All(tours.Where(t => t.Id != "overview"), t =>
-        {
-            Assert.Null(t.Auto);                                        // page tours are opt-in only
-            Assert.NotEmpty(t.Match);
-        });
+        Assert.All(tours.Where(t => t.Id != "overview"), t => Assert.NotEmpty(t.Match));
 
         // No two tours claim the same page, or the nav button's choice would be arbitrary.
         var claimed = tours.SelectMany(t => t.Match.Select(m => m.ToLowerInvariant())).ToList();
         Assert.Equal(claimed.Count, claimed.Distinct().Count());
     }
 
+    [Fact]
+    public void The_overview_is_five_steps_at_most()
+    {
+        // The recruiter-facing tour. Longer, and it stops being the first two minutes.
+        Assert.InRange(Tours().Single(t => t.Id == "overview").Steps.Length, 1, 5);
+    }
+
     // ── Against the real pages ────────────────────────────────────────────
 
-    /// <summary>The page a step is checked on: its own view, else the closest earlier one, else the tour's pages.</summary>
-    private static string[] PagesFor(Tour tour, int index)
+    /// <summary>
+    /// The page a candidate is checked on: its own view, else the closest earlier step's, else the tour's
+    /// pages.
+    /// </summary>
+    private static string[] PagesFor(Tour tour, int index, Candidate candidate)
     {
+        if (candidate.View is string own) return new[] { own };
         for (var i = index; i >= 0; i--)
             if (tour.Steps[i].View is string view) return new[] { view };
         return tour.Match;
@@ -213,8 +238,13 @@ public class TourTests : IClassFixture<TestAppFactory>
         var client = NewClient();
         await Http.RegisterAsync(client);
 
+        // A candidate gated on a context flag ("when") is only tried when the flag says its page has
+        // something on it — the review screen redirects without a draft — so it is checked, with its
+        // flag's state seeded, by Every_target_resolves_on_the_page_it_declares instead.
         var paths = Tours()
-            .SelectMany(t => t.Steps.Select(s => s.View).Append(t.Auto).Concat(t.Match))
+            .SelectMany(t => t.Steps.Select(s => s.View)
+                .Concat(t.Steps.SelectMany(s => s.Candidates).Where(c => c.When is null).Select(c => c.View))
+                .Concat(t.Match))
             .OfType<string>()
             .Distinct(StringComparer.OrdinalIgnoreCase);
 
@@ -228,18 +258,22 @@ public class TourTests : IClassFixture<TestAppFactory>
     [Fact]
     public async Task Every_target_resolves_on_the_page_it_declares()
     {
-        var client = NewClient();
-        var email  = await Http.RegisterAsync(client);
-        await SeedConditionalTargets(await UserIdOf(email));
+        // Fallback targets are alternatives, so no single account shows all of them: the answered card
+        // needs a practice history and the example card needs none. Each candidate must resolve in at
+        // least one of two real states — a fully used account and a brand-new one.
+        var full = NewClient();
+        await SeedConditionalTargets(await UserIdOf(await Http.RegisterAsync(full)));
+        var empty = NewClient();
+        await Http.RegisterAsync(empty);
 
-        var pages = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        async Task<string> Page(string path)
+        var pages = new Dictionary<(HttpClient, string), string>();
+        async Task<string> Page(HttpClient client, string path)
         {
-            if (!pages.TryGetValue(path, out var html))
+            if (!pages.TryGetValue((client, path), out var html))
             {
                 var res = await client.GetAsync(path);
                 Assert.Equal(HttpStatusCode.OK, res.StatusCode);
-                pages[path] = html = await res.Content.ReadAsStringAsync();
+                pages[(client, path)] = html = await res.Content.ReadAsStringAsync();
             }
             return html;
         }
@@ -248,41 +282,127 @@ public class TourTests : IClassFixture<TestAppFactory>
         {
             for (var i = 0; i < tour.Steps.Length; i++)
             {
-                var target = tour.Steps[i].Target;
-                if (target is null) continue;
+                foreach (var (c, j) in tour.Steps[i].Candidates.Select((c, j) => (c, j)))
+                {
+                    if (c.Target is null) continue;
 
-                var needle = target.StartsWith('#')
-                    ? $"id=\"{target[1..]}\""
-                    : target[1..^1];                 // [data-tour="x"] → data-tour="x"
+                    var needle = c.Target.StartsWith('#')
+                        ? $"id=\"{c.Target[1..]}\""
+                        : c.Target[1..^1];                 // [data-tour="x"] → data-tour="x"
 
-                foreach (var path in PagesFor(tour, i))
-                    Assert.True((await Page(path)).Contains(needle, StringComparison.Ordinal),
-                        $"{tour.Id}[{i}]: \"{target}\" does not resolve on {path}");
+                    // A flag-gated candidate is only tried when its flag is set, which the full account has
+                    // (a pending draft); the empty one would redirect off the page.
+                    var states = c.When is null ? new[] { full, empty } : new[] { full };
+
+                    foreach (var path in PagesFor(tour, i, c))
+                    {
+                        var found = false;
+                        foreach (var state in states)
+                            if ((await Page(state, path)).Contains(needle, StringComparison.Ordinal)) { found = true; break; }
+                        Assert.True(found, $"{tour.Id}[{i}].{j}: \"{c.Target}\" does not resolve on {path} for a full or an empty account");
+                    }
+                }
             }
         }
     }
 
+    [Fact]
+    public async Task Every_context_flag_a_step_waits_for_is_one_the_dashboard_provides()
+    {
+        // A "when" naming a flag the dashboard never writes would make that candidate unreachable forever,
+        // silently. The flags are read from the dashboard's #tourContextData island.
+        var client = NewClient();
+        await Http.RegisterAsync(client);
+        var html = await (await client.GetAsync("/Home/Dashboard")).Content.ReadAsStringAsync();
+
+        var island = Regex.Match(html, "<script type=\"application/json\" id=\"tourContextData\">(.*?)</script>", RegexOptions.Singleline);
+        Assert.True(island.Success, "the dashboard must render #tourContextData");
+        using var ctx = JsonDocument.Parse(island.Groups[1].Value);
+
+        foreach (var when in Tours().SelectMany(t => t.Steps).SelectMany(s => s.Candidates).Select(c => c.When).OfType<string>().Distinct())
+            Assert.True(ctx.RootElement.TryGetProperty(when, out _), $"\"{when}\" is not in the dashboard's tour context");
+
+        Assert.False(ctx.RootElement.GetProperty("pendingDraft").GetBoolean());   // a new account has nothing waiting
+    }
+
+    [Fact]
+    public async Task The_invitation_is_one_welcome_not_two()
+    {
+        // A new account sees the onboarding card, so the invitation lives inside it and the header pill
+        // is not rendered. Once there is an application the onboarding card goes and the pill takes over,
+        // rendered hidden so tour.js can show it only to browsers that haven't answered it yet.
+        var client = NewClient();
+        var userId = await UserIdOf(await Http.RegisterAsync(client));
+
+        var fresh = await (await client.GetAsync("/Home/Dashboard")).Content.ReadAsStringAsync();
+        Assert.Contains("id=\"onboardingBanner\"", fresh);
+        Assert.Contains("class=\"onboarding-tour-link\" data-tour-start=\"overview\"", fresh);
+        Assert.DoesNotContain("data-tour-prompt", fresh);
+
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            db.JobApplications.Add(new JobApplication { UserId = userId, CompanyName = "Tour Co", RoleTitle = "Intern" });
+            await db.SaveChangesAsync();
+        }
+
+        var used = await (await client.GetAsync("/Home/Dashboard")).Content.ReadAsStringAsync();
+        Assert.DoesNotContain("id=\"onboardingBanner\"", used);
+        Assert.Matches("<span class=\"tour-prompt\" data-tour-prompt hidden>", used);
+        Assert.Contains("data-tour-start=\"overview\"", used);
+    }
+
     /// <summary>
-    /// Three targets only render when there is something to show: the dashboard Attention card, and the
-    /// profile's resume list and AI row. Seeded so the selector check covers them instead of skipping.
+    /// The "full" account: every target that only renders when there is something to show. An overdue
+    /// Saved application and an interview inside the window (Attention card, its practice button), a
+    /// pending inbox suggestion, an answered and an unanswered practice question, an active resume, and
+    /// a pending resume draft (the review screen).
     /// </summary>
     private async Task SeedConditionalTargets(string userId)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        db.ResumeVersions.Add(new ResumeVersion
+        var resume = new ResumeVersion
         {
             UserId = userId, VersionNumber = 1, OriginalFileName = "resume.pdf",
-            StoredPath = $"resumes/{userId}/1.pdf", FileSize = 1, IsActive = true, Label = "General"
-        });
-        db.JobApplications.Add(new JobApplication
+            StoredPath = $"resumes/{userId}/1.pdf", FileSize = 1, IsActive = true, Label = "General",
+            ExtractedText = "Built things."
+        };
+        db.ResumeVersions.Add(resume);
+        var interview = new JobApplication
         {
-            UserId = userId, CompanyName = "Tour Co", RoleTitle = "Intern",
-            Status = ApplicationStatus.Saved,
-            Deadline = TestClock.Today.AddDays(-3)      // overdue → the Attention card renders
-        });
+            UserId = userId, CompanyName = "Interview Co", RoleTitle = "Intern",
+            Status = ApplicationStatus.Interview,
+            InterviewAt = TestClock.Instant(TestClock.Today.AddDays(3), 14)   // inside the 14-day window
+        };
+        db.JobApplications.AddRange(
+            new JobApplication
+            {
+                UserId = userId, CompanyName = "Tour Co", RoleTitle = "Intern",
+                Status = ApplicationStatus.Saved,
+                Deadline = TestClock.Today.AddDays(-3)      // overdue → the Attention card renders
+            },
+            interview);
         await db.SaveChangesAsync();
+
+        db.StatusSuggestions.Add(new StatusSuggestion
+        {
+            UserId = userId, ApplicationId = interview.Id, GmailMessageId = "tour-test", SuggestedStatus = ApplicationStatus.Offer,
+            Confidence = 0.9, Summary = "An offer.", EmailSubject = "Offer", EmailFrom = "a@b.c",
+            EmailDate = DateTime.UtcNow, Status = SuggestionState.Pending, CreatedAt = DateTime.UtcNow
+        });
+        db.PracticeQuestions.AddRange(
+            InternTrackAI.Services.DemoSeeder.BuildAnsweredPracticeQuestion(userId, DateTime.UtcNow),
+            new PracticeQuestion
+            {
+                UserId = userId, Prompt = "An unanswered question?", Topic = "a topic",
+                PromptHash = InternTrackAI.Services.QuestionHash.Of("An unanswered question?"), CreatedAt = DateTime.UtcNow
+            });
+        await db.SaveChangesAsync();
+
+        await scope.ServiceProvider.GetRequiredService<InternTrackAI.Services.ResumeParseService>()
+            .StoreDemoParseAsync(userId, resume.Id, 100);
     }
 
     private async Task<string> UserIdOf(string email)

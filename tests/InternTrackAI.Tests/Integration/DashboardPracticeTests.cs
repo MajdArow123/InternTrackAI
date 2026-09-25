@@ -159,7 +159,7 @@ public class DashboardPracticeTests : IClassFixture<TestAppFactory>
 
         var html = await Get(client, "/Home/Dashboard");
 
-        var item = Regex.Match(html, $"<li class=\"attention-item[^\"]*\" data-app-id=\"{appId}\" data-kind=\"Interview\">(.*?)</li>", RegexOptions.Singleline);
+        var item = Regex.Match(html, $"<li class=\"attention-item[^\"]*\" data-app-id=\"{appId}\" data-kind=\"Interview\"[^>]*>(.*?)</li>", RegexOptions.Singleline);
         Assert.True(item.Success, "the interview should be on the attention card");
         Assert.Contains($"href=\"/InterviewPrep/Prep?appId={appId}\"", item.Groups[1].Value);
         Assert.Contains("Practice for this interview", item.Groups[1].Value);

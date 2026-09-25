@@ -22,11 +22,15 @@
                     <span class="onboarding-step-text">Upload your resume for AI matching</span>
                     <span class="onboarding-step-arrow" aria-hidden="true">›</span>
                 </a>
-                <a asp-controller="JobApplications" asp-action="Create" class="onboarding-step">
+                <a asp-controller="JobApplications" asp-action="Create" class="onboarding-step" data-tour="onboarding-add">
                     <span class="onboarding-step-icon">3</span>
                     <span class="onboarding-step-text">Add your first application</span>
                     <span class="onboarding-step-arrow" aria-hidden="true">›</span>
                 </a>
             </div>
+            <p class="onboarding-tour">
+                New here?
+                <button type="button" class="onboarding-tour-link" data-tour-start="overview">Take the 60-second tour &rsaquo;</button>
+            </p>
         </div>
     }

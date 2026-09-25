@@ -21,9 +21,24 @@
             <h1>Dashboard</h1>
             <p class="sub">Your internship search at a glance</p>
         </div>
-        <a asp-controller="JobApplications" asp-action="Create" class="btn btn-primary">
-            + Add Application
-        </a>
+        <div class="page-header-actions">
+            @*
+                The tour's invitation, replacing the auto-run that used to dim this page on arrival. Hidden
+                until tour.js confirms this browser hasn't taken or dismissed the tour — the flag is per
+                browser, because the demo account is shared. New accounts get the same invitation inside
+                the onboarding card instead, so there is one welcome, not two.
+            *@
+            @if (Model.TotalApplications > 0)
+            {
+                <span class="tour-prompt" data-tour-prompt hidden>
+                    <button type="button" class="tour-prompt-start" data-tour-start="overview">Take the 60-second tour</button>
+                    <button type="button" class="tour-prompt-dismiss" data-tour-dismiss aria-label="Hide the tour invitation">&times;</button>
+                </span>
+            }
+            <a asp-controller="JobApplications" asp-action="Create" class="btn btn-primary">
+                + Add Application
+            </a>
+        </div>
     </div>
 
     <partial name="_Onboarding" model="Model" />
@@ -43,6 +58,12 @@
 }
 
 @section Scripts {
+@*
+    What the tour needs to know before it leaves this page: whether a resume draft is waiting, which
+    decides if its last step can open the review screen or has to point at Analyze instead. Navigating
+    to the review screen with nothing to review bounces to /Profile with a "Nothing to review" toast.
+*@
+<script type="application/json" id="tourContextData">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(new { pendingDraft = Model.HasPendingDraft }))</script>
 <script type="application/json" id="appsOverTimeData">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.ApplicationsOverTime.Select(kv => new { label = kv.Key, value = kv.Value })))</script>
 @if (!Model.SkillGaps.Hide)
 {

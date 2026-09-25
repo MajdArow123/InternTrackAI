@@ -26,7 +26,8 @@
 
 <div class="practice-card @(answered ? $"practice-card--scored-{scoreTone}" : "")"
      data-question-id="@Model.Id"
-     data-answered="@(answered ? "true" : "false")">
+     data-answered="@(answered ? "true" : "false")"
+     data-tour="@(answered ? "practice-answered" : "practice-question")">
     <div class="practice-card-meta">
         <span class="practice-badge practice-badge--@Model.Difficulty.ToString().ToLowerInvariant()">@Model.Difficulty</span>
         <span class="practice-badge practice-badge--category">@QuestionCategories.Display(Model.Category)</span>

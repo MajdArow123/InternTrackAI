@@ -15,7 +15,7 @@
                 @foreach (var item in Model.Attention)
                 {
                     var app = item.Application;
-                    <li class="attention-item attention-item--@item.Tone" data-app-id="@app.Id" data-kind="@item.Kind">
+                    <li class="attention-item attention-item--@item.Tone" data-app-id="@app.Id" data-kind="@item.Kind" data-tour="attention-item">
                         <div class="attention-main">
                             <a class="attention-title" asp-controller="JobApplications" asp-action="Edit" asp-route-id="@app.Id">
                                 @app.CompanyName <span class="attention-sep">&mdash;</span> @app.RoleTitle
@@ -39,7 +39,7 @@
                             *@
                             <div class="attention-actions">
                                 <a class="btn btn-sm btn-primary" asp-controller="InterviewPrep" asp-action="Prep" asp-route-appId="@app.Id"
-                                   data-practice-for-interview>Practice for this interview</a>
+                                   data-practice-for-interview data-tour="attention-practice">Practice for this interview</a>
                             </div>
                         }
                     </li>

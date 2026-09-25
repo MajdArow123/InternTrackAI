@@ -8,7 +8,14 @@
 //
 // Notes for the next person in here:
 //  * The overview tour spans real page loads. Before navigating we stash
-//    {id, index, nav} in sessionStorage and pick it back up on the next load.
+//    {id, index, nav, tried, ctx} in sessionStorage and pick it back up on
+//    the next load.
+//  * A step can list fallback targets ("targets"), best first, each with its
+//    own copy and optionally its own page. The first one that exists wins, so
+//    an account with nothing generated yet gets the example card or the
+//    button that makes one, instead of silently losing the step.
+//  * Nothing auto-runs. The dashboard carries an invitation
+//    ([data-tour-prompt]); taking or dismissing it is remembered per browser.
 //  * Every storage call can throw (private mode, blocked site data). All of
 //    them go through readStore/writeStore, which swallow it: an unreadable
 //    "seen" flag counts as not-yet-seen, never as a crash.
@@ -17,13 +24,13 @@
 (function () {
     'use strict';
 
-    var SEEN_KEY  = 'itai.tour.v1';        // localStorage: overview auto-run, once per browser
+    var SEEN_KEY  = 'itai.tour.v1';        // localStorage: invitation taken or dismissed, once per browser
     var STATE_KEY = 'itai.tour.state';     // sessionStorage: resume point across a navigation
     var DOCK_MQ   = '(max-width: 639.98px)';
     var GAP       = 12;                    // tooltip ↔ spotlight
     var EDGE      = 12;                    // tooltip ↔ viewport edge
 
-    var state = null;   // { id, steps, index, nav, prevFocus } while running
+    var state = null;   // { id, steps, index, cand, nav, tried, ctx, prevFocus } while running
     var els   = null;   // { overlay, spot, tip, title, body, count, back, next }
     var frame = 0;      // rAF handle for the throttled reposition
 
@@ -137,8 +144,45 @@
     }
 
     /* ── running ─────────────────────────────────────────────────────── */
-    function persist(index) {
-        writeStore('sessionStorage', STATE_KEY, JSON.stringify({ id: state.id, index: index, nav: index }));
+    function persist(index, path) {
+        var tried = state.nav === index ? state.tried.slice() : [];
+        if (tried.indexOf(normPath(path)) < 0) tried.push(normPath(path));
+        writeStore('sessionStorage', STATE_KEY, JSON.stringify({
+            id: state.id, index: index, nav: index, tried: tried, ctx: state.ctx
+        }));
+    }
+
+    /* ── candidates ──────────────────────────────────────── */
+    // What the current page knows that the tour needs before it leaves it —
+    // today only whether a resume draft is waiting (the dashboard's
+    // #tourContextData). Merged, so a page without the island changes nothing.
+    function readContext() {
+        var el = document.getElementById('tourContextData');
+        if (!el) return;
+        var data = null;
+        try { data = JSON.parse(el.textContent || '{}'); } catch (e) { rethrowIfBug(e); data = null; }
+        if (!data) return;
+        for (var k in data) if (Object.prototype.hasOwnProperty.call(data, k)) state.ctx[k] = data[k];
+    }
+
+    // A step is either one target, or an ordered list of fallbacks. Either way
+    // the engine sees a list of { view, target, title, body, when, pad, placement }.
+    function candidatesOf(step) {
+        var list = step.targets && step.targets.length ? step.targets : [step];
+        var out = [];
+        for (var i = 0; i < list.length; i++) {
+            var c = list[i];
+            if (c.when && !state.ctx[c.when]) continue;
+            out.push({
+                view:      c.view !== undefined ? c.view : step.view,
+                target:    c.target !== undefined ? c.target : null,
+                title:     c.title || step.title || '',
+                body:      c.body || step.body || '',
+                pad:       typeof c.pad === 'number' ? c.pad : step.pad,
+                placement: c.placement || step.placement
+            });
+        }
+        return out;
     }
 
     function exit() {
@@ -151,35 +195,49 @@
         }
     }
 
-    // Walks from `index` in the direction of travel, skipping steps whose
-    // target isn't on the page, and navigating when a step lives elsewhere.
+    // Walks from `index` in the direction of travel. For each step: take the
+    // first candidate that lives on this page and whose target exists; failing
+    // that, navigate to the first candidate page not yet tried for this step;
+    // failing that, skip the step.
     function go(index, dir) {
         if (!state) return;
         dir = dir < 0 ? -1 : 1;
         if (index < 0 && dir < 0) return;   // Back on the first step: stay put
 
         var steps = state.steps;
+        var here = window.location.pathname;
         while (index >= 0 && index < steps.length) {
-            var step = steps[index] || {};
+            var cands = candidatesOf(steps[index] || {});
+            var tried = state.nav === index ? state.tried : [];
 
-            if (step.view && !samePath(window.location.pathname, step.view)) {
-                if (state.nav === index) { index += dir; continue; }   // we already tried: unreachable
-                persist(index);
-                window.location.assign(step.view);
+            var hit = null, i, c;
+            for (i = 0; i < cands.length && !hit; i++) {
+                c = cands[i];
+                if (c.view && !samePath(here, c.view)) continue;
+                if (!c.target || document.querySelector(c.target)) hit = c;
+            }
+            if (hit) {
+                state.index = index;
+                state.cand = hit;
+                render();
                 return;
             }
-            if (step.target && !document.querySelector(step.target)) { index += dir; continue; }
 
-            state.index = index;
-            render();
-            return;
+            for (i = 0; i < cands.length; i++) {
+                c = cands[i];
+                if (!c.view || samePath(here, c.view) || tried.indexOf(normPath(c.view)) >= 0) continue;
+                persist(index, c.view);
+                window.location.assign(c.view);
+                return;
+            }
+            index += dir;
         }
         if (dir < 0) { render(); return; }  // nothing earlier is reachable
         exit();
     }
 
     function render() {
-        var step = state.steps[state.index] || {};
+        var step = state.cand || {};
         els.title.textContent = step.title || '';
         els.body.textContent  = step.body || '';
         els.count.textContent = (state.index + 1) + ' of ' + state.steps.length;
@@ -205,7 +263,7 @@
 
     function position() {
         if (!state || !els) return;
-        var step = state.steps[state.index] || {};
+        var step = state.cand || {};
         var el   = step.target ? document.querySelector(step.target) : null;
         var dock = docked();
 
@@ -319,7 +377,7 @@
         };
     }
 
-    function start(id, index, nav) {
+    function start(id, index, nav, tried, ctx) {
         try {
             var tour = tourOf(id);
             if (!tour) return false;
@@ -329,9 +387,13 @@
                 id: id,
                 steps: tour.steps,
                 index: 0,
+                cand: null,
                 nav: typeof nav === 'number' ? nav : -1,
+                tried: tried && tried.length ? tried : [],
+                ctx: ctx && typeof ctx === 'object' ? ctx : {},
                 prevFocus: document.activeElement
             };
+            readContext();
             build();
             go(typeof index === 'number' && index > 0 ? index : 0, 1);
             return true;
@@ -344,32 +406,45 @@
         }
     }
 
-    function autoStart() {
-        var all = tours();
-        for (var id in all) {
-            if (!Object.prototype.hasOwnProperty.call(all, id)) continue;
-            if (!all[id].auto || !samePath(window.location.pathname, all[id].auto)) continue;
-            if (readStore('localStorage', SEEN_KEY)) return;   // already shown on this browser
-            // Written before the run, so a mid-tour reload doesn't restart it
-            // forever. Unwritable storage means it runs again next visit.
-            writeStore('localStorage', SEEN_KEY, '1');
-            start(id);
-            return;
-        }
+    // The dashboard's invitation. Shown until this browser takes the tour or
+    // dismisses it; per browser rather than per account because the demo
+    // account is shared. Browsers that saw the old auto-run count as done.
+    function wireInvitation() {
+        var prompt = document.querySelector('[data-tour-prompt]');
+        if (prompt && !readStore('localStorage', SEEN_KEY)) prompt.hidden = false;
+
+        document.addEventListener('click', function (e) {
+            var starter = e.target.closest ? e.target.closest('[data-tour-start]') : null;
+            if (starter) {
+                markSeen();
+                start(starter.getAttribute('data-tour-start') || 'overview');
+                return;
+            }
+            var dismiss = e.target.closest ? e.target.closest('[data-tour-dismiss]') : null;
+            if (dismiss) markSeen();
+        });
+    }
+
+    // Taking the tour by any route counts: the invitation should not linger.
+    function markSeen() {
+        writeStore('localStorage', SEEN_KEY, '1');
+        var prompt = document.querySelector('[data-tour-prompt]');
+        if (prompt) prompt.hidden = true;
     }
 
     function init() {
         var btn = document.getElementById('tour-btn');
-        if (btn) btn.addEventListener('click', function () { start(forPage()); });
+        if (btn) btn.addEventListener('click', function () { markSeen(); start(forPage()); });
+
+        wireInvitation();
 
         var raw = readStore('sessionStorage', STATE_KEY);
         if (raw) {
             clearStore('sessionStorage', STATE_KEY);
             var saved = null;
-            try { saved = JSON.parse(raw); } catch (e) { saved = null; }
-            if (saved && available(saved.id)) { start(saved.id, saved.index, saved.nav); return; }
+            try { saved = JSON.parse(raw); } catch (e) { rethrowIfBug(e); saved = null; }
+            if (saved && available(saved.id)) start(saved.id, saved.index, saved.nav, saved.tried, saved.ctx);
         }
-        autoStart();
     }
 
     window.Tour = { start: function (id) { return start(id); }, available: available };

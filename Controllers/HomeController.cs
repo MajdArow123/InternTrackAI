@@ -112,7 +112,8 @@ public class HomeController : Controller
             SkillGaps            = await _skillGaps.GetSkillGapsAsync(uid),
             HasProfileBasics     = profile != null && !string.IsNullOrWhiteSpace(profile.FullName)
                                     && !string.IsNullOrWhiteSpace(profile.SkillsJson) && profile.SkillsJson != "[]",
-            HasResume            = hasResume
+            HasResume            = hasResume,
+            HasPendingDraft      = await _context.ParsedResumes.AnyAsync(p => p.UserId == uid && !p.Applied)
         };
 
         // Interview-stage applications the Attention card is not showing (no date, or a date beyond its

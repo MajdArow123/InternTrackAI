@@ -16,7 +16,7 @@
             @foreach (var s in Model.Suggestions)
             {
                 var app = s.Application!;
-                <li class="suggestion-item" data-suggestion-id="@s.Id" data-app-id="@app.Id">
+                <li class="suggestion-item" data-suggestion-id="@s.Id" data-app-id="@app.Id" data-tour="inbox-suggestion">
                     <div class="suggestion-main">
                         <div class="suggestion-title">
                             <a asp-controller="JobApplications" asp-action="Edit" asp-route-id="@app.Id" class="suggestion-app">@app.CompanyName <span class="attention-sep">&mdash;</span> @app.RoleTitle</a>

@@ -138,7 +138,7 @@
                     {
                         var skill = Model.Skills[i];
                         var isNew = Model.IsNewSkill(skill.Name);
-                        <li class="review-row">
+                        <li class="review-row" data-tour="review-skill">
                             <input type="hidden" name="Skills[@i].Name" value="@skill.Name" />
                             <input class="form-check-input review-check" type="checkbox" id="skill_@i"
                                    name="Skills[@i].Selected" value="true" checked="@skill.Checked" />

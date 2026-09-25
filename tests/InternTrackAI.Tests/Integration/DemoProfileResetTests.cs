@@ -68,6 +68,13 @@ public class DemoProfileResetTests
 
         public string UserIdCache { get; set; } = "";
 
+        public async Task<List<int>> DraftIds()
+        {
+            using var scope = Factory.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            return await db.ParsedResumes.Where(p => p.UserId == UserIdCache).Select(p => p.Id).ToListAsync();
+        }
+
         public async Task<int> DraftCount()
         {
             using var scope = Factory.Services.CreateScope();
@@ -215,19 +222,24 @@ public class DemoProfileResetTests
     }
 
     [Fact]
-    public async Task A_stranded_draft_does_not_greet_the_next_visitor()
+    public async Task A_stranded_draft_is_replaced_by_the_one_fixed_draft_every_session_starts_with()
     {
-        // An unapplied draft from someone else would show "Resume analysis waiting for you" for a
-        // review this visitor never ran.
+        // Every session now starts with exactly one pending draft — the canned nursing parse — so the
+        // guided tour can show the review screen without a model call. What must still never happen is a
+        // stranger's draft surviving into the next session: the previous visitor's row is gone and a
+        // fresh fixed one takes its place, so there is exactly one, never two.
         using var h = await Ready();
         var first = await h.SignIn();
         await Upload(first, TestPdf.SampleResume());
-        Assert.Equal(1, await h.DraftCount());
+        var strandedIds = await h.DraftIds();
+        Assert.Equal(2, strandedIds.Count);   // the session's fixed draft + the visitor's upload
 
         var second = await h.SignIn();
 
-        Assert.Equal(0, await h.DraftCount());
-        Assert.DoesNotContain("Resume analysis waiting for you", await ProfilePage(second));
+        var ids = await h.DraftIds();
+        Assert.Single(ids);
+        Assert.DoesNotContain(ids[0], strandedIds);
+        Assert.Contains("Resume analysis waiting for you", await ProfilePage(second));
     }
 
     // ── Narrow, not a reseed ─────────────────────────────────────────────────
@@ -343,11 +355,69 @@ public class DemoProfileResetTests
 
         await h.SignIn();
 
+        // Not an empty page: every session starts with the same one written, answered question (so the
+        // tour has a scored card to show), and nothing of the previous visitor's.
         using (var scope = h.Factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-            Assert.Equal(0, await db.PracticeQuestions.CountAsync(q => q.UserId == h.UserIdCache));
+            var rows = await db.PracticeQuestions.AsNoTracking().Where(q => q.UserId == h.UserIdCache).ToListAsync();
+            var only = Assert.Single(rows);
+            var expected = DemoSeeder.BuildAnsweredPracticeQuestion(h.UserIdCache, DateTime.UtcNow);
+            Assert.Equal(expected.Prompt, only.Prompt);
+            Assert.Equal(expected.UserAnswer, only.UserAnswer);
+            Assert.Equal(expected.AiFeedback, only.AiFeedback);
+            Assert.False(only.IsSaved);
         }
+    }
+
+    [Fact]
+    public async Task The_fixed_practice_answer_renders_as_a_real_scored_card()
+    {
+        // Stored in the model's reply shape, so it must read through AnswerFeedback.FromJson like any real
+        // answer: a 4/5 chip, what worked, exactly two things to change.
+        using var h = await Ready();
+        var client = await h.SignIn();
+
+        var res = await client.GetAsync("/Practice");
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+        var html = WebUtility.HtmlDecode(await res.Content.ReadAsStringAsync());
+
+        Assert.Contains("A checkout API gets slow at peak traffic", html);
+        Assert.Contains("data-answered=\"true\"", html);
+        Assert.Contains("4<span class=\"practice-score-max\">/5</span>", html);
+        Assert.Contains("Say how you would stop it coming back", html);
+        Assert.Contains("Mention what you ruled out first", html);
+        Assert.DoesNotContain("data-practice-example", html);   // a real card, not the empty-page example
+    }
+
+    [Fact]
+    public async Task A_new_session_restores_the_inbox_suggestions_and_the_applications_they_moved()
+    {
+        using var h = await Ready();
+        using (var scope = h.Factory.Services.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<DemoSeeder>().ResetAsync();
+
+        // A previous visitor accepts the Shopify offer: the application moves and gets a note.
+        using (var scope = h.Factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var shopifyOffer = await db.StatusSuggestions.SingleAsync(x => x.UserId == h.UserIdCache && x.GmailMessageId == "demo-shopify-offer");
+            await scope.ServiceProvider.GetRequiredService<InternTrackAI.Services.Gmail.SuggestionService>().AcceptAsync(h.UserIdCache, shopifyOffer.Id);
+        }
+
+        var client = await h.SignIn();
+
+        using (var scope = h.Factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            Assert.Equal(3, await db.StatusSuggestions.CountAsync(x => x.UserId == h.UserIdCache && x.Status == SuggestionState.Pending));
+            var shopify = await db.JobApplications.SingleAsync(a => a.UserId == h.UserIdCache && a.CompanyName == "Shopify");
+            Assert.Equal(ApplicationStatus.Interview, shopify.Status);      // its seeded stage, not Offer
+            Assert.DoesNotContain(await db.ApplicationNotes.Where(n => n.JobApplicationId == shopify.Id).Select(n => n.Text).ToListAsync(),
+                t => t.StartsWith(InternTrackAI.Services.Gmail.SuggestionService.NotePrefix, StringComparison.Ordinal));
+        }
+
+        Assert.Contains("id=\"inbox-suggestions\"", await (await client.GetAsync("/Home/Dashboard")).Content.ReadAsStringAsync());
     }
 
     [Fact]

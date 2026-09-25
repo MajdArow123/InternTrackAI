@@ -145,3 +145,54 @@ html[data-theme="dark"] { --tour-scrim: rgba(0,0,0,.62); }
   .tour-tip { animation: none; }
   .tour-btn:active { transform: none; }
 }
+
+/* ── Invitation (replaces the auto-run) ──────────────── */
+.page-header-actions { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+
+.tour-prompt {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+}
+.tour-prompt[hidden] { display: none; }
+.tour-prompt-start,
+.tour-prompt-dismiss {
+  border: 0;
+  background: transparent;
+  font-family: var(--font);
+  cursor: pointer;
+}
+.tour-prompt-start {
+  padding: .42rem .2rem .42rem .8rem;
+  font-size: .8667rem;
+  font-weight: 500;
+  color: var(--accent-text);
+}
+.tour-prompt-start:hover { text-decoration: underline; }
+.tour-prompt-dismiss {
+  width: 28px;
+  height: 28px;
+  margin-right: .2rem;
+  border-radius: 50%;
+  font-size: 1.05rem;
+  line-height: 1;
+  color: var(--text-2);
+}
+.tour-prompt-dismiss:hover { background: var(--surface-3); color: var(--text); }
+.tour-prompt-start:focus-visible,
+.tour-prompt-dismiss:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-pill); }
+
+.onboarding-tour { margin: .9rem 0 0; font-size: .9333rem; color: var(--text-2); }
+.onboarding-tour-link {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  font-weight: 500;
+  color: var(--accent-text);
+  cursor: pointer;
+}
+.onboarding-tour-link:hover { text-decoration: underline; }
+.onboarding-tour-link:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }

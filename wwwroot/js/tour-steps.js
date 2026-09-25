@@ -12,12 +12,18 @@
 // Tour shape:
 //   match:  exact paths (lower-cased on compare) where the nav "Tour" button
 //           runs this tour. Empty for "overview", which is the fallback.
-//   auto:   path that auto-starts this tour on a first visit, or null.
-//   steps:  { view, target, pad, title, body, placement }
+//   steps:  either one target —
+//             { view, target, pad, title, body, placement }
+//           or an ordered list of fallbacks, best first —
+//             { view, pad, placement, targets: [ { target, title, body, view?, when? } ] }
 //           view      — path to navigate to first, or null to stay put
 //           target    — element to spotlight, or null for a centred card
+//           when      — a flag from the dashboard's #tourContextData that must be
+//                       true for this entry to be tried (e.g. "pendingDraft")
 //           pad       — px of breathing room around the target
 //           placement — "auto" | "top" | "bottom" (ignored when docked)
+//   Nothing auto-runs: the dashboard invites ([data-tour-prompt] and the
+//   onboarding card's link), and tour.js remembers the answer per browser.
 (function () {
     'use strict';
 
@@ -26,63 +32,100 @@
   "overview": {
     "label": "App overview",
     "match": [],
-    "auto": "/Home/Dashboard",
     "steps": [
       {
         "view": "/Home/Dashboard",
-        "target": null,
-        "pad": 0,
-        "title": "Welcome to InternTrackAI",
-        "body": "A quick tour of how the app fits together. Escape ends it, and you can restart from Tour in the nav.",
-        "placement": "auto"
-      },
-      {
-        "view": null,
         "target": "[data-tour=\"nav\"]",
         "pad": 8,
         "title": "Getting around",
-        "body": "Dashboard for the overview, Applications for the full list and the board, Cover Letter and Profile for your documents.",
+        "body": "Dashboard for the overview, Applications for the list and the board, Practice for interview questions scored as you answer, Cover Letter and Profile for your documents.",
         "placement": "bottom"
       },
       {
-        "view": null,
-        "target": "[data-tour=\"stats\"]",
-        "pad": 10,
-        "title": "Your pipeline at a glance",
-        "body": "Every application sits in one of five stages — Saved, Applied, Interview, Offer, Rejected. These counts follow them as you move them along.",
-        "placement": "auto"
-      },
-      {
-        "view": null,
-        "target": "#attention-card",
-        "pad": 10,
-        "title": "What needs you today",
-        "body": "Deadlines about to pass, interviews coming up, and applications that have gone quiet long enough to chase. Mark contacted, snooze, or draft a follow-up without leaving this page.",
-        "placement": "auto"
-      },
-      {
-        "view": "/JobApplications",
-        "target": "[data-tour=\"view-toggle\"]",
+        "view": "/Home/Dashboard",
         "pad": 8,
-        "title": "A list or a board",
-        "body": "The same applications two ways: a filterable table, or a Kanban board where dragging a card between columns changes its status.",
-        "placement": "auto"
+        "placement": "auto",
+        "targets": [
+          {
+            "target": "[data-tour=\"inbox-suggestion\"]",
+            "title": "Your inbox, read for you",
+            "body": "With Gmail connected, the app reads recruiter emails and suggests the status change — an interview invite, an offer, a rejection. Accept or dismiss: nothing moves on its own."
+          }
+        ]
       },
       {
-        "view": "/JobApplications/Create",
-        "target": "#analyzerCard",
-        "pad": 10,
-        "title": "Let the AI fill the form",
-        "body": "Paste a job posting or its URL. The analyzer fills in the company, role, salary and dates, then scores your resume against it.",
-        "placement": "auto"
+        "view": "/Home/Dashboard",
+        "pad": 8,
+        "placement": "auto",
+        "targets": [
+          {
+            "target": "[data-tour=\"attention-practice\"]",
+            "title": "Practice for the interview you have",
+            "body": "Interviews in the next two weeks land on this card with a button that writes practice questions from that posting. Deadlines and overdue follow-ups show up here too."
+          },
+          {
+            "target": "[data-tour=\"attention-item\"]",
+            "title": "What needs you today",
+            "body": "Deadlines about to pass, interviews coming up, and applications that have gone quiet long enough to chase. Draft a follow-up, mark it contacted or snooze it without leaving the page."
+          },
+          {
+            "target": "[data-tour=\"onboarding-add\"]",
+            "title": "Start with one application",
+            "body": "Add an application and this page starts working for you: deadlines, interviews and follow-ups due all surface here on their own."
+          }
+        ]
       },
       {
-        "view": "/Profile",
-        "target": "#resumeHeroCard",
-        "pad": 10,
-        "title": "Your resume powers the rest",
-        "body": "Upload a PDF here and every AI feature reads from it — match scores, cover letters, interview prep, follow-up drafts. That's the tour. Hit Tour in the nav to see it again.",
-        "placement": "auto"
+        "view": "/Practice",
+        "pad": 8,
+        "placement": "auto",
+        "targets": [
+          {
+            "target": "[data-tour=\"practice-answered\"]",
+            "title": "Every answer, scored",
+            "body": "Each answer gets a score out of 5, what worked, exactly two things to change and a stronger opening line. Show feedback opens it; retry and your attempts sit side by side."
+          },
+          {
+            "target": "[data-tour=\"practice-question\"]",
+            "title": "Interview questions in your field",
+            "body": "Questions written for your field and level. Type an answer and it comes back scored out of 5, with what worked and exactly two things to change."
+          },
+          {
+            "target": "[data-tour=\"practice-example\"]",
+            "title": "What you would practise",
+            "body": "An example question for your field. Get your own set and every answer you type comes back scored out of 5, with what worked and exactly two things to change."
+          },
+          {
+            "target": "#practiceGenerateBtn",
+            "title": "Interview questions in your field",
+            "body": "Press this for five questions in your field, at the difficulty you pick. Every answer comes back scored out of 5, with what worked and exactly two things to change."
+          }
+        ]
+      },
+      {
+        "pad": 8,
+        "placement": "auto",
+        "targets": [
+          {
+            "when": "pendingDraft",
+            "view": "/Profile/ReviewResume",
+            "target": "[data-tour=\"review-skill\"]",
+            "title": "You choose what the AI keeps",
+            "body": "The AI read the resume and found these, each beside the line it came from. Nothing reaches your profile until you press Apply. That's the tour — run it again any time from Tour on the dashboard."
+          },
+          {
+            "view": "/Profile",
+            "target": "#resumeAiRow",
+            "title": "Your resume, read for you",
+            "body": "Analyze with AI reads the active resume and shows you each skill beside the line it came from. Nothing is saved until you choose what to keep. That's the tour — run it again any time from Tour on the dashboard."
+          },
+          {
+            "view": "/Profile",
+            "target": "[data-tour=\"resume-upload\"]",
+            "title": "Start with your resume",
+            "body": "Upload a PDF or Word resume and the AI shows you what it found before anything is saved. Every other AI feature works from it. That's the tour — run it again any time from Tour on the dashboard."
+          }
+        ]
       }
     ]
   },
@@ -90,7 +133,6 @@
   "applications": {
     "label": "Applications tour",
     "match": ["/JobApplications", "/JobApplications/Board"],
-    "auto": null,
     "steps": [
       {
         "view": null,
@@ -122,14 +164,13 @@
   "profile": {
     "label": "Profile tour",
     "match": ["/Profile"],
-    "auto": null,
     "steps": [
       {
         "view": null,
         "target": "#resumeHeroCard",
         "pad": 10,
         "title": "Start with your resume",
-        "body": "Drop a PDF here and the app reads it once. Everything downstream — match scores, cover letters, interview prep, follow-ups — works from the resume marked active.",
+        "body": "Drop a PDF or Word file here and the app reads it once. Everything downstream — match scores, cover letters, interview prep, follow-ups — works from the resume marked active.",
         "placement": "auto"
       },
       {
@@ -145,7 +186,7 @@
         "target": "#resumeAiRow",
         "pad": 8,
         "title": "Analyze vs Score",
-        "body": "Analyze with AI reads the resume and fills in your name, skills and target roles. Score my resume grades the resume on its own, with strengths and improvements — no job posting needed.",
+        "body": "Analyze with AI reads the resume and shows you what it found, each skill beside the line it came from — you choose what to keep before anything is saved. Score my resume grades it on its own, with strengths and improvements.",
         "placement": "auto"
       }
     ]

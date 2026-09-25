@@ -63,6 +63,9 @@ public class DashboardViewModel
     public List<JobApplication> InterviewsToPractise { get; set; } = new();
     public const int InterviewPromptLimit = 3;
 
+    /// <summary>A resume analysis is waiting for review — tells the tour whether its last step can open the review screen.</summary>
+    public bool HasPendingDraft { get; set; }
+
     public bool HasProfileBasics { get; set; }
     public bool HasResume { get; set; }
 }

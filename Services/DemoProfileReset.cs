@@ -1,14 +1,18 @@
 using System.Globalization;
 using InternTrackAI.Data;
 using InternTrackAI.Models;
+using InternTrackAI.Models.Enums;
+using InternTrackAI.Services.Gmail;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 
 namespace InternTrackAI.Services;
 
 /// <summary>
-/// Restores the shared demo account's <b>profile fields only</b>, so one visitor's resume review
-/// can't follow the next one around.
+/// Restores the shared demo account's <b>per-session state</b> — its profile fields, one pending resume
+/// draft and one answered practice question (<see cref="RestoreAsync"/>), plus the inbox suggestions
+/// when a session starts (<see cref="StartSessionAsync"/>) — so one visitor's session can't follow the
+/// next one around.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -44,32 +48,40 @@ public class DemoProfileReset
     public const string CookieName = "itai_demo_review";
 
     private readonly ApplicationDbContext _db;
+    private readonly ResumeParseService _parser;
     private readonly ILogger<DemoProfileReset> _logger;
 
-    public DemoProfileReset(ApplicationDbContext db, ILogger<DemoProfileReset> logger)
+    public DemoProfileReset(ApplicationDbContext db, ResumeParseService parser, ILogger<DemoProfileReset> logger)
     {
         _db = db;
+        _parser = parser;
         _logger = logger;
     }
 
     /// <summary>
-    /// Puts the demo profile's fields back to the <see cref="DemoSeeder"/> constants and drops any
-    /// resume-parse drafts. Returns false when there is no profile row to restore.
+    /// Puts the demo back to its <b>fixed starting state</b>: the profile's fields, one pending resume
+    /// draft (the canned nursing parse) and one answered practice question. Returns false when there is
+    /// no profile row to restore.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Drafts go too: an unapplied draft from a stranger would greet the next visitor with a
-    /// "Resume analysis waiting for you" card for a review they never ran, which is a confusing
-    /// first impression of the one screen this demo exists to show off.
+    /// <b>A fixed state, not an empty one</b> (since 2026-09-24). This used to clear drafts and practice
+    /// questions to nothing. It now replaces them with the same written rows for every visitor, because
+    /// the guided tour's two most persuasive steps — a scored practice answer and the resume review
+    /// screen — need something to point at, and the only other way to get one is a live model call in
+    /// the middle of onboarding. Nobody's own work is shown to anybody else: every visitor gets exactly
+    /// these rows, from <see cref="DemoSeeder.BuildAnsweredPracticeQuestion"/> and
+    /// <see cref="ResumeParseService.StoreDemoParseAsync"/>.
     /// </para>
     /// <para>
-    /// <b>So do practice questions</b>, for the same reason and more strongly. The demo account is
-    /// shared, so without this a visitor opens <c>/Practice</c> to a stranger's answers, a progress
-    /// card reporting someone else's average and weakest topic, and their starred questions. Worse, the
-    /// questions were generated against whatever field the previous visitor's session had, so a
-    /// software visitor could land on a page of nursing questions. <see cref="DemoSeeder"/> seeds none,
-    /// so clearing them is the correct starting state rather than a lossy reset: the visitor generates
-    /// their own, which is the feature.
+    /// Whatever a previous visitor left is still removed first, for the reasons this class has always
+    /// had: an unapplied stranger's draft would greet the next visitor, and a stranger's practice answers,
+    /// averages and stars would fill <c>/Practice</c> — generated against whatever field that session
+    /// had, so a software visitor could land on nursing questions.
+    /// </para>
+    /// <para>
+    /// <see cref="DemoSeeder.ResetAsync"/> calls this too, so the nightly reseed and the per-session
+    /// reset produce the same state by construction. <c>DemoResetTests</c> pins that they do.
     /// </para>
     /// </remarks>
     public async Task<bool> RestoreAsync(string userId, CancellationToken ct = default)
@@ -88,6 +100,72 @@ public class DemoProfileReset
         // in the change tracker, so mixing the two in one SaveChanges would be misleading.
         await _db.PracticeQuestions.Where(q => q.UserId == userId).ExecuteDeleteAsync(ct);
 
+        _db.PracticeQuestions.Add(DemoSeeder.BuildAnsweredPracticeQuestion(userId, DateTime.UtcNow));
+        await _db.SaveChangesAsync(ct);
+
+        // The pending draft is the real canned parse the demo's Analyze button produces — no model call,
+        // no permit — tied to the active resume the way a real parse would be.
+        var active = await _db.ResumeVersions.AsNoTracking()
+            .Where(r => r.UserId == userId && r.IsActive)
+            .Select(r => new { r.Id, r.ExtractedText })
+            .FirstOrDefaultAsync(ct);
+        await _parser.StoreDemoParseAsync(userId, active?.Id, active?.ExtractedText?.Length ?? 0, ct);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Everything <see cref="RestoreAsync"/> does, plus the dashboard's three pending inbox suggestions
+    /// and the three applications they point at. Run when a demo session starts
+    /// (<c>POST /Account/DemoLogin</c>), never on a page view.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Accepting a suggestion moves its application (Shopify to Offer, say) and appends a "Status
+    /// updated from email" note, so restoring the suggestion rows alone would offer to move Shopify to
+    /// Offer when it is already there. The applications' <c>Status</c> and <c>InterviewAt</c> go back to
+    /// <see cref="DemoSeeder.BuildApplications"/>'s values and the accept notes are removed.
+    /// </para>
+    /// <para>
+    /// <b>Not part of <see cref="HealAsync"/></b>, which runs on a <c>/Profile</c> view: moving cards on a
+    /// board a visitor may have open in another tab is exactly what that path promises not to do. A new
+    /// session is the one moment it is safe.
+    /// </para>
+    /// </remarks>
+    public async Task<bool> StartSessionAsync(string userId, CancellationToken ct = default)
+    {
+        if (!await RestoreAsync(userId, ct)) return false;
+
+        var zoneId = await _db.UserProfiles.AsNoTracking()
+            .Where(p => p.UserId == userId).Select(p => p.TimeZoneId).FirstOrDefaultAsync(ct);
+        var seeded = DemoSeeder.BuildApplications(userId, UserClock.For(zoneId).Today);
+
+        var apps = await _db.JobApplications
+            .Where(a => a.UserId == userId && DemoSeeder.SuggestionCompanies.Contains(a.CompanyName))
+            .ToListAsync(ct);
+
+        foreach (var app in apps)
+        {
+            var original = seeded.FirstOrDefault(s => s.CompanyName == app.CompanyName && s.RoleTitle == app.RoleTitle);
+            if (original is null) continue;          // a visitor renamed it; leave it for the nightly reseed
+            app.Status      = original.Status;
+            app.InterviewAt = original.InterviewAt;
+        }
+
+        // Filtered in memory with an ordinal comparison rather than a LIKE: SQLite's LIKE ignores case and
+        // PostgreSQL's does not (CLAUDE.md §8), and this should remove exactly the notes Accept wrote.
+        var appIds = apps.Select(a => a.Id).ToList();
+        var acceptNotes = (await _db.ApplicationNotes
+                .Where(n => n.UserId == userId && appIds.Contains(n.JobApplicationId))
+                .ToListAsync(ct))
+            .Where(n => n.Text.StartsWith(SuggestionService.NotePrefix, StringComparison.Ordinal))
+            .ToList();
+        _db.ApplicationNotes.RemoveRange(acceptNotes);
+
+        _db.StatusSuggestions.RemoveRange(await _db.StatusSuggestions.Where(s => s.UserId == userId).ToListAsync(ct));
+        _db.StatusSuggestions.AddRange(DemoSeeder.BuildSuggestions(userId, apps, DateTime.UtcNow));
+
+        await _db.SaveChangesAsync(ct);
         return true;
     }
 

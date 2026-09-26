@@ -12,6 +12,11 @@
     <Compile Remove="tests/**" />
     <Content Remove="tests/**" />
     <None Remove="tests/**" />
+    <!-- e2e/ is Node, not part of the app; its gitignored artifacts (results JSON, run folders) would
+         otherwise be picked up as Content and published. -->
+    <Compile Remove="e2e/**" />
+    <Content Remove="e2e/**" />
+    <None Remove="e2e/**" />
   </ItemGroup>
 
   <ItemGroup>

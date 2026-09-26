@@ -260,6 +260,90 @@ public class ProviderParityTests : IClassFixture<ProviderParityFixture>
         Assert.All(results, kv => Assert.Equal(expected, kv.Value));
     }
 
+    /// <summary>
+    /// The accepted edge in <see cref="Controllers.JobApplicationsController.FilteredQuery"/>, pinned in both
+    /// directions rather than asserted to agree — because the providers deliberately do not. SQLite's
+    /// <c>lower()</c> is ASCII-only, so "Ünïcødé" keeps its capital Ü and a search for "Ünïcød" (lowered in
+    /// C# to "ünïcød") <b>misses</b>. PostgreSQL's <c>lower()</c> follows the database's <c>LC_CTYPE</c>, and
+    /// under production's <c>en_US.utf8</c> it folds the Ü and <b>finds</b> the row.
+    /// </summary>
+    /// <remarks>
+    /// The PostgreSQL half runs in a database of its own, created with production's locale, because the
+    /// server this normally reaches was initialised <c>C</c> — where <c>lower()</c> is ASCII-only too, and a
+    /// "PostgreSQL misses" answer would be the local server's accident, not production's behaviour (§8 rule 1).
+    /// The locale is discovered at runtime (macOS spells it <c>en_US.UTF-8</c>, Linux <c>en_US.utf8</c>), and
+    /// the test fails, rather than skips, if the server has neither: a skipped half is how the collation
+    /// divergence went unseen. Replaces the compat e2e check that searched for this string and failed locally.
+    /// </remarks>
+    [Fact]
+    public async Task Searching_non_ASCII_text_misses_on_SQLite_and_matches_under_the_production_locale()
+    {
+        const string company = "Ünïcødé 🏢 Có";
+        const string typed = "Ünïcød";
+
+        await using (var sqlite = _fx.NewSqlite())
+        {
+            var uid = NewUser();
+            await SeedApp(sqlite, uid, company);
+            var found = await Controllers.JobApplicationsController.FilteredQuery(sqlite.JobApplications, uid, typed, null, null, null).CountAsync();
+            _out.WriteLine($"SQLite                    -> {found}");
+            Assert.Equal(0, found);
+        }
+
+        if (!_fx.HasPostgres)
+        {
+            _out.WriteLine($"PostgreSQL half skipped: {ProviderParityFixture.EnvVar} is not set.");
+            return;
+        }
+
+        var server = new Npgsql.NpgsqlConnectionStringBuilder(_fx.PostgresConnection);
+        string locale;
+        await using (var pg = _fx.NewPostgres())
+        {
+            var candidates = new[] { "en_US.utf8", "en_US.UTF-8" };
+            var present = await pg.Database
+                .SqlQueryRaw<string>("select collctype as \"Value\" from pg_collation where collprovider = 'c' and collctype = any({0})", new object[] { candidates })
+                .ToListAsync();
+            locale = candidates.FirstOrDefault(present.Contains)
+                ?? throw new Xunit.Sdk.XunitException("This PostgreSQL server has no en_US UTF-8 locale, so production's case folding cannot be reproduced here.");
+        }
+
+        var name = $"{server.Database}_locale";
+        var admin = new Npgsql.NpgsqlConnectionStringBuilder(server.ConnectionString) { Database = "postgres", Pooling = false }.ConnectionString;
+        async Task Exec(string sql)
+        {
+            await using var c = new Npgsql.NpgsqlConnection(admin);
+            await c.OpenAsync();
+            await using var cmd = new Npgsql.NpgsqlCommand(sql, c);
+            await cmd.ExecuteNonQueryAsync();
+        }
+
+        var target = new Npgsql.NpgsqlConnectionStringBuilder(server.ConnectionString) { Database = name, Pooling = false }.ConnectionString;
+        await Exec($"drop database if exists \"{name}\" with (force)");
+        await Exec($"create database \"{name}\" template template0 encoding 'UTF8' lc_collate '{locale}' lc_ctype '{locale}'");
+        try
+        {
+            await using var db = new ApplicationDbContext(new DbContextOptionsBuilder<ApplicationDbContext>()
+                .UseNpgsql(target)
+                .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
+                .Options);
+            await db.Database.MigrateAsync();
+
+            var ctype = await db.Database.SqlQueryRaw<string>("select datctype as \"Value\" from pg_database where datname = current_database()").SingleAsync();
+            Assert.Equal(locale, ctype);   // the database really is on the production locale, or this proves nothing
+
+            var uid = NewUser();
+            await SeedApp(db, uid, company);
+            var found = await Controllers.JobApplicationsController.FilteredQuery(db.JobApplications, uid, typed, null, null, null).CountAsync();
+            _out.WriteLine($"PostgreSQL ({ctype,-11}) -> {found}");
+            Assert.Equal(1, found);
+        }
+        finally
+        {
+            await Exec($"drop database if exists \"{name}\" with (force)");
+        }
+    }
+
     // ── 3. DateTime round-trip ───────────────────────────────────────────────
 
     /// <summary>

@@ -9,6 +9,7 @@
 // Standalone:           node e2e/lib/openai-stub.mjs [port]      (default 5999; logs one line per call)
 //                       then run the app with OpenAI__ApiKey=sk-stub OpenAI__BaseUrl=http://127.0.0.1:5999
 import http from 'node:http';
+import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 // Distinct topics and prompts, handed out in order across the whole run so no two generated practice
@@ -120,7 +121,9 @@ export async function startStub({ port = 0, log = false } = {}) {
   };
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+// realpath: /tmp on macOS is a symlink to /private/tmp, and Node reports the main module's resolved path, so
+// comparing against the path as typed silently skipped this block (the stub started nothing, 2026-09-26).
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
   const port = Number(process.argv[2] || 5999);
   const stub = await startStub({ port, log: true });
   console.log(`OpenAI stub listening on ${stub.url} — run the app with OpenAI__ApiKey=sk-stub OpenAI__BaseUrl=${stub.url}`);

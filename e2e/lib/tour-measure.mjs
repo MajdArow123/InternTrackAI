@@ -11,6 +11,7 @@
 //
 // Run it headless and unthrottled. The desktop browser pane and a covered browser window both throttle
 // animation frames to a few per second, which made ~0.1-0.9 s settles look like several seconds.
+import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 /** The step on screen right now, or { closed: true } when no tour card is showing. */
@@ -88,15 +89,104 @@ export async function settle(page, action, { timeoutMs = 8000, lateStartMs = 200
 export async function revealTourButton(page) {
   const btn = await page.$('#tour-btn');
   if (btn && !(await btn.isVisible()) && (await page.$('[data-tour="nav-toggle"]'))) {
-    await page.click('[data-tour="nav-toggle"]');
+    await tap(page, '[data-tour="nav-toggle"]');
     await page.waitForFunction(() => document.querySelector('.navbar-collapse.show') && !document.querySelector('.navbar-collapse.collapsing'));
   }
 }
 
-/** Opens the menu if needed, then returns the timed action: tapping Tour. */
+/**
+ * Opens the menu if needed, then returns the timed action: tapping Tour where it is on screen. Not
+ * page.click, here or for the menu button: Playwright scrolls its target into view first, and for a button
+ * inside the sticky header that means scrolling the page back to where the header sits — the top. Every page-tour walk therefore
+ * started at the top whatever the page had been scrolled to, and a check that "started scrolled away"
+ * never had (found 2026-09-26, when the order check recorded no scrolls on a walk it had scrolled away).
+ */
 export async function tourButton(page) {
   await revealTourButton(page);
-  return () => page.click('#tour-btn');
+  return () => tap(page, '#tour-btn');
+}
+
+/** Clicks where the element is on screen, without Playwright's scroll-into-view (see tourButton). */
+async function tap(page, selector) {
+  const box = await page.locator(selector).boundingBox();
+  if (!box) throw new Error(`${selector} is not on screen`);
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+}
+
+/**
+ * Records every scroll the tour itself makes, with which step the card was showing (`data-step`, written first
+ * thing in tour.js's render) and which step it had last been laid out for (`data-placed-for`, written by
+ * position). Position-then-scroll is right exactly when the two agree at every scroll. This checks the order
+ * directly, at any viewport, where a coverage check can only infer it, and only on a screen where the wrong
+ * order happens to cover something (Phase B's "0% at 375x812" was never evidence the order was right).
+ *
+ * Every scroll API is wrapped, not only the window.scrollTo tour.js uses today, so a regression to
+ * scrollIntoView is recorded too. A call counts as the tour's when tour.js is on its stack. Call it before the
+ * context's pages load anything; the returned array fills across navigations.
+ */
+export async function recordTourScrolls(context) {
+  const scrolls = [];
+  await context.exposeBinding('__reportTourScroll', (_src, entry) => { scrolls.push(entry); });
+  await context.addInitScript(() => {
+    const record = (api) => {
+      if (!/\/js\/tour\.js/.test(new Error().stack || '')) return;
+      const tip = document.querySelector('.tour-tip');
+      const entry = { api, path: location.pathname, step: tip?.getAttribute('data-step') ?? null, placedFor: tip?.getAttribute('data-placed-for') ?? null };
+      try { window.__reportTourScroll(entry); } catch { /* binding gone mid-navigation */ }
+    };
+    for (const [target, name] of [[window, 'scrollTo'], [window, 'scrollBy'], [window, 'scroll'],
+      [Element.prototype, 'scrollIntoView'], [Element.prototype, 'scrollTo'], [Element.prototype, 'scrollBy'], [Element.prototype, 'scroll']]) {
+      const original = target[name];
+      if (typeof original !== 'function') continue;
+      target[name] = function (...args) { record(name); return original.apply(this, args); };
+    }
+  });
+  return scrolls;
+}
+
+/** Every recorded tour scroll made before its card was laid out for the step it scrolls to, one message each. */
+export function outOfOrder(scrolls, where) {
+  return scrolls.filter((s) => s.step !== s.placedFor)
+    .map((s) => `${where}: ${s.api} on ${s.path} for step ${s.step} while the card was still placed for ${s.placedFor ?? 'nothing'}`);
+}
+
+/**
+ * Scrolls the page just far enough that `selector` is out of view (its bottom a little above the top edge, or
+ * the page back to the top when the target is lower down), so a walk's first step has to scroll. Just far
+ * enough, not to the end of the page: the walk's timing limits are for a step, and a smooth scroll back from
+ * the foot of a long page is a different cost. Returns false when the page is too short to hide the target;
+ * a walk's own "at least one scroll" rule is what then keeps the order check from being vacuous.
+ */
+export async function scrollAwayFrom(page, selector) {
+  // Wait for the page to stop changing height first. At 375px the Applications list is still settling after
+  // load (5226 -> 3179 -> 2844 px measured), and a scroll made before that is undone as the page shrinks,
+  // so the walk began with its first target back in view and the order check saw no scroll.
+  await page.waitForFunction(() => {
+    const h = document.documentElement.scrollHeight;
+    const w = (window.__heightWatch ||= { h, since: performance.now() });
+    if (w.h !== h) { w.h = h; w.since = performance.now(); }
+    return performance.now() - w.since > 400;
+  }, null, { polling: 100, timeout: 5000 }).catch(() => {});
+  return page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return false;
+    const r = el.getBoundingClientRect();
+    const inView = () => { const b = el.getBoundingClientRect(); return b.bottom > 0 && b.top < innerHeight; };
+    // Instant: Bootstrap's reboot makes :root scroll smoothly, so a plain scrollTo has not moved yet when
+    // inView() asks.
+    window.scrollTo({ top: inView() ? scrollY + r.bottom + 24 : 0, behavior: 'instant' });
+    return !inView();
+  }, selector);
+}
+
+/**
+ * Replaces the Google Fonts stylesheet with an empty one and refuses the font files, so a timing check measures
+ * the tour and not a third-party network fetch. Inter falls back to the system font stack; the layout checks
+ * were confirmed to pass either way (2026-09-26). In production the stylesheet is render-blocking (CLAUDE.md §12).
+ */
+export async function withoutGoogleFonts(context) {
+  await context.route('https://fonts.googleapis.com/**', (r) => r.fulfill({ status: 200, contentType: 'text/css', body: '' }));
+  await context.route('https://fonts.gstatic.com/**', (r) => r.abort());
 }
 
 /** Walks the tour from its first step to Done, returning one { step, settledMs } per step. */
@@ -119,7 +209,9 @@ export function describe({ step, settledMs }) {
 }
 
 // ---------------------------------------------------------------- standalone
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+// realpath: /tmp on macOS is a symlink to /private/tmp, and Node reports the main module's resolved path, so
+// comparing against the path as typed silently skipped this block (the stub started nothing, 2026-09-26).
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
   const { chromium } = await import('./harness.mjs');
   const { startApp } = await import('./app-server.mjs');
   const [w, h] = (process.argv[2] || '1280x800').split('x').map(Number);
@@ -129,7 +221,9 @@ if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
   const browser = await chromium.launch({ channel: 'chrome' });
   const app = await startApp(browser, { name: 'tour-measure' });
   try {
-    const page = await (await browser.newContext({ viewport: { width: w, height: h } })).newPage();
+    const context = await browser.newContext({ viewport: { width: w, height: h } });
+    await withoutGoogleFonts(context);   // the same conditions the tour dimension's limits were set in
+    const page = await context.newPage();
     await page.goto(`${app.base}/`);
     await page.click('text=Try the live demo');
     await page.waitForURL('**/Home/Dashboard');

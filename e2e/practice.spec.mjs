@@ -9,6 +9,7 @@
 // "Get more" and every score is real app code answering a real request — only the model is fake.
 import { chromium, check, assert, assertEqual, newSignedInContext, isCspReportNoise, createApplication } from './lib/harness.mjs';
 import { startApp, PRACTICE_LIMIT } from './lib/app-server.mjs';
+import { unexpectedErrors } from './lib/server-log.mjs';
 
 const D = 'Practice';
 const LONG = 'I added an idempotency key column and made the handler return the stored result on a retry, which stopped the double charges.';
@@ -354,6 +355,15 @@ export async function run() {
     await check(D, 'No console errors or uncaught exceptions anywhere in the practice run', async () => {
       assert(errors.length === 0, errors.slice(0, 10).join('\n'));
       return 'none';
+    });
+
+    await check(D, 'The practice server logged no Error-level lines except the one deliberate model failure', async () => {
+      // "A stub model error keeps the typed answer" makes the stub answer one scoring call with a 500 on
+      // purpose, and AnswerFeedbackService rightly logs that as an Error. It is allowed by its exact message
+      // and must appear exactly once; anything else at Error level fails the run (CLAUDE.md §10).
+      const problems = unexpectedErrors(app.errors(), { 'Answer feedback failed: OpenAI returned 500.': 1 });
+      assert(problems.length === 0, `${problems.slice(0, 5).join('\n---\n')}\n(log: ${app.logFile})`);
+      return 'only the deliberate model failure, once';
     });
   } finally {
     if (app) await app.stop();

@@ -6,6 +6,7 @@
 // No server to start first: run-all publishes the app and runs it as Production itself (lib/app-server.mjs).
 import { flush, summary, record, ARTIFACTS, setBase } from './lib/harness.mjs';
 import { startApp } from './lib/app-server.mjs';
+import { unexpectedErrors } from './lib/server-log.mjs';
 import path from 'node:path';
 import fs from 'node:fs';
 import { execSync } from 'node:child_process';
@@ -105,9 +106,9 @@ current = null;
 // Identity pages that answered a plain GET with a 500 (fixed in #23) would have been caught the first time
 // any dimension touched them. If this turns noisy, find what is logging the error — do not filter it here.
 if (suite) {
-  const errors = suite.errors();
-  record('Suite server', 'The suite server logged no Error-level lines', errors.length ? 'FAIL' : 'PASS',
-    errors.length ? `${errors.length} Error-level line(s) in ${suite.logFile}:\n${errors.slice(0, 5).join('\n---\n')}` : `clean (${suite.logFile})`);
+  const problems = unexpectedErrors(suite.errors());
+  record('Suite server', 'The suite server logged no Error-level lines', problems.length ? 'FAIL' : 'PASS',
+    problems.length ? `${problems.length} problem(s) in ${suite.logFile}:\n${problems.slice(0, 5).join('\n---\n')}` : `clean (${suite.logFile})`);
   await suite.stop();
 }
 

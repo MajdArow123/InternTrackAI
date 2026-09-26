@@ -15,3 +15,28 @@ export function errorLines(logFile) {
   }
   return out;
 }
+
+/** The message of an error block: its first line without the "[HH:mm:ss ERR] " prefix. */
+export const messageOf = (block) => block.split('\n')[0].replace(/^\[\d\d:\d\d:\d\d [A-Z]{3}\] /, '');
+
+/**
+ * Checks error blocks against an allowlist of exact messages, each expected a known number of times.
+ * Allowed by message, never by count: a count-based allowance passes when a different error appears and the
+ * deliberate one doesn't. And each allowed message must appear exactly as often as expected, so a check that
+ * provokes an error on purpose — and the logging behind it — is verified too, not silently skipped.
+ * Returns human-readable problems (empty when the log is as expected).
+ */
+export function unexpectedErrors(blocks, expected = {}) {
+  const problems = [];
+  const seen = new Map();
+  for (const b of blocks) {
+    const m = messageOf(b);
+    if (Object.hasOwn(expected, m)) seen.set(m, (seen.get(m) || 0) + 1);
+    else problems.push(`unexpected: ${b}`);
+  }
+  for (const [m, n] of Object.entries(expected)) {
+    const got = seen.get(m) || 0;
+    if (got !== n) problems.push(`expected "${m}" ${n} time(s), logged ${got}`);
+  }
+  return problems;
+}

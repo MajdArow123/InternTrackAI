@@ -604,6 +604,29 @@ public class PracticeGroupingTests
     }
 
     [Fact]
+    public async Task Each_filter_group_marks_its_active_option_with_aria_current_and_stays_a_link()
+    {
+        using var h = new Harness();
+        var client = h.Client();
+        await Http.RegisterAsync(client);
+
+        var html = await Page(client, "/Practice?difficulty=Hard&category=Behavioral&saved=true");
+
+        // Every filter is a link with its own URL, and the state is announced rather than shown by colour
+        // alone. aria-pressed is not allowed on a link (axe aria-allowed-attr), so it must not come back.
+        var filters = System.Text.RegularExpressions.Regex
+            .Matches(html, "<a class=\"practice-filter[^\"]*\"[^>]*>([^<]*)</a>")
+            .Select(m => (Tag: m.Value, Text: m.Groups[1].Value.Trim()))
+            .ToList();
+        Assert.NotEmpty(filters);
+        Assert.All(filters, f => Assert.Contains("href=\"/Practice", f.Tag));
+        Assert.All(filters, f => Assert.DoesNotContain("aria-pressed", f.Tag));
+
+        var current = filters.Where(f => f.Tag.Contains("aria-current=\"true\"")).Select(f => f.Text).ToList();
+        Assert.Equal(new[] { "Hard", "Behavioral", "★ Saved" }, current);
+    }
+
+    [Fact]
     public async Task Another_users_question_cannot_be_starred()
     {
         using var h = new Harness();

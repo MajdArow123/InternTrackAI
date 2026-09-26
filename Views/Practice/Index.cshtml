@@ -11,6 +11,12 @@
             saved        = saved ? "true" : null,
             hideAnswered = hideAnswered ? "true" : null
         })!;
+
+    // The filters are links on purpose: each state is its own URL, so Back, bookmarks, middle-click and
+    // copy-link all work and the filters compose through the query string. aria-pressed is not allowed on
+    // a link, so the active option says so with aria-current instead — in all three groups, since the
+    // difficulty and category groups used to mark it by colour alone. Null omits the attribute.
+    string? Current(bool on) => on ? "true" : null;
 }
 
 <div class="container py-4 container-narrow">
@@ -42,18 +48,18 @@
 
         <div class="practice-filters" data-tour="practice-filters">
             <div class="practice-filter-group" role="group" aria-label="Difficulty">
-                <a class="practice-filter @(Model.Difficulty is null ? "is-active" : "")" href="@FilterUrl(null, Model.Category, Model.SavedOnly, Model.HideAnswered)">Any</a>
+                <a class="practice-filter @(Model.Difficulty is null ? "is-active" : "")" href="@FilterUrl(null, Model.Category, Model.SavedOnly, Model.HideAnswered)" aria-current="@Current(Model.Difficulty is null)">Any</a>
                 @foreach (var d in Enum.GetValues<PracticeDifficulty>())
                 {
-                    <a class="practice-filter @(Model.Difficulty == d ? "is-active" : "")" href="@FilterUrl(d, Model.Category, Model.SavedOnly, Model.HideAnswered)">@d</a>
+                    <a class="practice-filter @(Model.Difficulty == d ? "is-active" : "")" href="@FilterUrl(d, Model.Category, Model.SavedOnly, Model.HideAnswered)" aria-current="@Current(Model.Difficulty == d)">@d</a>
                 }
             </div>
 
             <div class="practice-filter-group" role="group" aria-label="Category">
-                <a class="practice-filter @(Model.Category is null ? "is-active" : "")" href="@FilterUrl(Model.Difficulty, null, Model.SavedOnly, Model.HideAnswered)">Any</a>
+                <a class="practice-filter @(Model.Category is null ? "is-active" : "")" href="@FilterUrl(Model.Difficulty, null, Model.SavedOnly, Model.HideAnswered)" aria-current="@Current(Model.Category is null)">Any</a>
                 @foreach (var c in QuestionCategories.InOrder)
                 {
-                    <a class="practice-filter @(Model.Category == c ? "is-active" : "")" href="@FilterUrl(Model.Difficulty, c, Model.SavedOnly, Model.HideAnswered)">@QuestionCategories.Display(c)</a>
+                    <a class="practice-filter @(Model.Category == c ? "is-active" : "")" href="@FilterUrl(Model.Difficulty, c, Model.SavedOnly, Model.HideAnswered)" aria-current="@Current(Model.Category == c)">@QuestionCategories.Display(c)</a>
                 }
             </div>
 
@@ -64,10 +70,10 @@
             <div class="practice-filter-group" role="group" aria-label="Saved and answered">
                 <a class="practice-filter @(Model.SavedOnly ? "is-active" : "")"
                    href="@FilterUrl(Model.Difficulty, Model.Category, !Model.SavedOnly, Model.HideAnswered)"
-                   aria-pressed="@(Model.SavedOnly ? "true" : "false")">★ Saved</a>
+                   aria-current="@Current(Model.SavedOnly)">★ Saved</a>
                 <a class="practice-filter @(Model.HideAnswered ? "is-active" : "")"
                    href="@FilterUrl(Model.Difficulty, Model.Category, Model.SavedOnly, !Model.HideAnswered)"
-                   aria-pressed="@(Model.HideAnswered ? "true" : "false")">Hide answered</a>
+                   aria-current="@Current(Model.HideAnswered)">Hide answered</a>
             </div>
         </div>
 

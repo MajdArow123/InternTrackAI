@@ -1,0 +1,4 @@
+{
+  "_comment": "Failures that do not block a merge. Starts empty and should stay close to it. Each entry needs dimension, name (the check's exact name), reason, owner and added (YYYY-MM-DD). Adding an entry is its own PR, never a line in the PR it unblocks. Entries older than 30 days are called out in every run summary. Fixing the failure means deleting the entry; run-all says when a listed failure has started passing. See CLAUDE.md §10, 'Merge gate'.",
+  "entries": []
+}

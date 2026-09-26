@@ -289,6 +289,28 @@ export async function run() {
       return `${note.trim()} | refused card: "${refused[0]}" | progress ${p.answered}/${p.total}`;
     });
 
+    // ================================================================ account D: a refused "Get more" from the foot of the list
+    await check(D, `A "Get more" refused at the practice limit (${PRACTICE_LIMIT}) from the foot of the list says so on screen`, async () => {
+      // The 2,786 px bug (22cba5c): the generate outcome renders in the filter card at the top of the page, so a
+      // refusal from the list's own "Get more" button rendered far above the viewport and the press looked like
+      // nothing happened. practice.js now also raises a toast when that banner is off-screen. Until 2026-09-26
+      // nothing checked it: the batch check above covers a refused *answer*, which is a different path.
+      const { context, page } = await account('genlimit');
+      await page.goto(`${B}/Practice`);
+      for (let i = 0; i < PRACTICE_LIMIT; i++) await generate(page);   // each "Get more" is one practice request
+      await page.goto(`${B}/Practice`);
+      await page.locator('[data-practice-generate-more]').scrollIntoViewIfNeeded();
+      const bannerOff = await page.evaluate(() => { const b = document.getElementById('practiceError').parentElement.getBoundingClientRect(); return b.bottom < 0 || b.top > innerHeight; });
+      await page.click('[data-practice-generate-more]');
+      const toast = await page.waitForSelector('#app-toast', { state: 'visible', timeout: 10000 }).then((t) => t.textContent()).catch(() => null);
+      const banner = await page.evaluate(() => { const e = document.getElementById('practiceError'); return e.hidden ? null : e.textContent.trim(); });
+      await context.close();
+      assert(bannerOff, 'the filter card was on screen when "Get more" was pressed, so this check proves nothing about the off-screen case');
+      assert(banner && /limit/i.test(banner), `the banner did not report the limit (${banner})`);
+      assert(toast && /limit/i.test(toast), `no on-screen toast for the refused generate (${toast})`);
+      return `banner off-screen at the press; toast: "${toast.replace(/\s+/g, ' ').replace('×', '').trim()}"`;
+    });
+
     // ================================================================ account C: the interview prep page
     await check(D, 'Prep page: regenerate appends, a regenerate with nothing new keeps everything, and typing survives', async () => {
       const { context, page } = await account('prep');

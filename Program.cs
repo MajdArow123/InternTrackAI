@@ -221,6 +221,16 @@ builder.Services.AddRazorPages(options =>
     foreach (var page in InternTrackAI.Areas.Identity.UnusedIdentityPageFilter.DisabledPages)
         options.Conventions.AddAreaPageApplicationModelConvention("Identity", page,
             model => model.Filters.Add(new InternTrackAI.Areas.Identity.UnusedIdentityPageFilter()));
+
+    // Four library pages threw (500 + an Error log line) on a plain GET with no two-factor state — two of them
+    // anonymous, so a log-flooding vector. They 404 unless their precondition holds; the real 2FA flow is
+    // untouched. See TwoFactorStateFilter.
+    foreach (var page in InternTrackAI.Areas.Identity.TwoFactorStateFilter.SignInPages)
+        options.Conventions.AddAreaPageApplicationModelConvention("Identity", page,
+            model => model.Filters.Add(new InternTrackAI.Areas.Identity.TwoFactorStateFilter(signIn: true)));
+    foreach (var page in InternTrackAI.Areas.Identity.TwoFactorStateFilter.ManagePages)
+        options.Conventions.AddAreaPageApplicationModelConvention("Identity", page,
+            model => model.Filters.Add(new InternTrackAI.Areas.Identity.TwoFactorStateFilter(signIn: false)));
 });
 
 // ── Health checks ────────────────────────────────────────────────────────────

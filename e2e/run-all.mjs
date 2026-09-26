@@ -3,7 +3,9 @@
 //   AXE_PATH=<path to axe.min.js> \
 //   node e2e/run-all.mjs [functional visual a11y security compat perf applications-clickthrough practice tour]
 // No arguments runs all nine; an unrecognised name is an error rather than a silent full run.
-import { flush, summary, record, ARTIFACTS } from './lib/harness.mjs';
+// No server to start first: run-all publishes the app and runs it as Production itself (lib/app-server.mjs).
+import { flush, summary, record, ARTIFACTS, setBase } from './lib/harness.mjs';
+import { startApp } from './lib/app-server.mjs';
 import path from 'node:path';
 import fs from 'node:fs';
 import { execSync } from 'node:child_process';
@@ -54,6 +56,33 @@ setTimeout(() => {
   process.exit(1);
 }, RUN_TIMEOUT_MIN * 60_000).unref();
 
+// ---------------------------------------------------------------- the suite server
+// The seven dimensions below used to run against a `dotnet run` Development server you started yourself —
+// Development's exception page, Development's Identity UI scripts, user secrets loaded. A check run in the
+// wrong environment proves nothing about the right one (CLAUDE.md §12): the 2026-09-25 CSP crawl missed a
+// third-party CDN on the password pages that way. So run-all now publishes the app and runs it the way
+// production does, and every spec's BASE points there. BASE_URL still overrides, for a server you run
+// yourself; the gate line then names it instead of claiming Production.
+const SUITE_DIMS = new Set(['functional', 'visual', 'a11y', 'security', 'compat', 'perf', 'applications-clickthrough']);
+const needsSuite = dims.some((d) => SUITE_DIMS.has(d));
+let suite = null;
+let where = 'Production build';
+if (needsSuite && process.env.BASE_URL) {
+  where = `external server ${process.env.BASE_URL}, environment not verified`;
+} else if (needsSuite) {
+  console.log('\n===== starting the suite server (published, ASPNETCORE_ENVIRONMENT=Production) =====');
+  try {
+    suite = await startApp(null, { name: 'suite', profile: 'suite' });
+    setBase(suite.base);
+    console.log(`suite server on ${suite.base} in ${suite.startedMs} ms; log: ${suite.logFile}`);
+  } catch (err) {
+    // Never fall back to :5240 — that is the environment this exists to stop measuring.
+    record('Suite server', 'The Production-environment suite server started', 'FAIL', err.message);
+    finish();
+    process.exit(1);
+  }
+}
+
 for (const d of dims) {
   current = d;
   console.log(`\n===== ${d} =====`);
@@ -71,6 +100,17 @@ for (const d of dims) {
 }
 
 current = null;
+
+// An Error-level line in the suite server's log fails the run, whatever the dimensions reported: the four
+// Identity pages that answered a plain GET with a 500 (fixed in #23) would have been caught the first time
+// any dimension touched them. If this turns noisy, find what is logging the error — do not filter it here.
+if (suite) {
+  const errors = suite.errors();
+  record('Suite server', 'The suite server logged no Error-level lines', errors.length ? 'FAIL' : 'PASS',
+    errors.length ? `${errors.length} Error-level line(s) in ${suite.logFile}:\n${errors.slice(0, 5).join('\n---\n')}` : `clean (${suite.logFile})`);
+  await suite.stop();
+}
+
 finish();
 
 /** Writes the results, the summary and the merge-gate report. Also called by the watchdog. */
@@ -107,7 +147,7 @@ function finish() {
   const sha = (() => { try { return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim(); } catch { return 'unknown'; } })();
   const dirty = (() => { try { return execSync('git status --porcelain', { encoding: 'utf8' }).trim().length > 0; } catch { return false; } })();
   const s = summary();
-  console.log(`\nFor the PR description:\n  E2E ${dims.length === ALL.length ? 'full run' : `partial run (${dims.join(', ')})`} at ${sha}${dirty ? ' + uncommitted changes' : ''}: ${s.PASS} passed, ${s.FAIL} failed (${fresh.length} new), ${s.SKIP} skipped`);
+  console.log(`\nFor the PR description:\n  E2E ${dims.length === ALL.length ? 'full run' : `partial run (${dims.join(', ')})`} at ${sha}${dirty ? ' + uncommitted changes' : ''}${needsSuite ? ` (${where})` : ''}: ${s.PASS} passed, ${s.FAIL} failed (${fresh.length} new), ${s.SKIP} skipped`);
   if (fresh.length || invalid.length) process.exitCode = 1;
 }
 

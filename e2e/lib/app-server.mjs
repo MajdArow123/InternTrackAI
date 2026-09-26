@@ -1,13 +1,18 @@
-// A throwaway InternTrackAI server for the dimensions that need one: practice (a model to answer) and tour
-// (a seeded demo account). The other dimensions keep running against the server you start yourself.
+// Throwaway InternTrackAI servers, run the way production runs them. Two profiles:
+//   - 'suite' (run-all starts one for functional, visual, a11y, security, compat, perf and
+//     applications-clickthrough): the placeholder OpenAI key, so every AI feature short-circuits exactly as
+//     those checks expect, and no accounts seeded.
+//   - 'stub' (practice and tour start their own): the in-process OpenAI stub, and a seeded demo account.
 //
-// What it guarantees, and why each matters:
+// What both guarantee, and why each matters:
 //   - Its own SQLite file and uploads folder under e2e/artifacts/run-<ts>/, so app.db is never touched and
 //     no throwaway account outlives the run.
-//   - ASPNETCORE_ENVIRONMENT=E2E. User secrets load only in Development, so the real OpenAI key in
-//     user-secrets is never read at all — not overridden, not read. The key it does get is a dummy, and
-//     OpenAI:BaseUrl points at the in-process stub; if that setting were ever lost, OpenAI would answer the
-//     dummy key with a 401, which costs nothing.
+//   - ASPNETCORE_ENVIRONMENT=Production, and the published appsettings.json deleted — production's exact
+//     configuration layering: appsettings.Production.json plus environment variables. (Until 2026-09-26 this
+//     ran as "E2E", which read the developer's gitignored local appsettings.json — publish copies it — and
+//     never read appsettings.Production.json: a configuration production has never had. CLAUDE.md §12.)
+//     User secrets load only in Development, so the real OpenAI key in user-secrets is never read at all.
+//   - Its startup log must say "Hosting environment: Production"; startApp fails otherwise.
 //   - A demo account and an admin account, both registered through the real Register page (CLAUDE.md §8:
 //     accounts are only ever created there), with local-only credentials, then the admin runs
 //     /Admin/ResetDemo so the demo has its 15 applications, suggestions and fixed practice state.
@@ -20,10 +25,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { startStub } from './openai-stub.mjs';
 import { ARTIFACTS, registerThroughUi } from './harness.mjs';
+import { errorLines } from './server-log.mjs';
+
+export { errorLines };
 
 const ROOT = process.cwd();
 // Published, not just built: outside Development ASP.NET does not serve static web assets out of obj/
-// (the scoped-CSS bundle InternTrackAI.styles.css, Identity UI's files), so a built dll run as E2E serves
+// (the scoped-CSS bundle InternTrackAI.styles.css, Identity UI's files), so a built dll run outside Development serves
 // pages missing a stylesheet — and a tour measured on a page without its CSS measures the wrong layout.
 // Publish output is also what the Dockerfile ships, so this is the shape production actually runs.
 // Outside the repo on purpose: a publish folder inside the project directory is itself matched by the
@@ -51,6 +59,10 @@ function buildOnce() {
   if (built) return;
   const r = spawnSync('dotnet', ['publish', 'InternTrackAI.csproj', '-c', 'Release', '-o', PUBLISH, '--nologo', '-v', 'q'], { cwd: ROOT, encoding: 'utf8' });
   if (r.status !== 0) throw new Error(`dotnet publish failed:\n${(r.stdout || '').slice(-2000)}${(r.stderr || '').slice(-1000)}`);
+  // Production has no appsettings.json: it is gitignored, so it is never in the Docker build context. Publish
+  // copies the local one in; delete it so these servers read what production reads.
+  fs.rmSync(path.join(PUBLISH, 'appsettings.json'), { force: true });
+  if (fs.existsSync(path.join(PUBLISH, 'appsettings.json'))) throw new Error('could not remove the published appsettings.json');
   built = true;
 }
 
@@ -65,10 +77,13 @@ async function waitForHealth(base, child, logFile, timeoutMs = 90_000) {
 }
 
 /**
- * Starts the stub and the app, seeds the demo, and returns { base, stub, demoPassword, stop }.
- * `browser` is used only to register the two configured accounts through the UI.
+ * Starts the app (and, for the 'stub' profile, the OpenAI stub and a seeded demo) and returns
+ * { base, stub, dir, logFile, demoPassword, errors(), stop }. `browser` is used only to register the 'stub'
+ * profile's two configured accounts through the UI.
  */
-export async function startApp(browser, { name = 'e2e' } = {}) {
+export async function startApp(browser, { name = 'e2e', profile = 'stub' } = {}) {
+  if (profile !== 'stub' && profile !== 'suite') throw new Error(`unknown server profile "${profile}"`);
+  const seeded = profile === 'stub';
   buildOnce();
 
   // Keep only the latest run per dimension: its server.log and app.db are what you read after a failure,
@@ -82,28 +97,41 @@ export async function startApp(browser, { name = 'e2e' } = {}) {
   fs.mkdirSync(path.join(dir, 'uploads'), { recursive: true });
   const logFile = path.join(dir, 'server.log');
 
-  const stub = await startStub();
+  const stub = seeded ? await startStub() : null;
   const port = await freePort();
   const base = `http://127.0.0.1:${port}`;
   const demoPassword = `Demo-${Math.random().toString(36).slice(2, 10)}-9x!`;
 
+  // Everything production configures that a local run can honestly mirror. What it cannot — Resend, Google
+  // OAuth, PostgreSQL, the TLS proxy — is left unset and listed in CLAUDE.md §10 as a known deviation.
   const env = {
     ...process.env,
-    ASPNETCORE_ENVIRONMENT: 'E2E',
+    ASPNETCORE_ENVIRONMENT: 'Production',
     ConnectionStrings__DefaultConnection: `Data Source=${path.join(dir, 'app.db')}`,
     UPLOADS_PATH: path.join(dir, 'uploads'),
-    OpenAI__ApiKey: 'sk-e2e-stub-not-a-real-key',
-    OpenAI__BaseUrl: stub.url,
+    // Configured as in production, so "the admin endpoint is 404 for a normal account" is about the account,
+    // not about no admin existing. The demo keys make the landing page render its demo button, as live.
     Demo__Email: DEMO_EMAIL,
     Demo__Password: demoPassword,
     Demo__AutoReset: 'false',
     Admin__Email: ADMIN_EMAIL,
-    RateLimiting__AI__Practice__PermitLimit: String(PRACTICE_LIMIT),
-    RateLimiting__Registration__PerIpPerHour: '1000',
-    Serilog__MinimumLevel__Default: 'Warning',
   };
+  if (seeded) {
+    Object.assign(env, {
+      OpenAI__ApiKey: 'sk-e2e-stub-not-a-real-key',
+      OpenAI__BaseUrl: stub.url,
+      RateLimiting__AI__Practice__PermitLimit: String(PRACTICE_LIMIT),
+      RateLimiting__Registration__PerIpPerHour: '1000',
+    });
+  } else {
+    // The placeholder short-circuits every AI service before a request is built (CLAUDE.md §6) — what the
+    // suite's "degrades gracefully without a key" checks are written against. Registration keeps production's
+    // limit: the security dimension checks that it throttles.
+    env.OpenAI__ApiKey = 'your-openai-api-key-here';
+  }
   // Whatever the shell exported for local development must not leak into this server.
-  for (const k of ['DATABASE_URL', 'Google__ClientId', 'Google__ClientSecret', 'Resend__ApiKey']) delete env[k];
+  for (const k of ['DATABASE_URL', 'Google__ClientId', 'Google__ClientSecret', 'Resend__ApiKey', 'OpenAI__BaseUrl',
+    'Serilog__MinimumLevel__Default', 'Email__BaseUrl', 'BASE_URL'].filter((k) => !(seeded && k === 'OpenAI__BaseUrl'))) delete env[k];
 
   const out = fs.openSync(logFile, 'a');
   // Content root is the publish folder, as in the container: wwwroot and Data/Seeds are read from there.
@@ -116,7 +144,11 @@ export async function startApp(browser, { name = 'e2e' } = {}) {
   let startedMs;
   try {
     startedMs = await waitForHealth(base, child, logFile);
+    const log = fs.readFileSync(logFile, 'utf8');
+    const envLine = log.match(/Hosting environment: (\S+)/);
+    if (!envLine || envLine[1] !== 'Production') throw new Error(`the server is not running as Production (log says ${envLine ? envLine[1] : 'nothing'}); see ${logFile}`);
 
+    if (seeded) {
     // The two configured accounts, created the only way accounts are ever created.
     const ctx = await browser.newContext();
     await registerThroughUi(ctx, DEMO_EMAIL, 'Demo User', { base, password: demoPassword });
@@ -129,9 +161,10 @@ export async function startApp(browser, { name = 'e2e' } = {}) {
     const toast = await page.evaluate(() => document.querySelector('#app-toast, .app-toast')?.textContent || document.body.innerText.slice(0, 300));
     await ctx.close();
     if (!/Demo account reset/i.test(toast)) throw new Error(`demo reset did not report success: ${toast}`);
+    }
   } catch (err) {
     kill();
-    await stub.close().catch(() => {});
+    await stub?.close().catch(() => {});
     throw err;
   }
 
@@ -139,12 +172,15 @@ export async function startApp(browser, { name = 'e2e' } = {}) {
     base,
     stub,
     dir,
+    logFile,
     startedMs,
     demoPassword,
+    /** Error/Fatal lines the server has logged so far. */
+    errors: () => errorLines(logFile),
     async stop() {
       kill();
       await new Promise((r) => (child.exitCode !== null ? r() : child.once('exit', r)));
-      await stub.close();
+      await stub?.close();
     },
   };
 }

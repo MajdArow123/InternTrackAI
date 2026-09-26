@@ -30,6 +30,8 @@ builder.Host.UseSerilog((context, loggerConfig) => loggerConfig
     .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Migrations", LogEventLevel.Warning)
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Application", "InternTrackAI")
+    // A query stopped by a client abort is not a server error; see RequestLogging.
+    .Filter.ByExcluding(InternTrackAI.Services.RequestLogging.IsCancelledDatabaseOperation)
     .ReadFrom.Configuration(context.Configuration)
     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj}{NewLine}{Exception}"));
 
@@ -343,10 +345,8 @@ app.UseStaticFiles();
 app.UseSerilogRequestLogging(options =>
 {
     options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0} ms (user: {UserId})";
-    options.GetLevel = (http, _, ex) =>
-        ex != null || http.Response.StatusCode >= 500 ? LogEventLevel.Error
-        : http.Request.Path.StartsWithSegments("/health") ? LogEventLevel.Verbose
-        : LogEventLevel.Information;
+    // Client aborts at Information, not Error — a closed tab is not a server fault (RequestLogging).
+    options.GetLevel = (http, _, ex) => InternTrackAI.Services.RequestLogging.LevelFor(http, ex);
     options.EnrichDiagnosticContext = (diagnosticContext, http) =>
     {
         diagnosticContext.Set("UserId", http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous");

@@ -39,6 +39,19 @@ public class ProductionPathTests : IClassFixture<TestAppFactory>
         Assert.DoesNotContain("InvalidOperationException", html);     // no type names or stack
         Assert.True(res.Headers.Contains("Content-Security-Policy"), "the error page lost the security headers");
         Assert.Contains("no-store", res.Headers.CacheControl?.ToString() ?? "");
+        // The enforced CSP would silently break an inline script here; this is the one page CspMarkupTests
+        // cannot render, because it only answers through the exception handler.
+        Assert.DoesNotMatch(@"<script\b(?![^>]*\bsrc\s*=)(?![^>]*application/json)[^>]*>", html);
+        Assert.DoesNotMatch(@"<[a-z][^>]*\son[a-z]+\s*=", html);
+    }
+
+    [Fact]
+    public async Task The_error_page_requested_directly_is_a_404()
+    {
+        // It answered 500 to anyone who asked, and the request log writes every 500 as an Error line — an
+        // anonymous way to flood the production log. It only answers through the exception handler now.
+        var res = await _factory.CreateClient().GetAsync("/Home/Error");
+        Assert.Equal(HttpStatusCode.NotFound, res.StatusCode);
     }
 
     [Fact]

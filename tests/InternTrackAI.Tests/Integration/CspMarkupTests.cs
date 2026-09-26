@@ -101,16 +101,16 @@ public class CspMarkupTests : IClassFixture<TestAppFactory>
                                     "/Identity/Account/Lockout", "/Identity/Account/AccessDenied",
                                     "/Identity/Account/ForgotPasswordConfirmation", "/Identity/Account/ResetPasswordConfirmation",
                                     "/Identity/Account/Logout", "/Identity/Account/LoginWith2fa", "/Identity/Account/LoginWithRecoveryCode",
-                                    // The production exception page: only reached outside Development.
-                                    "/Home/Error" })
+                                    // (The production error page only answers through the exception handler, so it
+                                    // cannot be fetched here; ProductionPathTests checks its markup on a real exception.)
+                                    })
         {
             var res = await client.GetAsync(url);
             // A redirect or a 404 (SetPassword for a user who has one; the two-factor pages without two-factor state,
             // TwoFactorStateFilter) renders nothing to check. Anything else must be a 200 — a 500 fails here, which is
             // how four library pages that threw without two-factor state were found.
             if (res.StatusCode is HttpStatusCode.Redirect or HttpStatusCode.NotFound) continue;
-            var expected = url == "/Home/Error" ? HttpStatusCode.InternalServerError : HttpStatusCode.OK;   // Error sets 500 itself
-            Assert.True(res.StatusCode == expected, $"{url} returned {(int)res.StatusCode}");
+            Assert.True(res.StatusCode == HttpStatusCode.OK, $"{url} returned {(int)res.StatusCode}");
             found.AddRange(Violations(url, await res.Content.ReadAsStringAsync()));
         }
 

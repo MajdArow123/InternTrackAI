@@ -83,7 +83,7 @@ public class JobApplicationsController : Controller
         RememberView("list");
 
         var uid  = UserId();
-        var apps = await FilteredQuery(uid, search, status, workMode, sortBy).ToListAsync();
+        var apps = await FilteredQuery(_context.JobApplications, uid, search, status, workMode, sortBy).ToListAsync();
         apps = await ApplyAttentionAsync(uid, apps, attention);
         await SetFilterViewBagAsync(uid, search, status, workMode, sortBy, attention);
         ViewBag.ResumeLabels = await ResumeLabelsAsync(uid);
@@ -103,7 +103,7 @@ public class JobApplicationsController : Controller
         RememberView("board");
 
         var uid  = UserId();
-        var apps = await FilteredQuery(uid, search, status, workMode, sortBy).ToListAsync();
+        var apps = await FilteredQuery(_context.JobApplications, uid, search, status, workMode, sortBy).ToListAsync();
         apps = await ApplyAttentionAsync(uid, apps, attention);
         await SetFilterViewBagAsync(uid, search, status, workMode, sortBy, attention);
         ViewBag.ResumeLabels = await ResumeLabelsAsync(uid);
@@ -125,9 +125,11 @@ public class JobApplicationsController : Controller
     };
 
     /// <summary>The user-scoped, filtered, sorted query behind both the list and the board.</summary>
-    private IQueryable<JobApplication> FilteredQuery(string uid, string? search, string? status, string? workMode, string? sortBy)
+    // Static and public so ProviderParityTests runs this exact query on both databases rather than a copy of
+    // it. MVC never treats a static method as an action, so this exposes no endpoint.
+    public static IQueryable<JobApplication> FilteredQuery(IQueryable<JobApplication> source, string uid, string? search, string? status, string? workMode, string? sortBy)
     {
-        var query = _context.JobApplications.Where(a => a.UserId == uid);
+        var query = source.Where(a => a.UserId == uid);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -141,7 +143,9 @@ public class JobApplicationsController : Controller
             //      guarantee, and an EF upgrade could silently split local from production again.
             // lower() is translated server-side by both. It differs from C# ToLowerInvariant only outside
             // ASCII (SQLite's lower() is ASCII-only, PostgreSQL's is locale-aware); for company and role
-            // names that is an accepted edge. It also defeats an index, which costs nothing here: the query
+            // names that is an accepted edge, pinned in both directions by ProviderParityTests
+            // (Searching_non_ASCII_text_...: SQLite misses "Ünïcød", production's locale finds it). It also
+            // defeats an index, which costs nothing here: the query
             // is already filtered to one user's applications.
             var term = search.ToLowerInvariant();
             query = query.Where(a =>

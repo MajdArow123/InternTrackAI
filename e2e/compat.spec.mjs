@@ -265,7 +265,11 @@ export async function run() {
     const seen = [];
     for (const [label, company, role] of samples) {
       await createApplication(page, { CompanyName: company, RoleTitle: role, Status: '0', forceCreate: true });
-      await page.goto(`${BASE}/JobApplications?view=list&search=${encodeURIComponent(company.slice(0, 6))}`, { waitUntil: 'networkidle' });
+      // The whole list, not a search. Searching for "Ünïcød" tested case folding, which this check never meant
+      // to: SQLite's lower() is ASCII-only and misses it, production's PostgreSQL finds it, and that split is an
+      // accepted edge pinned in both directions by ProviderParityTests
+      // (Searching_non_ASCII_text_misses_on_SQLite_and_matches_under_the_production_locale).
+      await page.goto(`${BASE}/JobApplications?view=list`, { waitUntil: 'networkidle' });
       const shown = await page.evaluate(() => document.body.textContent);
       assert(shown.normalize('NFC').includes(company.normalize('NFC')), `${label}: "${company}" did not round-trip to the list`);
       seen.push(label);

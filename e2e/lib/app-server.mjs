@@ -111,20 +111,29 @@ export async function startApp(browser, { name = 'e2e' } = {}) {
   const kill = () => { if (child.exitCode === null) child.kill('SIGTERM'); };
   process.once('exit', kill);
 
-  const startedMs = await waitForHealth(base, child, logFile);
+  // If anything between the spawn and the return fails, stop what was started before rethrowing — the caller
+  // never gets a handle to stop it with.
+  let startedMs;
+  try {
+    startedMs = await waitForHealth(base, child, logFile);
 
-  // The two configured accounts, created the only way accounts are ever created.
-  const ctx = await browser.newContext();
-  await registerThroughUi(ctx, DEMO_EMAIL, 'Demo User', { base, password: demoPassword });
-  await ctx.clearCookies();
-  await registerThroughUi(ctx, ADMIN_EMAIL, 'QA Admin', { base });
-  const page = await ctx.newPage();
-  await page.goto(`${base}/Admin/ResetDemo`, { waitUntil: 'domcontentloaded' });
-  await page.click('form[action*="ResetDemo"] button[type=submit]');
-  await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), page.click('#app-confirm-ok')]);   // the form has data-confirm
-  const toast = await page.evaluate(() => document.querySelector('#app-toast, .app-toast')?.textContent || document.body.innerText.slice(0, 300));
-  await ctx.close();
-  if (!/Demo account reset/i.test(toast)) throw new Error(`demo reset did not report success: ${toast}`);
+    // The two configured accounts, created the only way accounts are ever created.
+    const ctx = await browser.newContext();
+    await registerThroughUi(ctx, DEMO_EMAIL, 'Demo User', { base, password: demoPassword });
+    await ctx.clearCookies();
+    await registerThroughUi(ctx, ADMIN_EMAIL, 'QA Admin', { base });
+    const page = await ctx.newPage();
+    await page.goto(`${base}/Admin/ResetDemo`, { waitUntil: 'domcontentloaded' });
+    await page.click('form[action*="ResetDemo"] button[type=submit]');
+    await Promise.all([page.waitForNavigation({ waitUntil: 'domcontentloaded' }), page.click('#app-confirm-ok')]);   // the form has data-confirm
+    const toast = await page.evaluate(() => document.querySelector('#app-toast, .app-toast')?.textContent || document.body.innerText.slice(0, 300));
+    await ctx.close();
+    if (!/Demo account reset/i.test(toast)) throw new Error(`demo reset did not report success: ${toast}`);
+  } catch (err) {
+    kill();
+    await stub.close().catch(() => {});
+    throw err;
+  }
 
   return {
     base,

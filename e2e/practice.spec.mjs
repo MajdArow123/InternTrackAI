@@ -15,55 +15,58 @@ const LONG = 'I added an idempotency key column and made the handler return the 
 const CARD = '#practiceList .practice-card[data-question-id]';
 
 export async function run() {
+  // Everything after the launch is inside the try: a startApp failure used to skip the finally, leave the
+  // browser open, and keep run-all alive after its summary (once for 19 hours).
   const browser = await chromium.launch({ channel: 'chrome' });
-  const app = await startApp(browser, { name: 'practice' });
-  const B = app.base;
-  const stub = app.stub;
-
-  const errors = [];
-  const watch = (page) => {
-    page.on('console', (m) => {
-      const t = m.text();
-      // A refused call is a 429 the batch check provokes on purpose; the browser logs every non-2xx fetch.
-      if (m.type() === 'error' && !isCspReportNoise(t) && !/status of 429/.test(t)) errors.push(`${page.url().replace(B, '')}: ${t.slice(0, 160)}`);
-    });
-    page.on('pageerror', (e) => errors.push(`${page.url().replace(B, '')}: pageerror ${e.message.slice(0, 160)}`));
-  };
-
-  const account = async (tag) => {
-    const { context } = await newSignedInContext(browser, tag, { base: B, viewport: { width: 1280, height: 900 } });
-    const page = await context.newPage();
-    watch(page);
-    return { context, page };
-  };
-
-  // ---------------------------------------------------------------- page readers
-  const ids = (page) => page.$$eval(CARD, (cs) => cs.map((c) => c.dataset.questionId));
-  /** Unanswered cards only — the page orders newest first, so an index into ids() can land on an answered card. */
-  const fresh = (page) => page.$$eval(`${CARD}[data-answered="false"]`, (cs) => cs.map((c) => c.dataset.questionId));
-  const card = (id) => `${CARD.replace('[data-question-id]', '')}[data-question-id="${id}"]`;
-  /** The progress card's "answered/total", or null when the page shows no progress card. */
-  const progress = (page) => page.evaluate(() => {
-    const n = document.querySelector('#practiceProgress .mini-stat-num');
-    if (!n) return null;
-    const [answered, total] = n.textContent.replace(/\s+/g, '').split('/').map(Number);
-    return { answered, total };
-  });
-  const generate = async (page) => {
-    const before = (await ids(page)).length;
-    await page.click('#practiceGenerateBtn');
-    await page.waitForFunction((n) => document.querySelectorAll('#practiceList .practice-card[data-question-id]').length > n
-      && !document.getElementById('practiceGenerateBtn').disabled, before, { timeout: 15000 });
-    await page.waitForTimeout(600);   // the progress refresh is a second fetch after the cards land
-  };
-  const answer = async (page, id, text = LONG) => {
-    await page.fill(`${card(id)} textarea[name="answer"]`, text);
-    await page.click(`${card(id)} [data-practice-submit]`);
-    await page.waitForSelector(`${card(id)}[data-answered="true"]`, { timeout: 15000 });
-    await page.waitForTimeout(300);
-  };
-
+  let app = null;
   try {
+    app = await startApp(browser, { name: 'practice' });
+    const B = app.base;
+    const stub = app.stub;
+
+    const errors = [];
+    const watch = (page) => {
+      page.on('console', (m) => {
+        const t = m.text();
+        // A refused call is a 429 the batch check provokes on purpose; the browser logs every non-2xx fetch.
+        if (m.type() === 'error' && !isCspReportNoise(t) && !/status of 429/.test(t)) errors.push(`${page.url().replace(B, '')}: ${t.slice(0, 160)}`);
+      });
+      page.on('pageerror', (e) => errors.push(`${page.url().replace(B, '')}: pageerror ${e.message.slice(0, 160)}`));
+    };
+
+    const account = async (tag) => {
+      const { context } = await newSignedInContext(browser, tag, { base: B, viewport: { width: 1280, height: 900 } });
+      const page = await context.newPage();
+      watch(page);
+      return { context, page };
+    };
+
+    // ---------------------------------------------------------------- page readers
+    const ids = (page) => page.$$eval(CARD, (cs) => cs.map((c) => c.dataset.questionId));
+    /** Unanswered cards only — the page orders newest first, so an index into ids() can land on an answered card. */
+    const fresh = (page) => page.$$eval(`${CARD}[data-answered="false"]`, (cs) => cs.map((c) => c.dataset.questionId));
+    const card = (id) => `${CARD.replace('[data-question-id]', '')}[data-question-id="${id}"]`;
+    /** The progress card's "answered/total", or null when the page shows no progress card. */
+    const progress = (page) => page.evaluate(() => {
+      const n = document.querySelector('#practiceProgress .mini-stat-num');
+      if (!n) return null;
+      const [answered, total] = n.textContent.replace(/\s+/g, '').split('/').map(Number);
+      return { answered, total };
+    });
+    const generate = async (page) => {
+      const before = (await ids(page)).length;
+      await page.click('#practiceGenerateBtn');
+      await page.waitForFunction((n) => document.querySelectorAll('#practiceList .practice-card[data-question-id]').length > n
+        && !document.getElementById('practiceGenerateBtn').disabled, before, { timeout: 15000 });
+      await page.waitForTimeout(600);   // the progress refresh is a second fetch after the cards land
+    };
+    const answer = async (page, id, text = LONG) => {
+      await page.fill(`${card(id)} textarea[name="answer"]`, text);
+      await page.click(`${card(id)} [data-practice-submit]`);
+      await page.waitForSelector(`${card(id)}[data-answered="true"]`, { timeout: 15000 });
+      await page.waitForTimeout(300);
+    };
+
     // ================================================================ account A: the page itself
     const A = await account('practice');
     const pa = A.page;
@@ -331,7 +334,7 @@ export async function run() {
       return 'none';
     });
   } finally {
-    await app.stop();
+    if (app) await app.stop();
     await browser.close();
   }
 }

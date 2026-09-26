@@ -34,28 +34,31 @@ function breaches({ step, settledMs }, where) {
 }
 
 export async function run() {
+  // Everything after the launch is inside the try: a startApp failure used to skip the finally, leave the
+  // browser open, and keep run-all alive after its summary (once for 19 hours).
   const browser = await chromium.launch({ channel: 'chrome' });
-  const app = await startApp(browser, { name: 'tour' });
-  const B = app.base;
-
-  const errors = [];
-  const watch = (page) => {
-    page.on('console', (m) => { if (m.type() === 'error' && !isCspReportNoise(m.text())) errors.push(`${page.url().replace(B, '')}: ${m.text().slice(0, 160)}`); });
-    page.on('pageerror', (e) => errors.push(`${page.url().replace(B, '')}: pageerror ${e.message.slice(0, 160)}`));
-  };
-
-  /** A fresh browser signed into the seeded demo, with the tour's memory cleared. */
-  const demo = async (viewport = WIDTHS[0]) => {
-    const ctx = await browser.newContext({ viewport });
-    const page = await ctx.newPage();
-    watch(page);
-    await page.goto(`${B}/`);
-    await page.click('text=Try the live demo');
-    await page.waitForURL('**/Home/Dashboard');
-    return { ctx, page };
-  };
-
+  let app = null;
   try {
+    app = await startApp(browser, { name: 'tour' });
+    const B = app.base;
+
+    const errors = [];
+    const watch = (page) => {
+      page.on('console', (m) => { if (m.type() === 'error' && !isCspReportNoise(m.text())) errors.push(`${page.url().replace(B, '')}: ${m.text().slice(0, 160)}`); });
+      page.on('pageerror', (e) => errors.push(`${page.url().replace(B, '')}: pageerror ${e.message.slice(0, 160)}`));
+    };
+
+    /** A fresh browser signed into the seeded demo, with the tour's memory cleared. */
+    const demo = async (viewport = WIDTHS[0]) => {
+      const ctx = await browser.newContext({ viewport });
+      const page = await ctx.newPage();
+      watch(page);
+      await page.goto(`${B}/`);
+      await page.click('text=Try the live demo');
+      await page.waitForURL('**/Home/Dashboard');
+      return { ctx, page };
+    };
+
     // ---------------------------------------------------------------- nothing auto-runs
     await check(D, 'Nothing auto-runs on a first dashboard visit; the invitation shows instead', async () => {
       const { ctx, page } = await demo();
@@ -279,7 +282,7 @@ export async function run() {
       return 'none';
     });
   } finally {
-    await app.stop();
+    if (app) await app.stop();
     await browser.close();
   }
 }

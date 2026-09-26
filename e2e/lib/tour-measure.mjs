@@ -53,10 +53,13 @@ export function snap(page) {
 /**
  * Runs `action`, then polls until the tour card and spotlight stop moving (four identical samples in a
  * row) or `timeoutMs` passes. Returns { step, settledMs }, where settledMs is **when the last movement was
- * seen**, measured from the action — not when polling noticed it had stopped. An earlier version reported
- * "now minus four sample intervals", which over-reported by the cost of each page.evaluate on a heavy page
- * (Profile at 375 px read 1.63 s for a step that stopped moving at 1.17 s). A tour that has not appeared
- * yet is waited for — one started from the phone menu starts only once the menu has closed.
+ * seen**, measured from the action — not when polling noticed it had stopped. The earlier "now minus four
+ * sample intervals" differs from this by only the evaluate cost of those samples: measured on identical
+ * samples (2026-09-26) that is 5-20 ms, because each evaluate takes 1-3 ms. It was kept as the definition
+ * because it is the right one, not because it moved the numbers. The 1.63 s once read for Profile at 375 px
+ * (a step that stopped moving at ~1.17 s) was the phone menu being opened *inside* the timed action — see
+ * revealTourButton — not this. A tour that has not appeared yet is waited for — one started from the phone
+ * menu starts only once the menu has closed.
  */
 export async function settle(page, action, { timeoutMs = 8000, lateStartMs = 2000 } = {}) {
   const t0 = Date.now();

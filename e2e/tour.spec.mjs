@@ -11,10 +11,13 @@ import { settle, walk, tourButton, describe, snap, recordTourScrolls, outOfOrder
 
 const D = 'Tour';
 // Two limits, because a step that loads a page and a step that only moves the card are different costs.
-// Both measured with Google Fonts routed out (withoutGoogleFonts): a third-party fetch is not the tour's
-// time, and in production it is a render-blocking dependency of its own (CLAUDE.md §12).
+// Each is the measured worst case plus ~25% (2026-09-26, three runs, Google Fonts routed out — a
+// third-party fetch is not the tour's time; CLAUDE.md §12): on-page max 975 ms (p95 748) and page-load max
+// 1045 ms (p95 1043). The worst on-page step is the Profile tour's first at 375: the phone menu closing
+// (~360 ms, Bootstrap) then a ~570 ms smooth scroll. If a limit starts failing, find which phase grew before
+// touching the number — raising it is how a limit goes soft.
 const ON_PAGE_MS = 1200;
-const PAGE_LOAD_MS = 1500;
+const PAGE_LOAD_MS = 1300;
 const WIDTHS = [{ width: 1280, height: 800 }, { width: 375, height: 812 }];
 // The overview also runs on a short phone (still 375 wide), as a second opinion. The position-then-scroll
 // order is checked directly now, at every viewport (recordTourScrolls/outOfOrder), and reveal() by a target
@@ -159,7 +162,7 @@ export async function run() {
     });
 
     // ---------------------------------------------------------------- reveal(), on a constructed target
-    await check(D, 'Phone: a target that fits above the docked card, but not centred on the screen, lands in the room the card leaves', async () => {
+    await check(D, 'Phone: a target that fits above the docked card, but not centred on the screen, lands in the room the card leaves, with the spotlight locked to it', async () => {
       // The order check proves the card is placed before the scroll; this proves the scroll then uses what
       // the placement decided. Real targets are short enough that centring them on the whole screen usually
       // clears the docked card, which is why reverting reveal() alone passed every other check. So build one
@@ -195,11 +198,30 @@ export async function run() {
       await probe('__probeTall', '[data-tour="probe-tall"]');
       await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'instant' }));
       scrolls.length = 0;
-      const r = await settle(page, () => page.evaluate(() => window.Tour.start('__probeTall')));
+      // Sample every frame of the scroll: the spotlight must stay locked to the target while the page moves.
+      // With its top/left transition left on it trailed by ~180 ms of scroll and kept moving after the scroll
+      // stopped — the lag that made the Profile step the slowest in the tour. The listener is added after
+      // Tour.start, so its frame callback runs after the one tour.js schedules from the same scroll event;
+      // registered earlier, it read every frame one scroll step stale (a sampler artefact, found by dumping it).
+      const r = await settle(page, () => page.evaluate(() => {
+        window.Tour.start('__probeTall');
+        const frames = (window.__trackFrames = []);
+        window.addEventListener('scroll', () => requestAnimationFrame(() => {
+          const spot = document.querySelector('.tour-spotlight'), t = document.querySelector('[data-tour="probe-tall"]');
+          if (spot && !spot.hidden && t) frames.push({ y: scrollY, spot: spot.getBoundingClientRect().top, target: t.getBoundingClientRect().top });
+        }), true);
+      }));
       const box = await page.evaluate(() => { const b = document.querySelector('[data-tour="probe-tall"]').getBoundingClientRect(); return { top: Math.round(b.top), bottom: Math.round(b.bottom) }; });
       const s = await snap(page);
+      const frames = await page.evaluate(() => window.__trackFrames);
       await ctx.close();
+      // Every scroll frame after the first two (the spotlight's move from nowhere onto the step is a
+      // between-targets move and may ease). Spot top = target top - pad (8).
+      const moving = frames.slice(2);
+      const lag = Math.max(0, ...moving.map((f) => Math.abs(f.spot + 8 - f.target)));
       const bad = [...outOfOrder(scrolls, 'probe')];
+      if (moving.length < 5) bad.push(`only ${moving.length} scrolling frames were sampled, so the tracking check saw nothing`);
+      if (lag > 2) bad.push(`the spotlight trailed its target by up to ${Math.round(lag)}px while the page scrolled`);
       if (!scrolls.length) bad.push('the tour never scrolled to the probe target');
       if (box.top < top - 1 || box.bottom > bottom + 1) bad.push(`the ${height}px target sits at ${box.top}-${box.bottom}, outside the room ${top}-${Math.round(bottom)} between the nav and the docked card`);
       if (s?.covered > 0) bad.push(`the docked card covers ${s.covered}% of the target`);
@@ -207,7 +229,7 @@ export async function run() {
       // that long is the probe's cost, not a step's. Real steps carry the limits.
       if (r.settledMs === null) bad.push('the probe step never settled');
       assert(bad.length === 0, bad.join('\n'));
-      return `${height}px target in ${top}-${Math.round(bottom)}: landed at ${box.top}-${box.bottom}, settled ${r.settledMs} ms`;
+      return `${height}px target in ${top}-${Math.round(bottom)}: landed at ${box.top}-${box.bottom}, settled ${r.settledMs} ms; spotlight within ${Math.round(lag)}px of it over ${moving.length} scrolling frames`;
     });
 
     // ---------------------------------------------------------------- a brand-new account

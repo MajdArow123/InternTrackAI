@@ -33,6 +33,7 @@
     var state = null;   // { id, steps, index, cand, nav, tried, ctx, skip, prevFocus } while running
     var els   = null;   // { overlay, spot, tip, title, body, count, back, next }
     var frame = 0;      // rAF handle for the throttled reposition
+    var scrollIdle = 0; // timer that ends the "page is scrolling" state
 
     /* ── storage ─────────────────────────────────────────────────────── */
     function readStore(area, key) {
@@ -132,14 +133,15 @@
         tip.addEventListener('click', onClick);
         document.addEventListener('keydown', onKeydown, true);
         window.addEventListener('resize', schedule);
-        window.addEventListener('scroll', schedule, true);
+        window.addEventListener('scroll', onScroll, true);
     }
 
     function teardown() {
         if (frame) { cancelAnimationFrame(frame); frame = 0; }
+        if (scrollIdle) { clearTimeout(scrollIdle); scrollIdle = 0; }
         document.removeEventListener('keydown', onKeydown, true);
         window.removeEventListener('resize', schedule);
-        window.removeEventListener('scroll', schedule, true);
+        window.removeEventListener('scroll', onScroll, true);
         if (els && els.overlay && els.overlay.parentNode) els.overlay.parentNode.removeChild(els.overlay);
         els = null;
     }
@@ -460,6 +462,21 @@
     function schedule() {
         if (frame || !state) return;
         frame = requestAnimationFrame(function () { frame = 0; guard(position)(); });
+    }
+
+    // While the page scrolls, position() moves the spotlight every frame to follow its target. With the
+    // spotlight's transition still on, each move eased over --duration, so the spotlight trailed the target
+    // by ~180 ms for the whole scroll and kept moving ~220 ms after it stopped — visible lag, and the slowest
+    // settle in the tour dimension (Profile at 375, 2026-09-26). The transition is for moving between
+    // targets, not for tracking one, so it is off until the scroll has been quiet for a few frames.
+    function onScroll() {
+        if (els) els.overlay.classList.add('tour-overlay--scrolling');
+        if (scrollIdle) clearTimeout(scrollIdle);
+        scrollIdle = setTimeout(function () {
+            scrollIdle = 0;
+            if (els) els.overlay.classList.remove('tour-overlay--scrolling');
+        }, 100);
+        schedule();
     }
 
     /* ── input ───────────────────────────────────────────────────────── */

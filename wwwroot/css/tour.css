@@ -50,6 +50,8 @@ html[data-theme="dark"] { --tour-scrim: rgba(0,0,0,.62); }
               width var(--duration) var(--ease), height var(--duration) var(--ease);
 }
 .tour-spotlight[hidden] { display: none; }
+/* Tracking a scrolling target, not moving to a new one: no easing, or the spotlight trails the target (tour.js onScroll). */
+.tour-overlay--scrolling .tour-spotlight { transition: none; }
 
 /* ── Tooltip ─────────────────────────────────────────── */
 .tour-tip {

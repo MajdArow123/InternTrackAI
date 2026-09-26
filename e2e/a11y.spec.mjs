@@ -32,8 +32,24 @@ export async function run() {
     CompanyName: 'Axe Testing Ltd', RoleTitle: 'Accessibility Intern', Location: 'Remote',
     Status: '1', JobDescription: 'Requirements: WCAG, ARIA, Playwright, TypeScript, Docker, Kubernetes, PostgreSQL.',
   });
+  // Every status, and every attention state, so axe judges the colours users actually see. A check only
+  // covers the states its data holds: with one Applied row this dimension passed for months while the dark
+  // Rejected badge, the Interview badge and the "due" tags all failed contrast — color-audit found them
+  // (2026-09-26) because its own seed had every status. Saved and overdue, Applied long enough ago that a
+  // follow-up is due, Interview with a deadline three days out, Rejected, Offer.
+  const day = (offset) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10);
+  for (const [CompanyName, Status, extra] of [
+    ['Saved Overdue Co', '0', { Deadline: day(-2) }],
+    ['Applied Waiting Co', '1', { DateApplied: day(-12) }],
+    ['Interview Soon Co', '2', { Deadline: day(3) }],
+    ['Rejected Co', '3', {}],
+    ['Offer Co', '4', {}],
+  ]) {
+    await createApplication(page, { CompanyName, RoleTitle: 'Intern', Status, ...extra });
+  }
   await page.goto(BASE + '/JobApplications?view=list', { waitUntil: 'networkidle' });
-  const appId = await page.evaluate(() => document.querySelector('tr[data-app-id]')?.getAttribute('data-app-id'));
+  const appId = await page.evaluate(() => Array.from(document.querySelectorAll('tr[data-app-id]'))
+    .find((r) => r.textContent.includes('Axe Testing Ltd'))?.getAttribute('data-app-id'));
 
   const pages = [
     ['Landing (anonymous)', '/', pan],
@@ -63,12 +79,31 @@ export async function run() {
         if (!AXE) skip('axe-core not available (AXE_PATH unset)');
         await p.goto(BASE + url, { waitUntil: 'networkidle' });
         await freeze(p);
+        // The mouse stays wherever the last click left it, so without this a scan judged whichever row
+        // happened to sit under the pointer — pass or fail by layout. Hover is covered on purpose below.
+        await p.mouse.move(0, 0);
         const v = await scan(p, theme);
         const serious = v.filter((x) => x.impact === 'critical' || x.impact === 'serious');
         assert(serious.length === 0, `${serious.length} serious/critical violation(s):\n    ${fmt(serious)}`);
         return v.length ? `no serious issues; ${v.length} minor/moderate: ${v.map((x) => `${x.id}(${x.impact},${x.count})`).join(', ')}` : 'no violations';
       });
     }
+  }
+
+  // A hovered row is a state every user sees and a page-load scan never does: it tints the row and reveals
+  // the row actions, and both the company avatar and the dark row buttons failed contrast only there.
+  for (const theme of ['light', 'dark']) {
+    await check(D, `axe ${theme}: Applications list with a row hovered`, async () => {
+      if (!AXE) skip('axe-core not available (AXE_PATH unset)');
+      await page.goto(BASE + '/JobApplications?view=list', { waitUntil: 'networkidle' });
+      await freeze(page);
+      await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
+      await page.hover('tr[data-app-id] .company-avatar');
+      const v = await scan(page, null);
+      const serious = v.filter((x) => x.impact === 'critical' || x.impact === 'serious');
+      assert(serious.length === 0, `${serious.length} serious/critical violation(s):\n    ${fmt(serious)}`);
+      return 'no serious issues on the hovered row';
+    });
   }
 
   // ------------------------------------------------------------ keyboard
@@ -82,6 +117,25 @@ export async function run() {
     assert(/skip/i.test(first.text) || /^#(main|content)/.test(first.href || ''), `first tab stop is ${first.tag} "${first.text}" (href ${first.href}) — no skip link`);
     return `${first.tag} "${first.text}" -> ${first.href}`;
   });
+
+  // The skip link only shows while focused, so a page-load scan never judges its colours — which is how a
+  // leftover template stylesheet painting it #0077cc (3.65:1 in dark) went unseen. Focus it, then ask axe.
+  for (const [layout, url, p] of [['app layout', '/Home/Dashboard', page], ['app layout, signed out', '/Home/Privacy', pan], ['auth layout', '/Identity/Account/Login', pan]]) {
+    for (const theme of ['light', 'dark']) {
+      await check(D, `axe ${theme}: the focused skip link (${layout})`, async () => {
+        if (!AXE) skip('axe-core not available (AXE_PATH unset)');
+        await p.goto(BASE + url, { waitUntil: 'networkidle' });
+        await freeze(p);
+        await p.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
+        await p.keyboard.press('Tab');
+        assert(await p.evaluate(() => document.activeElement?.classList.contains('skip-link')), 'the first Tab did not focus the skip link');
+        await p.addScriptTag({ content: AXE });
+        const v = await p.evaluate(async () => (await window.axe.run({ include: [['.skip-link']] }, { runOnly: { type: 'rule', values: ['color-contrast'] } })).violations);
+        assert(v.length === 0, v.map((x) => x.nodes[0]?.failureSummary).join('; '));
+        return 'passes color-contrast while focused';
+      });
+    }
+  }
 
   await check(D, 'Every interactive control on the list page is reachable by keyboard', async () => {
     await page.goto(BASE + '/JobApplications?view=list', { waitUntil: 'networkidle' });

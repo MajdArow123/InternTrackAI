@@ -328,10 +328,12 @@ html[data-theme="dark"] .site-nav .navbar-toggler-icon { filter: invert(1) grays
 .navbar-account-link:hover { background: rgba(0,0,0,.05); }
 html[data-theme="dark"] .navbar-account-link:hover { background: rgba(255,255,255,.07); }
 
+/* The avatar gradients start at --accent, not the retired #0A84FF: white initials sat at 3.65:1 on that end and
+   4.41 mid-way, and neither axe (gradients are "incomplete") nor color-audit (no gradient model) can see it. */
 .navbar-account-avatar {
   width: 28px; height: 28px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0A84FF, #5E5CE6);
+  background: linear-gradient(135deg, var(--accent), #5E5CE6);
   color: #fff;
   display: inline-flex;
   align-items: center;
@@ -420,7 +422,9 @@ html[data-theme="dark"] .btn-outline-secondary:hover, html[data-theme="dark"] .b
   background: rgba(255,255,255,.15); color: var(--text);
 }
 
-.btn-outline-primary { background: var(--accent-soft); color: var(--accent-text); }
+/* --accent-h, not --accent-text: the soft wash over --bg (the practice list footer) put --accent-text at 4.19:1
+   (color-audit, 2026-09-26). Dark keeps --accent-text through its own rule further down. */
+.btn-outline-primary { background: var(--accent-soft); color: var(--accent-h); }
 .btn-outline-primary:hover, .btn-outline-primary:focus { background: var(--accent); color: #fff; }
 
 .btn-danger { background: #DC2F27; color: #fff; }   /* 4.7:1 with white; --danger itself stays for chips/dots */
@@ -785,7 +789,8 @@ html[data-theme="dark"] .app-table-wrapper .table tbody tr:hover td { background
   width: 36px; height: 36px;
   border-radius: 10px;
   background: var(--accent-soft);
-  color: var(--accent-text);
+  /* --accent-h: on a hovered row the wash reads #DDE7F3 and --accent-text was 4.45:1. Dark restored below. */
+  color: var(--accent-h);
   display: inline-flex; align-items: center; justify-content: center;
   font-weight: 600; font-size: .8rem;
   letter-spacing: -.01em;
@@ -1019,7 +1024,7 @@ textarea.form-control { min-height: 100px; resize: vertical; }
 
 .analyzer-icon {
   width: 40px; height: 40px;
-  background: linear-gradient(135deg, #0A84FF, #5E5CE6);
+  background: linear-gradient(135deg, var(--accent), #5E5CE6);
   border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
   color: #fff;
@@ -1287,7 +1292,7 @@ html[data-theme="dark"] .analyzer-textarea { background: var(--surface-3); }
 .profile-avatar-placeholder {
   width: 84px; height: 84px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #0A84FF, #5E5CE6);
+  background: linear-gradient(135deg, var(--accent), #5E5CE6);
   color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-size: 1.6rem;
@@ -2067,7 +2072,8 @@ html[data-theme="dark"] .app-toast { background: rgba(44,44,46,.88); }
   color: inherit;
 }
 .filter-pill.active .filter-pill-count { background: rgba(255,255,255,.18); }
-html[data-theme="dark"] .filter-pill-count { background: rgba(255,255,255,.1); }
+/* .06, not .1: at .1 the inherited --text-2 count measured 4.41:1 on its chip (color-audit, 2026-09-26); .06 gives 4.99. */
+html[data-theme="dark"] .filter-pill-count { background: rgba(255,255,255,.06); }
 html[data-theme="dark"] .filter-pill.active .filter-pill-count { background: rgba(0,0,0,.18); }
 .filter-pill-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted-2); flex-shrink: 0; }
 .filter-pill-saved     .filter-pill-dot { background: var(--muted-2); }
@@ -2512,7 +2518,8 @@ html[data-theme="dark"] .badge-saved     { background: rgba(142,142,147,.12); co
 html[data-theme="dark"] .badge-applied   { background: rgba(10,132,255,.12); color: var(--accent-text); border-color: var(--accent-text); }
 html[data-theme="dark"] .badge-interview { background: rgba(255,159,10,.12); color: var(--warning); border-color: var(--warning-text); }
 html[data-theme="dark"] .badge-offer     { background: rgba(48,209,88,.12); color: var(--success); border-color: var(--success-text); }
-html[data-theme="dark"] .badge-rejected  { background: rgba(255,69,58,.12); color: var(--danger); border-color: var(--danger-text); }
+/* Rejected reads --danger-text, not --danger: bright red on its own dark wash measured 4.05–4.39:1 (color-audit, 2026-09-26). */
+html[data-theme="dark"] .badge-rejected  { background: rgba(255,69,58,.12); color: var(--danger-text); border-color: var(--danger-text); }
 
 /* Match dot dark mode boost */
 html[data-theme="dark"] .match-dot--amber  { background: var(--warning); box-shadow: 0 0 0 2px rgba(255,159,10,.35); }
@@ -3262,9 +3269,10 @@ html[data-theme="dark"] .form-check-input:checked {
 /* Bootstrap select option bg in dark */
 html[data-theme="dark"] select.form-select option { background: var(--card); color: var(--text); }
 
-/* btn-outline-secondary in dark needs softer border */
+/* btn-outline-secondary in dark needs softer border. The label keeps the base rule's --text: dimmed to --muted
+   over the .09 white wash it was 4.59:1 on a card and 4.0–4.1:1 on --surface-2 or a hovered row (the Attention
+   card's Snooze, the list's row actions; a11y dimension, 2026-09-26). */
 html[data-theme="dark"] .btn-outline-secondary {
-  color: var(--muted);
   border-color: var(--border);
 }
 html[data-theme="dark"] .btn-outline-secondary:hover {
@@ -4066,6 +4074,8 @@ code { color: var(--accent-text); background: var(--accent-soft); padding: .1em 
 .board-count.badge-applied { color: var(--accent-h); }
 /* Light only: --accent-h has no dark value, and on the dark wash it measured 2.2:1. Dark keeps --accent-text (5.3:1). */
 html[data-theme="dark"] .board-count.badge-applied,
+html[data-theme="dark"] .lp-board-head .badge-applied,
+html[data-theme="dark"] .company-avatar,
 html[data-theme="dark"] .practice-badge--medium { color: var(--accent-text); }
 .board-add {
   margin-left: auto;
@@ -4159,6 +4169,8 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .lp-board-col { display: flex; flex-direction: column; gap: .4rem; padding: .45rem; border-radius: 10px; background: var(--surface-2); }
 .lp-board-head { display: flex; align-items: center; justify-content: space-between; gap: .3rem; padding: .1rem .2rem .15rem; font-size: .7333rem; font-weight: 600; }
 .lp-board-head .status-badge { font-size: .6667rem; padding: .12em .55em; }
+/* The same Applied-wash-on-grey pair as .board-count.badge-applied (4.4:1 with --accent-text); dark is restored beside that rule. */
+.lp-board-head .badge-applied { color: var(--accent-h); }
 .lp-board-card { display: flex; align-items: center; gap: .4rem; padding: .45rem .55rem; border-radius: 8px; background: var(--card); box-shadow: var(--shadow-xs); font-size: .7333rem; }
 .lp-board-card .t { flex: 1; min-width: 0; }
 .lp-board-card .t b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: .7733rem; letter-spacing: -.01em; }
@@ -4242,7 +4254,7 @@ a.funnel-row:focus-visible { outline: 0; box-shadow: var(--focus-ring); }
 .lp-profile-left { display: flex; flex-direction: column; gap: .75rem; }
 .lp-photo-row { display: flex; align-items: center; gap: .9rem; padding-bottom: .85rem; margin-bottom: .85rem; border-bottom: 1px solid var(--border); }
 .lp-avatar { position: relative; display: block; width: 56px; height: 56px; border-radius: 50%; flex: none; }
-.lp-avatar-init { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #0A84FF, #5E5CE6); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 600; letter-spacing: -.03em; box-shadow: 0 6px 16px rgba(10,132,255,.25); }
+.lp-avatar-init { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), #5E5CE6); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; font-weight: 600; letter-spacing: -.03em; box-shadow: 0 6px 16px rgba(10,132,255,.25); }
 .lp-avatar .profile-avatar-overlay { font-size: .6rem; }
 .lp-avatar:hover .profile-avatar-overlay { opacity: 1; }
 .lp-avatar-badge { position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; background: var(--card); color: var(--text-2); display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow-sm), 0 0 0 1px var(--border); }
@@ -4736,12 +4748,14 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
   background: none;
   font-size: 1.05rem;
   line-height: 1;
-  color: var(--muted-2);
+  /* The glyph is the whole control, so it takes text tokens, not --muted-2 (decorative only) or --warning (a
+     fill): ☆ was 2.14:1 light / 2.84:1 dark and ★ about 2:1 (color-audit, 2026-09-26). */
+  color: var(--text-2);
   cursor: pointer;
   transition: color var(--duration) var(--ease), transform var(--duration) var(--ease);
 }
-.practice-star:hover { color: var(--warning); transform: scale(1.12); }
-.practice-star.is-saved { color: var(--warning); }
+.practice-star:hover { color: var(--warning-text); transform: scale(1.12); }
+.practice-star.is-saved { color: var(--warning-text); }
 .practice-star:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
 
 /* The score chip already claims the right edge on an answered card, so the star follows it rather

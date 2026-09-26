@@ -10,7 +10,7 @@
 //
 // Needs the app on BASE_URL (default :5240) pointed at the stub (e2e/lib/openai-stub.mjs), because the
 // warning and accent washes only appear on real data: it creates one application in each status with a
-// deadline three days out, practice questions at every difficulty, and one scored answer.
+// deadline three days out, practice questions at every difficulty, and one scored, saved answer.
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
@@ -84,6 +84,9 @@ async function seed(page, BASE) {
   await page.fill(`[data-question-id="${id}"] textarea[name="answer"]`, 'I added an idempotency key column and returned the stored result on a retry.');
   await page.click(`[data-question-id="${id}"] [data-practice-submit]`);
   await page.waitForSelector(`[data-question-id="${id}"][data-answered="true"]`, { timeout: 15000 });
+  // A saved question too: nothing seeded one before, so the saved star's colour (about 2:1) was never measured.
+  await page.click(`[data-question-id="${id}"] [data-practice-star]`);
+  await page.waitForSelector(`[data-question-id="${id}"] [data-practice-star][aria-pressed="true"]`, { timeout: 15000 });
 }
 
 export async function audit(out) {

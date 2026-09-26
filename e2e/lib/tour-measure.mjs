@@ -11,6 +11,7 @@
 //
 // Run it headless and unthrottled. The desktop browser pane and a covered browser window both throttle
 // animation frames to a few per second, which made ~0.1-0.9 s settles look like several seconds.
+import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 /** The step on screen right now, or { closed: true } when no tour card is showing. */
@@ -119,7 +120,9 @@ export function describe({ step, settledMs }) {
 }
 
 // ---------------------------------------------------------------- standalone
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+// realpath: /tmp on macOS is a symlink to /private/tmp, and Node reports the main module's resolved path, so
+// comparing against the path as typed silently skipped this block (the stub started nothing, 2026-09-26).
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
   const { chromium } = await import('./harness.mjs');
   const { startApp } = await import('./app-server.mjs');
   const [w, h] = (process.argv[2] || '1280x800').split('x').map(Number);

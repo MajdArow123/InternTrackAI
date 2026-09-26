@@ -8,7 +8,7 @@
 //   NODE_PATH=... node e2e/lib/color-audit.mjs after.json
 //   node e2e/lib/color-audit.mjs --diff before.json after.json
 //
-// Needs the app on BASE_URL (default :5240) pointed at the stub (e2e/lib/openai-stub.mjs), because the
+// Starts its own Production-environment server with the OpenAI stub unless BASE_URL names one, because the
 // warning and accent washes only appear on real data: it creates one application in each status with a
 // deadline three days out, practice questions at every difficulty, and one scored, saved answer.
 import fs from 'node:fs';
@@ -156,7 +156,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
     console.log(`\nBelow AA after the change: ${d.failing.length}`);
     for (const r of d.failing.slice(0, 40)) console.log(`  ${r.theme.padEnd(5)} ${r.path.padEnd(40)} ${r.ratio}  ${r.fg} on ${r.bg}  "${r.text}"  [${r.el.split(' < ')[0]}]`);
   } else {
-    const rows = await audit(process.argv[2] || 'colors.json');
+    const { withAuditServer } = await import('./audit-server.mjs');
+    const rows = await withAuditServer('stub', () => audit(process.argv[2] || 'colors.json'));
     console.log(`${rows.length} text elements written to ${process.argv[2] || 'colors.json'}`);
   }
 }

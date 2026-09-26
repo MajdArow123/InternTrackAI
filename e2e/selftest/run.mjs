@@ -27,6 +27,8 @@ function runAll(dims, env = {}) {
   return { code: r.status, out: (r.stdout || '') + (r.stderr || ''), secs: (Date.now() - t0) / 1000, timedOut: r.error?.code === 'ETIMEDOUT' };
 }
 
+import { errorLines } from '../lib/server-log.mjs';
+
 const scenarios = [
   ['a passing dimension exits 0 and reports no new failures', () => {
     const r = runAll(['selftest-pass']);
@@ -63,6 +65,17 @@ const scenarios = [
   ['an entry without a reason, owner or date fails the run', () => {
     const r = runAll(['selftest-pass'], { E2E_KNOWN_FAILURES: known([{ dimension: 'selftest-pass', name: 'x' }]) });
     return [r.code === 1, /INVALID ENTRY/.test(r.out), r];
+  }],
+  ['the server-log check finds Error and Fatal lines with their exceptions, and nothing else', () => {
+    // The check that fails a run on any Error line is itself a verification mechanism (CLAUDE.md §12):
+    // fed a log with one of each level, it must return exactly the ERR and FTL blocks.
+    const f = path.join(tmp, 'server.log');
+    fs.writeFileSync(f, ['[10:00:00 INF] HTTP GET / responded 200', '[10:00:01 WRN] something odd',
+      '[10:00:02 ERR] HTTP POST /x responded 500', 'System.InvalidOperationException: boom', '   at X.Y()',
+      '[10:00:03 INF] next request', '[10:00:04 FTL] host crashed', 'The text ERR] inside a message line'].join('\n'));
+    const found = errorLines(f);
+    const r = { code: 0, secs: 0, out: JSON.stringify(found, null, 1) };
+    return [found.length === 2, /boom/.test(found[0] || '') && /at X\.Y/.test(found[0] || '') && /FTL/.test(found[1] || '') && !found.join('').includes('next request'), r];
   }],
   ['selftest dimensions cannot be run without E2E_SELFTEST=1', () => {
     const r = runAll(['selftest-abort'], { E2E_SELFTEST: '0' });

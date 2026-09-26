@@ -21,7 +21,11 @@ function loadPlaywright() {
 }
 
 export const { chromium, firefox, webkit, devices } = loadPlaywright();
-export const BASE = process.env.BASE_URL || 'http://localhost:5240';
+// A live binding: run-all starts a Production-environment server for the suite and points every spec at it
+// with setBase() before any spec is imported (CLAUDE.md §10). BASE_URL still overrides — for a server you
+// started yourself — and the gate line then says so, because that server's environment is yours to vouch for.
+export let BASE = process.env.BASE_URL || 'http://localhost:5240';
+export function setBase(base) { BASE = base; }
 export const ARTIFACTS = process.env.ARTIFACTS_DIR || path.join(process.cwd(), 'e2e', 'artifacts');
 
 export function axeSource() {

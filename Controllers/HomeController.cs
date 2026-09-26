@@ -158,6 +158,11 @@ public class HomeController : Controller
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {
+        // Only as the exception handler's re-execute target. Requested directly there was no error, yet it
+        // answered 500 — and the request log writes every 500 as an Error line, so anyone could flood the
+        // production log by fetching this URL in a loop (found by the e2e server-log check, 2026-09-26).
+        if (HttpContext.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>() is null)
+            return NotFound();
         Response.StatusCode = 500;
         return View();
     }

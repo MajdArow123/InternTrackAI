@@ -8,7 +8,7 @@
 //   NODE_PATH=... node e2e/lib/link-audit.mjs after.json
 //   node e2e/lib/link-audit.mjs --diff before.json after.json
 //
-// Needs the app on BASE_URL (default :5240) with the placeholder key, as the other dimensions do. Registers
+// Starts its own Production-environment server (placeholder key, as the suite's) unless BASE_URL names one. Registers
 // one throwaway account through the Register page and creates one application through the Create form.
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
@@ -104,7 +104,8 @@ if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process
     for (const r of d.changed) console.log(`  ${r.underlined ? '+underline' : '-underline'}  ${r.who.padEnd(9)} ${r.path.padEnd(38)} "${r.text}"  [${r.cls || 'no class'}]  ${r.parents}`);
     if (d.stillBare.length) { console.log('\nProse links marked by colour alone:'); for (const r of d.stillBare) console.log(`  ${r.who.padEnd(9)} ${r.path.padEnd(38)} "${r.text}"  [${r.cls || 'no class'}]  ${r.parents}`); }
   } else {
-    const rows = await audit(process.argv[2] || 'links.json');
+    const { withAuditServer } = await import('./audit-server.mjs');
+    const rows = await withAuditServer('suite', () => audit(process.argv[2] || 'links.json'));
     console.log(`${rows.length} links written to ${process.argv[2] || 'links.json'}`);
   }
 }

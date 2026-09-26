@@ -21,7 +21,8 @@ namespace InternTrackAI.Tests.Integration;
 public class CspMarkupTests : IClassFixture<TestAppFactory>
 {
     private readonly TestAppFactory _factory;
-    public CspMarkupTests(TestAppFactory factory) => _factory = factory;
+    private readonly Xunit.Abstractions.ITestOutputHelper _out;
+    public CspMarkupTests(TestAppFactory factory, Xunit.Abstractions.ITestOutputHelper output) { _factory = factory; _out = output; }
 
     private static readonly Regex InlineScript = new(@"<script\b(?![^>]*\bsrc\s*=)(?![^>]*type\s*=\s*""application/json"")[^>]*>", RegexOptions.IgnoreCase);
     private static readonly Regex InlineHandler = new(@"<[a-z][^>]*\son[a-z]+\s*=", RegexOptions.IgnoreCase);
@@ -90,10 +91,26 @@ public class CspMarkupTests : IClassFixture<TestAppFactory>
                                     $"/JobApplications/Edit/{appId}", "/Profile", "/Profile/Bookmarklet", "/CoverLetter/Generate",
                                     $"/InterviewPrep/Prep?appId={appId}", "/Practice", "/Identity/Account/Manage",
                                     "/Identity/Account/Manage/ChangePassword", "/Identity/Account/Manage/DeletePersonalData",
-                                    "/Identity/Account/Manage/PersonalData" })
+                                    "/Identity/Account/Manage/PersonalData",
+                                    // The Identity UI library's own pages — never scaffolded here, so their markup is the
+                                    // library's, which is where the environment-switched CDN partial came from.
+                                    "/Identity/Account/Manage/Email", "/Identity/Account/Manage/TwoFactorAuthentication",
+                                    "/Identity/Account/Manage/EnableAuthenticator", "/Identity/Account/Manage/ResetAuthenticator",
+                                    "/Identity/Account/Manage/ExternalLogins", "/Identity/Account/Manage/SetPassword",
+                                    "/Identity/Account/Manage/Disable2fa", "/Identity/Account/Manage/GenerateRecoveryCodes",
+                                    "/Identity/Account/Lockout", "/Identity/Account/AccessDenied",
+                                    "/Identity/Account/ForgotPasswordConfirmation", "/Identity/Account/ResetPasswordConfirmation",
+                                    "/Identity/Account/Logout", "/Identity/Account/LoginWith2fa", "/Identity/Account/LoginWithRecoveryCode",
+                                    // The production exception page: only reached outside Development.
+                                    "/Home/Error" })
         {
             var res = await client.GetAsync(url);
-            Assert.True(res.StatusCode == HttpStatusCode.OK, $"{url} returned {(int)res.StatusCode}");
+            // A redirect or a 404 (SetPassword for a user who has one; the two-factor pages without two-factor state,
+            // TwoFactorStateFilter) renders nothing to check. Anything else must be a 200 — a 500 fails here, which is
+            // how four library pages that threw without two-factor state were found.
+            if (res.StatusCode is HttpStatusCode.Redirect or HttpStatusCode.NotFound) continue;
+            var expected = url == "/Home/Error" ? HttpStatusCode.InternalServerError : HttpStatusCode.OK;   // Error sets 500 itself
+            Assert.True(res.StatusCode == expected, $"{url} returned {(int)res.StatusCode}");
             found.AddRange(Violations(url, await res.Content.ReadAsStringAsync()));
         }
 

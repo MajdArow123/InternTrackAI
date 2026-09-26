@@ -37,9 +37,9 @@ export async function run() {
     try {
       const { context: ec } = await newSignedInContext(engine, name.toLowerCase());
       const ep = await ec.newPage();
-      // The report-only CSP is separated out rather than counted: Gecko and WebKit log those
-      // reports as console errors and Chromium does not, so without this the same clean page
-      // "fails" on two engines out of three. The count is still reported as evidence.
+      // A report-only CSP notice is separated out rather than counted (Gecko and WebKit log those as
+      // errors, Chromium does not). The app's policy is enforced now, so an enforced violation is NOT
+      // noise and lands in engineErrors — which is what makes this check a CSP guard on all three engines.
       const engineErrors = [];
       const cspReports = [];
       const note = (text) => (isCspReportNoise(text) ? cspReports : engineErrors).push(text);
@@ -70,7 +70,7 @@ export async function run() {
         const overflowing = out.filter((o) => o.includes('OVERFLOW'));
         assertEqual(overflowing.length, 0, `horizontal overflow on ${name}: ${overflowing.join(', ')}`);
         assertEqual(engineErrors.length, 0, `uncaught/console errors on ${name}: ${engineErrors.slice(0, 3).join(' | ')}`);
-        return `${out.join('; ')}; ${cspReports.length} report-only CSP notices (not errors)`;
+        return `${out.join('; ')}; ${cspReports.length} report-only CSP notice(s)`;
       });
 
       await check(D, `${name}: drawer and filters work`, async () => {

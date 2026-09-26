@@ -3,15 +3,14 @@ namespace InternTrackAI.Services;
 /// <summary>
 /// The response headers every request gets, and the one place their values are written.
 ///
-/// Three are enforced and safe to enforce: this app never frames itself, never relies on
-/// content-type sniffing, and never needs to leak a full URL to another origin. The Content
-/// Security Policy ships <b>report-only</b> on purpose — <c>_Layout.cshtml</c> carries the theme
-/// pre-paint, toast and keyboard-shortcut scripts inline (and <c>_AuthLayout.cshtml</c> its own
-/// theme pre-paint), so an enforced <c>script-src 'self'</c> would break the app today. The prep
-/// page's ~170 inline lines went on 2026-09-25. Note the policy deliberately does <i>not</i> grant <c>'unsafe-inline'</c> for
-/// scripts: report-only plus a strict directive is what surfaces each remaining inline block in the
-/// browser console, which is the list to work through before this can be enforced. Grant it and the
-/// report goes quiet while the exposure stays.
+/// All four are enforced: this app never frames itself, never relies on content-type sniffing, never
+/// needs to leak a full URL to another origin, and — since 2026-09-26 — runs no inline script. The
+/// Content Security Policy was report-only until the last inline blocks left the two layouts (the
+/// theme pre-paint is now <c>js/theme-prepaint.js</c>, still blocking in <c>&lt;head&gt;</c>; the toast
+/// moved into <c>site.js</c>; the theme toggle and shortcuts into <c>js/layout.js</c>). <c>script-src</c>
+/// is <c>'self'</c> with no <c>'unsafe-inline'</c>, so an inline <c>&lt;script&gt;</c>, an <c>on*=</c>
+/// attribute or a <c>javascript:</c> URL no longer runs — <c>CspMarkupTests</c> fails a page that
+/// renders one. <c>style-src</c> keeps <c>'unsafe-inline'</c> for the <c>style=</c> attributes in the views.
 /// </summary>
 public static class SecurityHeaders
 {
@@ -64,7 +63,7 @@ public static class SecurityHeaders
     public const string ContentTypeOptionsHeader = "X-Content-Type-Options";
     public const string FrameOptionsHeader       = "X-Frame-Options";
     public const string ReferrerPolicyHeader     = "Referrer-Policy";
-    public const string CspReportOnlyHeader      = "Content-Security-Policy-Report-Only";
+    public const string CspHeader                = "Content-Security-Policy";
 
     /// <summary>
     /// Adds the headers to every response, including static files, the health endpoint and the
@@ -94,7 +93,7 @@ public static class SecurityHeaders
                 headers[ContentTypeOptionsHeader] = ContentTypeOptions;
                 headers[FrameOptionsHeader]       = FrameOptions;
                 headers[ReferrerPolicyHeader]     = ReferrerPolicy;
-                headers[CspReportOnlyHeader]      = ContentSecurityPolicy;
+                headers[CspHeader]                = ContentSecurityPolicy;
                 return Task.CompletedTask;
             }, context);
 

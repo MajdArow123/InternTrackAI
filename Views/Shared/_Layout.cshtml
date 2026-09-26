@@ -9,7 +9,6 @@
     <link rel="icon" href="~/favicon.ico" sizes="any">
     <link rel="icon" href="~/favicon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="~/apple-touch-icon.png">
-    <script type="importmap"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -19,9 +18,7 @@
     {
         <link rel="stylesheet" href="~/css/tour.css" asp-append-version="true" />
     }
-    <script>
-    (function(){var t='light';try{t=localStorage.getItem('theme')||'light';}catch(e){}document.documentElement.setAttribute('data-theme',t);})();
-    </script>
+    <script src="~/js/theme-prepaint.js" asp-append-version="true"></script>
 </head>
 <body>
     <a class="skip-link" href="#main-content">Skip to content</a>
@@ -146,21 +143,8 @@
         <div id="app-toast" class="app-toast app-toast-@toastType" role="alert" aria-live="polite">
             <span class="app-toast-dot"></span>
             <span class="app-toast-msg">@toastMsg</span>
-            <button type="button" class="app-toast-close" onclick="dismissToast()" aria-label="Dismiss">&#215;</button>
+            <button type="button" class="app-toast-close" aria-label="Dismiss">&#215;</button>
         </div>
-        <script>
-        window.addEventListener('DOMContentLoaded', function () {
-            var t = document.getElementById('app-toast');
-            if (t) {
-                requestAnimationFrame(function () { t.classList.add('app-toast-show'); });
-                setTimeout(dismissToast, 4500);
-            }
-        });
-        function dismissToast() {
-            var t = document.getElementById('app-toast');
-            if (t) { t.classList.remove('app-toast-show'); setTimeout(function () { t.remove(); }, 280); }
-        }
-        </script>
     }
 
     <!-- Keyboard Shortcuts Modal -->
@@ -184,51 +168,7 @@
         </div>
     </div>
 
-    <script>
-    (function () {
-        // Dark mode toggle
-        var toggle = document.getElementById('theme-toggle');
-        if (toggle) {
-            toggle.addEventListener('click', function () {
-                var curr = document.documentElement.getAttribute('data-theme');
-                var next = curr === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-theme', next);
-                // Blocked site data: the theme still switches, it just isn't remembered.
-                try { localStorage.setItem('theme', next); } catch (e) { /* not fatal */ }
-            });
-        }
-
-        // Keyboard shortcuts
-        var kbdModal = document.getElementById('kbd-modal');
-        function openKbd() { kbdModal.classList.add('active'); kbdModal.setAttribute('aria-hidden','false'); }
-        function closeKbd() { kbdModal.classList.remove('active'); kbdModal.setAttribute('aria-hidden','true'); }
-
-        document.getElementById('kbd-close')?.addEventListener('click', closeKbd);
-        kbdModal?.addEventListener('click', function(e) { if (e.target === kbdModal) closeKbd(); });
-
-        function isTyping() {
-            var el = document.activeElement;
-            return el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
-        }
-
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape') { closeKbd(); return; }
-            if (isTyping()) return;
-            if (e.ctrlKey || e.metaKey || e.altKey) return;
-            switch (e.key) {
-                case '?': e.preventDefault(); openKbd(); break;
-                case 'n': case 'N': window.location.href = '/JobApplications/Create'; break;
-                case 'd': case 'D': window.location.href = '/Home/Dashboard'; break;
-                case 'c': case 'C': window.location.href = '/CoverLetter/Generate'; break;
-                case 'p': case 'P': window.location.href = '/Profile'; break;
-                case 's': case 'S':
-                    var s = document.querySelector('input[name="search"]');
-                    if (s) { e.preventDefault(); s.focus(); }
-                    break;
-            }
-        });
-    })();
-    </script>
+    <script src="~/js/layout.js" asp-append-version="true"></script>
     @if (LayoutSignInManager.IsSignedIn(User))
     {
         @* Target of the nav's logout button. Rendered last so no page's first submit button is

@@ -1,0 +1,9 @@
+@*
+    Overrides the Identity UI library's own _ValidationScriptsPartial, which Identity pages would otherwise
+    resolve first. Outside Development that one loads jquery-validation from cdnjs.cloudflare.com with an
+    inline document.write fallback: a third-party origin the privacy page does not name, and two scripts
+    the enforced Content-Security-Policy (script-src 'self') blocks. These are the vendored copies the rest
+    of the app already uses (Views/Shared/_ValidationScriptsPartial.cshtml).
+*@
+<script src="~/lib/jquery-validation/dist/jquery.validate.min.js"></script>
+<script src="~/lib/jquery-validation-unobtrusive/dist/jquery.validate.unobtrusive.min.js"></script>

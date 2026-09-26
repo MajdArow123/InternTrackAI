@@ -297,7 +297,7 @@ app.UseForwardedHeaders(forwardedHeaders);
 
 // Security headers on everything, static files included — so this has to sit above UseStaticFiles,
 // which short-circuits. Values and the reasoning for each live in Services/SecurityHeaders.cs; the
-// CSP is report-only until the last inline scripts move out of _Layout and Prep.cshtml.
+// CSP is enforced (since 2026-09-26), so no view may render an inline script or on*= handler.
 app.UseSecurityHeaders();
 
 // Above UseStaticFiles for the same reason the headers are: that middleware short-circuits, and

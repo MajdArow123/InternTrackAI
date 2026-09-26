@@ -5,9 +5,17 @@ import { chromium, BASE, check, assert, assertEqual, skip, newSignedInContext, c
 const D = 'Accessibility';
 const AXE = axeSource();
 
+// Injects axe through the DevTools protocol (page.evaluate), not page.addScriptTag. addScriptTag adds an
+// inline <script>, which the enforced CSP (script-src 'self', since 2026-09-26) blocks — every scan failed
+// with a CSP error the day it was enforced. evaluate is not subject to the page's CSP, so the scans run with
+// the real policy in force rather than with bypassCSP turning it off.
+async function injectAxe(page) {
+  await page.evaluate(`${AXE}\n;void 0`);
+}
+
 async function scan(page, theme) {
   if (theme) await page.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
-  await page.addScriptTag({ content: AXE });
+  await injectAxe(page);
   return page.evaluate(async () => {
     const r = await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] } });
     return r.violations.map((v) => ({
@@ -129,7 +137,7 @@ export async function run() {
         await p.evaluate((t) => document.documentElement.setAttribute('data-theme', t), theme);
         await p.keyboard.press('Tab');
         assert(await p.evaluate(() => document.activeElement?.classList.contains('skip-link')), 'the first Tab did not focus the skip link');
-        await p.addScriptTag({ content: AXE });
+        await injectAxe(p);
         const v = await p.evaluate(async () => (await window.axe.run({ include: [['.skip-link']] }, { runOnly: { type: 'rule', values: ['color-contrast'] } })).violations);
         assert(v.length === 0, v.map((x) => x.nodes[0]?.failureSummary).join('; '));
         return 'passes color-contrast while focused';

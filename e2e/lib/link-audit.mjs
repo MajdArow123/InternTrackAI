@@ -95,7 +95,8 @@ export function diff(beforeFile, afterFile) {
   return { changed, missing, stillBare, total: after.length };
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1] || '').href) {
+// realpath: /tmp on macOS is a symlink, and Node reports the main module's resolved path.
+if (process.argv[1] && import.meta.url === pathToFileURL(fs.realpathSync(process.argv[1])).href) {
   if (process.argv[2] === '--diff') {
     const d = diff(process.argv[3], process.argv[4]);
     console.log(`${d.total} links; ${d.changed.length} changed underline; ${d.missing.length} not matched to a before row; ${d.stillBare.length} prose links marked by colour alone`);

@@ -37,7 +37,7 @@
   --success-text:  #177A32;   /* 3.64:1 on --success-soft was under AA; 4.74:1 now */
   --warning:       #FF9F0A;
   --warning-soft:  rgba(255,159,10,.16);
-  --warning-text:  #B36B00;
+  --warning-text:  #955900;   /* was #B36B00: 3.43-3.81:1 on every light wash it sits on; this clears 4.63 on all of them (2026-09-26) */
   --danger:        #FF453A;
   --danger-soft:   rgba(255,69,58,.12);
   --danger-text:   #B0271F;   /* 4.11:1 on the danger tint was under AA; 4.99:1 now */
@@ -3221,6 +3221,8 @@ html[data-theme="dark"] .mini-stat-rejected  { color: var(--danger); }
 
 /* Danger confirm card (Delete page) */
 .danger-confirm-card { background: var(--danger-soft); box-shadow: none; }
+/* --text-2 on the red wash is 4.22:1; the label is the one piece of text on it that a user must read to act. */
+.danger-confirm-card .form-label { color: var(--text); }
 .danger-confirm-text { font-size: .9333rem; color: var(--danger-text); font-weight: 500; }
 
 /* Key-value list used on the Delete page and elsewhere */
@@ -4060,6 +4062,11 @@ code { color: var(--accent-text); background: var(--accent-soft); padding: .1em 
 }
 .board-column-title { font-weight: 600; font-size: .95rem; color: var(--text); }
 .board-count { font-variant-numeric: tabular-nums; }
+/* The column head is --surface-2, where the Applied wash reads #DCE6F3 and --accent-text is 4.4:1 (color-audit, 2026-09-26). */
+.board-count.badge-applied { color: var(--accent-h); }
+/* Light only: --accent-h has no dark value, and on the dark wash it measured 2.2:1. Dark keeps --accent-text (5.3:1). */
+html[data-theme="dark"] .board-count.badge-applied,
+html[data-theme="dark"] .practice-badge--medium { color: var(--accent-text); }
 .board-add {
   margin-left: auto;
   width: 26px; height: 26px;
@@ -4783,7 +4790,7 @@ html[data-theme="dark"] .practice-batch-bar { box-shadow: 0 -4px 16px rgba(0,0,0
   font-weight: 600;
 }
 .practice-badge--easy     { background: var(--success-soft); color: var(--success-text); }
-.practice-badge--medium   { background: var(--accent-soft);  color: var(--accent-text); }
+.practice-badge--medium   { background: var(--accent-soft);  color: var(--accent-h); }   /* on the card's --surface-2 the wash reads #DCE6F3, where --accent-text is 4.4:1 */
 .practice-badge--hard     { background: var(--warning-soft); color: var(--warning-text); }
 .practice-badge--category { background: var(--neutral-soft); color: var(--neutral-text); }
 

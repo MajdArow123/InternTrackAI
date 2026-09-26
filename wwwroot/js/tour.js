@@ -340,8 +340,17 @@
         leave('/Home/Dashboard');
     }
 
+    // Which step the card is showing (data-step, written first thing in render) and which step it was last
+    // laid out for (data-placed-for, written by position). They are how the tour e2e dimension proves the
+    // order below directly: at every scroll the tour makes, the two must already agree. A coverage check
+    // could only infer the order, and only on screens where the wrong order happens to cover something.
+    function stepKey() {
+        return state.id + ':' + state.index + ':' + ((state.cand && state.cand.target) || '');
+    }
+
     function render() {
         var step = state.cand || {};
+        els.tip.setAttribute('data-step', stepKey());
         els.title.textContent = step.title || '';
         els.body.textContent  = step.body || '';
         var reachable = [];
@@ -389,6 +398,7 @@
 
     function position() {
         if (!state || !els) return;
+        els.tip.setAttribute('data-placed-for', stepKey());
         var step = state.cand || {};
         var el   = findVisible(step.target);
         var dock = docked();

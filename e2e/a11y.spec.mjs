@@ -49,6 +49,12 @@ export async function run() {
     ['Cover letter', `/CoverLetter/Generate?appId=${appId}`, page],
     ['Interview prep', `/InterviewPrep/Prep?appId=${appId}`, page],
     ['Privacy', '/Home/Privacy', pan],
+    // Added 2026-09-26 with the running-text underline rule: pages whose prose links were never scanned.
+    ['Terms', '/Home/Terms', pan],
+    ['Practice', '/Practice', page],
+    ['Account settings', '/Identity/Account/Manage', page],
+    ['Change password', '/Identity/Account/Manage/ChangePassword', page],
+    ['Delete account', '/Identity/Account/Manage/DeletePersonalData', page],
   ];
 
   for (const [name, url, p] of pages) {

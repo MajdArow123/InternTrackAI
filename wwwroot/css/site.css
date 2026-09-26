@@ -215,6 +215,19 @@ small, .small { font-size: .8667rem; }                        /* 13px */
 a { color: var(--accent-text); text-decoration: none; transition: color var(--duration) var(--ease), opacity var(--duration) var(--ease); }
 a:hover { color: var(--accent-h); }
 
+/* Links in running text are underlined (WCAG 1.4.1: colour must not be the only thing that marks a link).
+   Written once, here, rather than per page, so a page added later cannot ship a colour-only link by
+   forgetting a rule: any class-less link inside a text element inherits it. Component links are untouched —
+   buttons, pills, nav items and the like carry a class, and the few class-less ones that are not prose
+   (breadcrumbs, footers, the auth "Sign in" line, which is bold) have their own rule later in this file,
+   which wins at equal specificity. Five axe link-in-text-block failures on Register, Privacy and Profile
+   (2026-09-25) were all this shape. :where() keeps the specificity at one class + one element. */
+:where(p, li, dd, td, th, blockquote, figcaption, label, small, .form-hint, .sub) a:not([class]) {
+  text-decoration: underline;
+  text-decoration-thickness: from-font;
+  text-underline-offset: .16em;
+}
+
 .text-muted, .text-secondary { color: var(--muted) !important; }
 .text-body { color: var(--text) !important; }
 hr { border-color: var(--border); opacity: 1; }

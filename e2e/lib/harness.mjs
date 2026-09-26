@@ -100,10 +100,13 @@ export const PASSWORD = 'QaAudit!2026x';
  * being run. 198.18.0.0/15 is the reserved benchmarking range, so a header built from it can never
  * collide with a real client.
  */
-let clientCounter = 0;
+// Starts at a random point: every process used to begin at 198.18.0.1, so a second run inside the hour reused
+// the first run's addresses and hit the 5-per-hour registration limit (2026-09-26). The /15 has 131,072
+// addresses; a random start makes a collision between runs vanishingly unlikely.
+let clientCounter = Math.floor(Math.random() * 120000);
 export function syntheticClient() {
   clientCounter += 1;
-  return { 'X-Forwarded-For': `198.18.${(clientCounter >> 8) & 0xff}.${clientCounter & 0xff}` };
+  return { 'X-Forwarded-For': `198.${18 + ((clientCounter >> 16) & 1)}.${(clientCounter >> 8) & 0xff}.${clientCounter & 0xff}` };
 }
 
 /**

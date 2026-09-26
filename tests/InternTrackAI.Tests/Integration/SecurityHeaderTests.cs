@@ -33,7 +33,7 @@ public class SecurityHeaderTests : IClassFixture<TestAppFactory>
         Assert.Equal(SecurityHeaders.ContentTypeOptions, Header(res, SecurityHeaders.ContentTypeOptionsHeader));
         Assert.Equal(SecurityHeaders.FrameOptions,       Header(res, SecurityHeaders.FrameOptionsHeader));
         Assert.Equal(SecurityHeaders.ReferrerPolicy,     Header(res, SecurityHeaders.ReferrerPolicyHeader));
-        Assert.Equal(SecurityHeaders.ContentSecurityPolicy, Header(res, SecurityHeaders.CspReportOnlyHeader));
+        Assert.Equal(SecurityHeaders.ContentSecurityPolicy, Header(res, SecurityHeaders.CspHeader));
         Assert.True(true, where);
     }
 
@@ -99,20 +99,21 @@ public class SecurityHeaderTests : IClassFixture<TestAppFactory>
     }
 
     [Fact]
-    public async Task The_CSP_is_report_only_so_the_remaining_inline_scripts_still_run()
+    public async Task The_CSP_is_enforced_not_report_only()
     {
         var res = await NewClient().GetAsync("/");
 
-        // Enforcing it would break _Layout's theme pre-paint and Prep.cshtml's inline block.
-        Assert.Null(Header(res, "Content-Security-Policy"));
-        Assert.NotNull(Header(res, SecurityHeaders.CspReportOnlyHeader));
+        // Report-only until 2026-09-26, while the layouts still carried inline scripts. A report-only
+        // header alongside would be harmless but would mean someone half-reverted this.
+        Assert.Equal(SecurityHeaders.ContentSecurityPolicy, Header(res, "Content-Security-Policy"));
+        Assert.Null(Header(res, "Content-Security-Policy-Report-Only"));
     }
 
     [Fact]
     public void The_CSP_does_not_grant_unsafe_inline_to_scripts()
     {
-        // The whole point of report-only here is to surface each inline block. 'unsafe-inline' on
-        // script-src would silence the reports while changing nothing about the exposure.
+        // 'unsafe-inline' on script-src would let every inline script and on*= handler run again, which
+        // is the exposure the policy exists to remove.
         var scriptSrc = SecurityHeaders.ContentSecurityPolicy
             .Split(';', StringSplitOptions.TrimEntries)
             .Single(d => d.StartsWith("script-src", StringComparison.Ordinal));
@@ -121,8 +122,8 @@ public class SecurityHeaderTests : IClassFixture<TestAppFactory>
     }
 
     [Theory]
-    // Every origin and scheme the app genuinely loads. If one of these is dropped the policy starts
-    // reporting against working features, and whoever enforces it later will break them for real.
+    // Every origin and scheme the app genuinely loads. The policy is enforced, so dropping one of these
+    // breaks a working feature outright.
     [InlineData("style-src", "https://fonts.googleapis.com")]  // the layouts load Inter
     [InlineData("font-src", "https://fonts.gstatic.com")]      // ...and its font files
     [InlineData("img-src", "blob:")]                           // profile photo preview before upload

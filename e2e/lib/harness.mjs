@@ -143,16 +143,16 @@ export async function newSignedInContext(browser, tag = 'main', { base = BASE, v
 }
 
 /**
- * True for the console noise the app's report-only CSP produces. The policy is
- * Content-Security-Policy-Report-Only on purpose (see SecurityHeaders.cs), so these messages mean
- * "this inline block would be blocked if the policy were enforced" - the working list, not a
- * failure. Chromium logs them below error level; Gecko and WebKit log them as errors, plus two
- * WebKit notices about a report-only policy having no frame-ancestors and no report-to. Filtering
- * them is what makes "no console errors" mean the same thing on all three engines.
+ * True only for notices about a *report-only* CSP. The app's policy has been enforced since 2026-09-26
+ * (SecurityHeaders.cs), so a CSP message now means something was actually blocked — a real failure that
+ * every "no console errors" check must count. This used to match any message mentioning Content Security
+ * Policy, which was right while the policy was report-only (Gecko and WebKit log those reports as errors,
+ * Chromium does not) and would now hide exactly the breakage enforcement can cause. It still ignores a
+ * report-only notice, in case one is ever added alongside for a new directive.
  */
 export function isCspReportNoise(text) {
   const t = String(text);
-  return /Content[- ]Security[- ]Policy/i.test(t) || /\[Report Only\]/i.test(t);
+  return /\[Report Only\]/i.test(t) || /report-only/i.test(t);
 }
 
 /** Reads the antiforgery token out of a rendered page so raw fetch() posts are accepted. */

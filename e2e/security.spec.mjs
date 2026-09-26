@@ -230,13 +230,15 @@ export async function run() {
   });
 
   // ------------------------------------------------------------ headers and cookies
-  await check(D, 'Response sets Content-Security-Policy', async () => {
+  await check(D, 'Response sets an enforced Content-Security-Policy', async () => {
     const h = await pan.evaluate(async (base) => {
       const r = await fetch(base + '/');
       return Object.fromEntries([...r.headers.entries()]);
     }, BASE);
-    assert(h['content-security-policy'] || h['content-security-policy-report-only'],
-      `no CSP header on the landing page. Headers present: ${Object.keys(h).join(', ')}`);
+    // Enforced since 2026-09-26; a report-only header alone would mean the enforcement was reverted.
+    assert(h['content-security-policy'],
+      `no enforced CSP header on the landing page. Headers present: ${Object.keys(h).join(', ')}`);
+    assert(/script-src 'self'(;|$)/.test(h['content-security-policy']), `script-src is not exactly 'self': ${h['content-security-policy']}`);
     return h['content-security-policy'];
   });
 

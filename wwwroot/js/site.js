@@ -51,6 +51,17 @@ function dismissAppToast() {
     if (t) { t.classList.remove('app-toast-show'); setTimeout(() => t.remove(), 280); }
 }
 
+// A toast the server rendered (TempData["Toast"] in _Layout): same show, close and timeout as one raised by
+// showAppToast. This used to be an inline script plus an onclick attribute, both blocked by the enforced CSP.
+document.addEventListener('DOMContentLoaded', () => {
+    const toast = document.getElementById('app-toast');
+    if (!toast) return;
+    toast.querySelector('.app-toast-close')?.addEventListener('click', () => dismissAppToast());
+    requestAnimationFrame(() => toast.classList.add('app-toast-show'));
+    clearTimeout(window.__appToastTimer);
+    window.__appToastTimer = setTimeout(dismissAppToast, 4500);
+});
+
 // Shakes a field briefly and shows an inline "This field is required" message under it.
 // Used by client-side validation that must keep the user at their current scroll position
 // instead of redirecting to a fresh page with server-rendered validation summaries.

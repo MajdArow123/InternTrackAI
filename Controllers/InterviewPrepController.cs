@@ -132,7 +132,7 @@ public class InterviewPrepController : Controller
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Deduped by hash only — the topic is stored but compared against nothing, deliberately.</b> Prep
+    /// <b>Deduped by hash and by near-duplicate wording — the topic is stored but compared against nothing, deliberately.</b> Prep
     /// topics were measured (2026-09-24, three live calls, two postings) to come back category-level:
     /// "Collaboration", "Automated testing", "Docker and Kubernetes". <see cref="TopicKey"/> treats a
     /// short topic as colliding with every longer topic containing its words, so comparing topics in
@@ -158,18 +158,24 @@ public class InterviewPrepController : Controller
     {
         var existing = await _db.PracticeQuestions
             .Where(q => q.UserId == uid)
-            .Select(q => q.PromptHash)
+            .Select(q => new { q.PromptHash, q.Prompt })
             .ToListAsync();
 
-        var seen = new HashSet<string>(existing, StringComparer.Ordinal);
+        var seen = new HashSet<string>(existing.Select(e => e.PromptHash), StringComparer.Ordinal);
+        // The same near-duplicate check practice generation makes (QuestionHash.IsNearDuplicate), so a prep
+        // question cannot be a lightly reworded copy of a practice question the user already has for this role.
+        var seenWords = existing.Select(e => (IReadOnlySet<string>)QuestionHash.Words(e.Prompt)).ToList();
         var rows = new List<PracticeQuestion>();
-        int hashDrops = 0, blankDrops = 0;
+        int hashDrops = 0, nearDuplicateDrops = 0, blankDrops = 0;
 
         foreach (var g in generated)
         {
             var hash = QuestionHash.Of(g.Question);
             if (hash.Length == 0) { blankDrops++; continue; }
             if (!seen.Add(hash)) { hashDrops++; continue; }
+            var words = QuestionHash.Words(g.Question);
+            if (QuestionHash.IsNearDuplicate(words, seenWords)) { nearDuplicateDrops++; continue; }
+            seenWords.Add(words);
 
             rows.Add(new PracticeQuestion
             {
@@ -195,8 +201,8 @@ public class InterviewPrepController : Controller
         // identical on the page.
         _logger.LogInformation(
             "Interview prep generation for application {AppId}: model returned {Returned}, "
-            + "dropped {HashDrops} same-question + {BlankDrops} blank, stored {Stored}.",
-            appId, generated.Count, hashDrops, blankDrops, stored.Count);
+            + "dropped {HashDrops} same-question + {NearDuplicateDrops} near-duplicate + {BlankDrops} blank, stored {Stored}.",
+            appId, generated.Count, hashDrops, nearDuplicateDrops, blankDrops, stored.Count);
 
         return stored;
     }

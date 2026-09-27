@@ -70,6 +70,39 @@ public static class QuestionHash
         return string.Join(' ', tokens);
     }
 
+    /// <summary>
+    /// Word-set overlap at or above which two questions count as the same question. <b>Measured, not
+    /// guessed</b> (2026-09-26): across all 630 pairs of the 36 questions committed in
+    /// <c>docs/measurements/2026-09-26-generator-consolidation.md</c>, the one real duplicate — the same CI/CD
+    /// comparison returned by a Technical and a Company-Specific batch for one role, words reordered and "in the
+    /// context of" added — scored 0.89, and the next highest pair 0.60 (two generic "a time you faced a
+    /// significant challenge" questions from two different roles). 0.8 sits in that gap. The 0.60 pair is
+    /// allowed through <b>on purpose</b>: catching it would start withholding genuinely different questions
+    /// (the next pair, "debug a performance issue" vs "troubleshoot a production issue", is 0.55). CLAUDE.md §12.
+    /// </summary>
+    public const double NearDuplicateThreshold = 0.8;
+
+    /// <summary>The distinct words <see cref="Normalize"/> keeps — the same definition of "same words" the hash uses.</summary>
+    public static HashSet<string> Words(string? prompt) =>
+        Normalize(prompt).Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet(StringComparer.Ordinal);
+
+    /// <summary>Jaccard overlap of two word sets: shared words over all words. 0 when both are empty.</summary>
+    public static double Similarity(IReadOnlySet<string> a, IReadOnlySet<string> b)
+    {
+        var union = a.Count + b.Count - a.Count(b.Contains);
+        return union == 0 ? 0 : (double)a.Count(b.Contains) / union;
+    }
+
+    /// <summary>
+    /// True when <paramref name="words"/> is the same question as any of <paramref name="others"/> by
+    /// <see cref="NearDuplicateThreshold"/>. This is what catches a repeat whose wording changed a little —
+    /// the hash only catches a reordering — and it compares across categories, which topic dedupe
+    /// deliberately does not: a behavioural and a technical question on one subject are different
+    /// questions, but the same question under two category labels is not.
+    /// </summary>
+    public static bool IsNearDuplicate(IReadOnlySet<string> words, IEnumerable<IReadOnlySet<string>> others) =>
+        words.Count > 0 && others.Any(o => Similarity(words, o) >= NearDuplicateThreshold);
+
     /// <summary>Hex SHA-256 of <see cref="Normalize"/>. Empty in, empty out — a blank prompt has no identity.</summary>
     public static string Of(string? prompt)
     {

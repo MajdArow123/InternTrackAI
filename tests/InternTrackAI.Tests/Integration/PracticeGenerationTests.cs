@@ -55,11 +55,12 @@ public class PracticeGenerationTests
                 .PracticeQuestions.AsNoTracking().Where(q => q.UserId == userId).OrderBy(q => q.Id).ToListAsync();
         }
 
-        public async Task<PracticeGenerationResult> Generate(string userId, int count = 5, PracticeDifficulty d = PracticeDifficulty.Medium)
+        public async Task<PracticeGenerationResult> Generate(string userId, int count = 5, PracticeDifficulty d = PracticeDifficulty.Medium,
+                                                             QuestionCategory category = QuestionCategory.Technical)
         {
             using var scope = Factory.Services.CreateScope();
             return await scope.ServiceProvider.GetRequiredService<PracticeQuestionService>()
-                .GenerateAsync(userId, d, QuestionCategory.Technical, count);
+                .GenerateAsync(userId, d, category, count);
         }
 
         public void Dispose() { Factory.Dispose(); Parent.Dispose(); }
@@ -261,6 +262,30 @@ public class PracticeGenerationTests
         Assert.Single(await h.QuestionsOf(userId));
     }
 
+    // ── Near-duplicates across categories ───────────────────────────────────
+
+    [Fact]
+    public async Task The_same_question_under_another_category_is_dropped_as_a_near_duplicate()
+    {
+        // Measured 2026-09-26: one role's Technical and Company-Specific batches returned the same CI/CD
+        // comparison, reordered with "in the context of" added. Topic dedupe is per category by design and
+        // the hash sees only reordering, so it was stored twice.
+        using var h = new Harness(new ScriptedOpenAi(
+            ScriptedOpenAi.Questions(("Can you explain the trade-offs between using GitHub Actions and Azure DevOps for CI/CD pipelines in a cloud environment?", "CI/CD tools comparison")),
+            ScriptedOpenAi.Questions(
+                ("Can you explain the trade-offs between using Azure DevOps and GitHub Actions for CI/CD pipelines in the context of a cloud environment?", "CI/CD tools comparison"),
+                ("What draws you to working on cloud infrastructure for a bank rather than a technology company?", "motivation for banking cloud work"))));
+        var userId = await h.UserIdOf(await Http.RegisterAsync(h.Client()));
+
+        await h.Generate(userId, count: 1, category: QuestionCategory.Technical);
+        await h.Generate(userId, count: 1, category: QuestionCategory.CompanySpecific);
+
+        var prompts = (await h.QuestionsOf(userId)).Select(q => q.Prompt).ToList();
+        Assert.Equal(2, prompts.Count);
+        Assert.Contains(prompts, p => p.Contains("GitHub Actions and Azure DevOps"));
+        Assert.DoesNotContain(prompts, p => p.Contains("in the context of"));
+        Assert.Contains(prompts, p => p.Contains("draws you to"));
+    }
 }
 
 /// <summary>
@@ -347,4 +372,5 @@ public class PracticeGenerationLoggingTests
         Assert.Contains("1 model call(s)", summary);
         Assert.Contains("model returned 7", summary);   // over-requested by OverRequest
     }
+
 }

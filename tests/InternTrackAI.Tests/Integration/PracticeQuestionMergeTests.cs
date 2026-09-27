@@ -297,4 +297,38 @@ public class PracticeQuestionMergeTests
         Assert.Equal(3, (await h.QuestionsOf(aliceId)).Count);
         Assert.Equal(3, (await h.QuestionsOf(bobId)).Count);
     }
+
+    [Fact]
+    public async Task A_prep_question_that_rewords_a_practice_question_for_the_role_is_not_stored()
+    {
+        // The prep page's save makes the same near-duplicate check practice generation does, so it cannot
+        // store a lightly reworded copy of a question the user already has from the practice page.
+        using var h = new Harness(() => new List<GeneratedQuestion>
+        {
+            new(QuestionCategory.Technical, "Can you explain the trade-offs between using Azure DevOps and GitHub Actions for CI/CD pipelines in the context of a cloud environment?", "tip", "CI/CD tools comparison"),
+            new(QuestionCategory.Behavioral, "Tell me about a time a deployment you owned failed in production.", "tip", "a failed deployment you owned"),
+        });
+        var client = h.Client();
+        var userId = await h.UserIdOf(await Http.RegisterAsync(client));
+        var appId = await h.SeedApplication(userId);
+        using (var scope = h.Factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            const string existing = "Can you explain the trade-offs between using GitHub Actions and Azure DevOps for CI/CD pipelines in a cloud environment?";
+            db.PracticeQuestions.Add(new PracticeQuestion
+            {
+                UserId = userId, ApplicationId = appId, Prompt = existing, Topic = "CI/CD tools comparison",
+                PromptHash = QuestionHash.Of(existing), Category = QuestionCategory.Technical, Difficulty = PracticeDifficulty.Medium,
+                Source = QuestionSource.Practice, CreatedAt = DateTime.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var body = await Generate(client, appId);
+
+        Assert.Equal(1, body.GetProperty("added").GetInt32());
+        var prompts = (await h.QuestionsOf(userId)).Select(q => q.Prompt).ToList();
+        Assert.DoesNotContain(prompts, p => p.Contains("in the context of"));
+        Assert.Contains(prompts, p => p.Contains("failed in production"));
+    }
 }

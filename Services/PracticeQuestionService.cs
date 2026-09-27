@@ -108,7 +108,7 @@ public class PracticeQuestionService
 
         var (company, role, jobDescription) = await ApplicationContextAsync(userId, applicationId, ct);
         var exclusions = await ExclusionsAsync(userId, difficulty, category, ct);
-        var known = await KnownHashesAsync(userId, ct);
+        var (known, knownWords) = await KnownQuestionsAsync(userId, ct);
 
         var kept = new List<PracticeQuestion>();
         var droppedTopics = new List<string>();
@@ -121,6 +121,7 @@ public class PracticeQuestionService
         var returned = 0;
         var blankDrops = 0;
         var hashDrops = 0;
+        var nearDuplicateDrops = 0;
         var surplus = 0;
 
         for (var attempt = 0; attempt <= MaxTopUps; attempt++)
@@ -174,6 +175,18 @@ public class PracticeQuestionService
                     continue;
                 }
 
+                // The same question with its wording nudged, against everything the user has in any category
+                // and the rest of this batch: topic dedupe is per category by design and the hash only sees a
+                // reordering, so one role could get the same question as Technical and as Company-Specific.
+                var words = QuestionHash.Words(g.Prompt);
+                if (QuestionHash.IsNearDuplicate(words, knownWords))
+                {
+                    nearDuplicateDrops++;
+                    if (!string.IsNullOrWhiteSpace(g.Topic)) droppedTopics.Add(g.Topic);
+                    continue;
+                }
+                knownWords.Add(words);
+
                 // Claimed immediately so two questions in one batch can't share a topic either.
                 if (!string.IsNullOrWhiteSpace(g.Topic)) knownTopics.Add(g.Topic);
 
@@ -202,9 +215,9 @@ public class PracticeQuestionService
         // it carries no question text and no user id beyond what the request already has.
         _logger.LogInformation(
             "Practice generation for {Difficulty}/{Category}: asked {Asked}, {Calls} model call(s), model returned {Returned}, "
-            + "dropped {TopicDrops} same-topic + {HashDrops} same-question + {BlankDrops} blank + {Surplus} surplus, stored {Stored}.",
+            + "dropped {TopicDrops} same-topic + {HashDrops} same-question + {NearDuplicateDrops} near-duplicate + {BlankDrops} blank + {Surplus} surplus, stored {Stored}.",
             difficulty, category, count, modelCalls, returned,
-            topicRejections, hashDrops, blankDrops, surplus, saved.Count);
+            topicRejections, hashDrops, nearDuplicateDrops, blankDrops, surplus, saved.Count);
 
         return Done(saved, count, topicRejections, difficulty, category);
     }
@@ -309,15 +322,17 @@ public class PracticeQuestionService
         return new PracticeExclusions(topics, stems);
     }
 
-    /// <summary>Every hash this user already has — layer 2's in-memory half, one query.</summary>
-    private async Task<HashSet<string>> KnownHashesAsync(string userId, CancellationToken ct)
+    /// <summary>Every question this user already has, from either page and in any category: its hash (layer 2's
+    /// in-memory half) and its words (for <see cref="QuestionHash.IsNearDuplicate"/>). One query.</summary>
+    private async Task<(HashSet<string> Hashes, List<IReadOnlySet<string>> Words)> KnownQuestionsAsync(string userId, CancellationToken ct)
     {
-        var hashes = await _db.PracticeQuestions.AsNoTracking()
+        var rows = await _db.PracticeQuestions.AsNoTracking()
             .Where(q => q.UserId == userId)
-            .Select(q => q.PromptHash)
+            .Select(q => new { q.PromptHash, q.Prompt })
             .ToListAsync(ct);
 
-        return new HashSet<string>(hashes, StringComparer.Ordinal);
+        return (new HashSet<string>(rows.Select(r => r.PromptHash), StringComparer.Ordinal),
+                rows.Select(r => (IReadOnlySet<string>)QuestionHash.Words(r.Prompt)).ToList());
     }
 
     /// <summary>Owner-scoped: a foreign application id yields no context rather than leaking one.</summary>

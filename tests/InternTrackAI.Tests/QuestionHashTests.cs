@@ -96,4 +96,37 @@ public class QuestionHashTests
         Assert.Contains("mutex", normalised);
         Assert.Contains("semaphore", normalised);
     }
+
+    // ── Near-duplicates (texts verbatim from docs/measurements/2026-09-26-generator-consolidation.md) ──
+
+    private const string CiCdTechnical = "Can you explain the trade-offs between using GitHub Actions and Azure DevOps for CI/CD pipelines in a cloud environment?";
+    private const string CiCdCompany = "Can you explain the trade-offs between using Azure DevOps and GitHub Actions for CI/CD pipelines in the context of a cloud environment?";
+
+    [Fact]
+    public void The_measured_cross_category_duplicate_is_a_near_duplicate_but_not_a_hash_match()
+    {
+        // The case the hash was never going to catch: the words were reordered AND "in the context of" added.
+        Assert.NotEqual(QuestionHash.Of(CiCdTechnical), QuestionHash.Of(CiCdCompany));
+        var similarity = QuestionHash.Similarity(QuestionHash.Words(CiCdTechnical), QuestionHash.Words(CiCdCompany));
+        Assert.True(similarity >= QuestionHash.NearDuplicateThreshold, $"similarity {similarity:0.00}");
+        Assert.True(QuestionHash.IsNearDuplicate(QuestionHash.Words(CiCdCompany), new[] { QuestionHash.Words(CiCdTechnical) }));
+    }
+
+    [Theory]
+    // 0.60 — the highest-scoring pair that is not the same question, allowed through on purpose (CLAUDE.md §12).
+    [InlineData("Tell me about a time you faced a significant challenge while working on a team project. How did you handle it?",
+                "Describe a time when you faced a significant challenge while working on a project. How did you approach the problem?")]
+    // 0.55 — genuinely different questions that share their framing.
+    [InlineData("Tell me about a time you had to debug a performance issue in an application. What steps did you take to identify and resolve the problem?",
+                "Give an example of a time you had to troubleshoot a production issue. What steps did you take to identify and resolve the problem?")]
+    public void Questions_below_the_measured_gap_are_not_near_duplicates(string a, string b)
+    {
+        var similarity = QuestionHash.Similarity(QuestionHash.Words(a), QuestionHash.Words(b));
+        Assert.True(similarity < QuestionHash.NearDuplicateThreshold, $"similarity {similarity:0.00}");
+        Assert.False(QuestionHash.IsNearDuplicate(QuestionHash.Words(a), new[] { QuestionHash.Words(b) }));
+    }
+
+    [Fact]
+    public void A_blank_question_is_never_a_near_duplicate_of_anything() =>
+        Assert.False(QuestionHash.IsNearDuplicate(QuestionHash.Words("   "), new[] { QuestionHash.Words("") }));
 }

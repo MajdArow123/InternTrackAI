@@ -135,4 +135,4 @@ For the maintainer's side-by-side, the plain differences in the questions:
 3. **The practice generator's Company-Specific category does not produce company-specific questions** when a posting
    is attached — it has no instruction or input about the company beyond its name and the posting.
 
-Recorded, not fixed. Each is a candidate for its own scoped piece of work.
+Recorded here on 2026-09-26. **Finding 2 was fixed the same day** by a near-duplicate check on question text (`QuestionHash.IsNearDuplicate`, threshold 0.8, calibrated on the 630 pairs of this document's 36 questions: the duplicate above scored 0.89, the next pair 0.60). Finding 3 was taken up in the same PR and measured separately (`2026-09-26-company-specific.md`): the attempted prompt reached 5–6 of 8 against a pre-registered 7, so it did not ship and is deferred. Finding 1 is deferred (CLAUDE.md §12).

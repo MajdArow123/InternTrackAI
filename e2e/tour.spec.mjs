@@ -7,6 +7,7 @@
 // Measurements come from lib/tour-measure.mjs, the probe the Phase A/B work was measured with.
 import { chromium, check, assert, assertEqual, newSignedInContext, isCspReportNoise } from './lib/harness.mjs';
 import { startApp } from './lib/app-server.mjs';
+import { unexpectedErrors } from './lib/server-log.mjs';
 import { settle, walk, tourButton, describe, snap, recordTourScrolls, outOfOrder, scrollAwayFrom, withoutGoogleFonts } from './lib/tour-measure.mjs';
 
 const D = 'Tour';
@@ -380,6 +381,12 @@ export async function run() {
     await check(D, 'No console errors or uncaught exceptions anywhere in the tour run', async () => {
       assert(errors.length === 0, errors.slice(0, 10).join('\n'));
       return 'none';
+    });
+
+    await check(D, 'The tour server logged no Error-level lines', async () => {
+      const problems = unexpectedErrors(app.errors());
+      assert(problems.length === 0, `${problems.slice(0, 5).join('\n---\n')}\n(log: ${app.logFile})`);
+      return 'clean';
     });
   } finally {
     if (app) await app.stop();

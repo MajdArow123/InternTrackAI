@@ -27,7 +27,7 @@ function runAll(dims, env = {}) {
   return { code: r.status, out: (r.stdout || '') + (r.stderr || ''), secs: (Date.now() - t0) / 1000, timedOut: r.error?.code === 'ETIMEDOUT' };
 }
 
-import { errorLines } from '../lib/server-log.mjs';
+import { errorLines, unexpectedErrors } from '../lib/server-log.mjs';
 
 const scenarios = [
   ['a passing dimension exits 0 and reports no new failures', () => {
@@ -76,6 +76,16 @@ const scenarios = [
     const found = errorLines(f);
     const r = { code: 0, secs: 0, out: JSON.stringify(found, null, 1) };
     return [found.length === 2, /boom/.test(found[0] || '') && /at X\.Y/.test(found[0] || '') && /FTL/.test(found[1] || '') && !found.join('').includes('next request'), r];
+  }],
+  ['an allowed error is matched by message, must appear as often as expected, and never excuses a different one', () => {
+    const allowed = { 'Answer feedback failed: OpenAI returned 500.': 1 };
+    const ok = unexpectedErrors(['[10:00:00 ERR] Answer feedback failed: OpenAI returned 500.'], allowed);
+    // The trap a count-based allowance falls into: one error, but not the deliberate one.
+    const swapped = unexpectedErrors(['[10:00:00 ERR] HTTP GET /x responded 500'], allowed);
+    const missing = unexpectedErrors([], allowed);
+    const extra = unexpectedErrors(['[10:00:00 ERR] Answer feedback failed: OpenAI returned 500.', '[10:00:01 ERR] Something else'], allowed);
+    const r = { code: 0, secs: 0, out: JSON.stringify({ ok, swapped, missing, extra }, null, 1) };
+    return [ok.length === 0, swapped.length === 2 && missing.length === 1 && extra.length === 1 && /unexpected/.test(extra[0]), r];
   }],
   ['selftest dimensions cannot be run without E2E_SELFTEST=1', () => {
     const r = runAll(['selftest-abort'], { E2E_SELFTEST: '0' });

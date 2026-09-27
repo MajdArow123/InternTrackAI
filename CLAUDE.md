@@ -2,6 +2,17 @@
 
 Guidance for Claude Code sessions in this repo. Every statement below was checked against the source on 2026-09-15; where something could not be verified from the repo it says so.
 
+## Where things stand (2026-09-27)
+
+A starting point for the next session; the sections below have the detail.
+
+- **Production runs `main`** at `1a15ec1` (the #27 merge), deployed 2026-09-27 and healthy. **Railway now deploys `main` automatically on every merge** — observed for #25, #26 and #27, each tagged with its merge commit — so merging is shipping. §11 and the working rule still describe manual `railway up`; the maintainer should confirm which is intended and update §11.
+- **Tests:** `dotnet test` **1422 passing**. Real PostgreSQL (`PostgresMigrationTests` + `ProviderParityTests`) **13/13**, last run 2026-09-26. E2E full run **315 passed, 0 failed** on a published Production build — nine dimensions plus the three server-log checks (§10). Runner self-test `e2e/selftest/run.mjs` **12/12**. `e2e/known-failures.json` is empty.
+- **Shipped 2026-09-26, all live:** the CSP enforced; the Identity pages' undisclosed cdnjs dependency removed; the two-factor pages and `/Home/Error` no longer answer anonymous requests with a 500; client aborts no longer log as errors; accessibility and contrast fixes; near-duplicate questions dropped across categories. The e2e suite now runs every dimension against a published Production build and fails on any unexpected Error-level server log line.
+- **Open PRs: none. The queue is empty by the maintainer's decision** — nothing is picked up until it is brought back with a budget and a rule.
+- **Deferred, in §12:** Company-Specific practice questions for a posting (a prompt fix reached 5–6 of 8 against a pre-registered 7; the failure mode is recorded there); broad topics stored by "Get more for this role"; regenerating the overview PDF, whose testing claims and counts are stale (listed there); the `DATABASE_URL` parsing edges (leave unless Railway's format changes); and §12's older known-issues list.
+- **Live-model measurements** and their decision rules are in `docs/measurements/`; re-run them only with an agreed call budget (§8 working rules).
+
 ## 1. What this is
 
 InternTrackAI is an AI-assisted internship/job application tracker for people running an internship search, replacing the spreadsheet: a pipeline of applications (list, Kanban board, detail drawer) plus GPT-4o-mini tools that fill forms from postings, score resume fit, write cover letters and interview prep, and turn Gmail messages into status suggestions. Portfolio project by Majd Arow, deployed on Railway.
